@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Anmore Social — Community Calendar</title>
+  <meta name="description" content="A simple Nostr-powered Anmore community calendar with tabs for feed, fundraisers, and marketplace.">
+  <meta property="og:title" content="Anmore Social">
+  <meta property="og:description" content="Community calendar, local feed, fundraisers, and marketplace listings for Anmore.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#173f35">
+  <link rel="icon" href="./TEXT-BROWN.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css?v=20260501-1">
+</head>
+<body>
+  <main id="top" class="app-shell">
+    <header class="simple-header">
+      <div>
+        <p class="eyebrow">Anmore Social</p>
+        <h1>Community Calendar</h1>
+      </div>
+      <aside class="status-card" aria-live="polite">
+        <span class="pulse" id="connection-pulse"></span>
+        <div><strong id="connection-label">Connecting…</strong><p id="connection-detail">Loading local activity.</p></div>
+      </aside>
+    </header>
+
+    <section class="calendar-card" id="calendar" aria-label="Community calendar">
+      <div id="calendar-grid"></div>
+      <div class="selected-day">
+        <h2 id="selected-day-title">Upcoming events</h2>
+        <div id="selected-day-events" class="mini-list"></div>
+      </div>
+    </section>
+
+    <section class="tabs-card" aria-label="Community sections">
+      <div class="tabs" role="tablist">
+        <button class="tab active" type="button" data-tab="feed" role="tab" aria-selected="true">Feed <span id="stat-posts">—</span></button>
+        <button class="tab" type="button" data-tab="fundraisers" role="tab" aria-selected="false">Fundraisers <span id="stat-fundraisers">—</span></button>
+        <button class="tab" type="button" data-tab="marketplace" role="tab" aria-selected="false">Marketplace <span id="stat-listings">—</span></button>
+      </div>
+
+      <div class="create-row">
+        <button class="create-button" type="button" data-create="event">+ Event</button>
+        <button class="create-button" type="button" data-create="post">+ Post</button>
+        <button class="create-button" type="button" data-create="fundraiser">+ Fundraiser</button>
+        <button class="create-button" type="button" data-create="listing">+ Listing</button>
+      </div>
+
+      <div class="tab-panel active" id="feed-panel" role="tabpanel">
+        <div id="feed-list" class="card-list loading-list"></div>
+      </div>
+      <div class="tab-panel" id="fundraisers-panel" role="tabpanel" hidden>
+        <div id="fundraiser-list" class="card-list loading-list"></div>
+      </div>
+      <div class="tab-panel" id="marketplace-panel" role="tabpanel" hidden>
+        <div id="marketplace-list" class="card-list loading-list"></div>
+      </div>
+    </section>
+
+    <p class="footer-note">Public Nostr data from approved Anmore/Trails identities. <a href="https://trailscoffee.com/events.html">Submit event</a> · <a href="https://trailscoffee.com/feed.html">Open full feed</a></p>
+    <span id="stat-events" hidden>—</span>
+    <div id="events-list" hidden></div>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.10.4/lib/nostr.bundle.js"></script>
+  <script src="./nostr-identity.js?v=20260501-1"></script>
+  <script src="./app.js?v=20260501-1"></script>
+</body>
+</html>

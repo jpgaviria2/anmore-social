@@ -82,11 +82,19 @@
       { kinds: [KINDS.fundraiser], authors, limit: 30 },
       { kinds: [KINDS.listing], authors, limit: 40 }
     ];
+    const byId = new Map();
+    const sources = [];
+
     for (const relay of RELAYS) {
       const events = await fetchRelayEvents(relay, filters, 5200);
-      if (events.length) { state.relay = relay; return events; }
+      if (!events.length) continue;
+      sources.push(`${events.length} from ${new URL(relay).hostname}`);
+      events.forEach((event) => byId.set(event.id, event));
+      if (byId.size >= 160) break;
     }
-    return [];
+
+    state.relay = sources.length ? sources.join(' + ') : RELAYS[0];
+    return Array.from(byId.values());
   }
 
   async function fetchProfiles(pubkeys) {

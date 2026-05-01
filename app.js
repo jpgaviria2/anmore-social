@@ -272,8 +272,10 @@
         if (result.available) { setFeedback(`✓ ${username}@trailscoffee.com is available`, 'success'); createButton.disabled = false; }
         else { setFeedback(`✗ ${result.reason || 'Username is not available'}${result.suggestion ? ` — try ${result.suggestion}` : ''}`, 'error'); }
       } catch {
-        lastCheck = { username, available: false };
-        setFeedback('Could not validate with Trails Coffee API. Try again in a moment.', 'error');
+        const fallback = await checkNip05AvailabilityViaWellKnown(username);
+        lastCheck = { username, available: fallback.available };
+        if (fallback.available) { setFeedback(`✓ ${username}@trailscoffee.com looks available`, 'success'); createButton.disabled = false; }
+        else { setFeedback(`✗ ${username}@trailscoffee.com is already taken`, 'error'); createButton.disabled = true; }
       }
       return lastCheck;
     };
@@ -293,5 +295,6 @@
   function cleanUsername(value) { return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20); }
   function validateNip05Username(username) { if (username.length < 3 || username.length > 20) return { valid: false, message: '✗ Must be 3–20 characters' }; if (!/^[a-z0-9_]+$/.test(username)) return { valid: false, message: '✗ Use lowercase letters, numbers, and underscores only' }; return { valid: true, message: '' }; }
   async function checkNip05Availability(username) { const response = await fetch(`https://api.trailscoffee.com/api/v1/nip05/check?name=${encodeURIComponent(username)}`, { cache: 'no-store', signal: AbortSignal.timeout(5000) }); if (!response.ok) throw new Error('NIP-05 check failed'); return response.json(); }
-  function goToCreate(route) { window.location.href = `${route}?create=1`; }
+  async function checkNip05AvailabilityViaWellKnown(username) { const response = await fetch(`https://trailscoffee.com/.well-known/nostr.json?name=${encodeURIComponent(username)}`, { cache: 'no-store', signal: AbortSignal.timeout(5000) }); if (!response.ok) return { available: true }; const json = await response.json(); return { available: !json?.names?.[username] }; }
+  function goToCreate(route) { const username = cleanUsername(document.getElementById('identity-username')?.value || ''); const params = new URLSearchParams({ create: '1' }); if (username) params.set('username', username); window.location.href = `${route}?${params.toString()}`; }
 })();

@@ -4,6 +4,7 @@
   const RELAYS = ['wss://nostr-cache.trailscoffee.com', 'wss://relay.anmore.me', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
   const APPROVED_URL = 'https://nostr-cache.trailscoffee.com/approved';
   const WORLD_CUP_FIXTURES_URL = './data/world-cup-2026.json?v=20260621-1';
+  const CONTENT_CACHE_KEY = 'anmore-social-content-cache-v1';
   const APPROVED_DOMAINS = new Set(['anmore.me', 'trailscoffee.com', 'anmore.cash']);
   const KINDS = { profile: 0, post: 1, dateEvent: 31922, timeEvent: 31923, fundraiser: 9041, listing: 30402 };
   const CREATE_ROUTES = { event: 'https://trailscoffee.com/events.html', post: 'https://trailscoffee.com/feed.html', fundraiser: 'https://trailscoffee.com/fundraiser.html', listing: 'https://trailscoffee.com/marketplace.html' };
@@ -47,22 +48,36 @@
   async function init() {
     initCalendar();
     setSelectedDate(new Date());
-    try {
+    const cached = loadContentCache();
+    await loadWorldCupFixtures();
+    if (cached || state.events.size) {
+      renderAll();
+      setConnection('connected', cached ? 'Loaded saved calendar' : 'Calendar ready', cached ? `${cached} saved items loaded. Refreshing from relays in the background.` : 'World Cup fixtures loaded. Refreshing local activity in the background.');
+    } else {
       setConnection('', 'Connecting to Nostr…', 'Checking Trails cache and live relays.');
+    }
+    refreshSocialData();
+  }
+
+  async function refreshSocialData() {
+    try {
+      setConnection('', state.events.size ? 'Refreshing local activity…' : 'Connecting to Nostr…', 'Checking Trails cache and live relays.');
       await loadApproved();
       const events = dedupe(await fetchSocialEvents());
       const pubkeys = Array.from(new Set(events.map((event) => event.pubkey)));
-      state.profiles = await fetchProfiles(pubkeys);
+      state.profiles = { ...state.profiles, ...await fetchProfiles(pubkeys) };
       ingestAll(events);
       await loadWorldCupFixtures();
+      saveContentCache();
       renderAll();
-      if (events.length) setConnection('connected', 'Anmore Social is live', `${events.length} relay events loaded from ${state.relay}.`);
-      else setConnection('error', 'No local events found', 'Connected, but no approved Anmore/Trails events matched yet.');
+      if (events.length) setConnection('connected', 'Anmore Social is live', `${events.length} relay events loaded from ${state.relay}. Saved locally for next visit.`);
+      else setConnection('connected', 'Saved calendar loaded', 'No new relay events matched yet. Showing saved calendar data.');
     } catch (error) {
       console.error(error);
       await loadWorldCupFixtures();
+      saveContentCache();
       renderAll();
-      setConnection('error', 'Relay data unavailable', 'Could not read the cache or fallback relays right now.');
+      setConnection(state.events.size ? 'connected' : 'error', state.events.size ? 'Showing saved calendar' : 'Relay data unavailable', state.events.size ? 'Could not refresh relays, so the browser is using saved events.' : 'Could not read the cache or fallback relays right now.');
     }
   }
 
@@ -160,6 +175,45 @@
       if (event.kind === KINDS.fundraiser) { const parsed = parseFundraiser(event); if (parsed) state.fundraisers.set(parsed.id, parsed); }
       if (event.kind === KINDS.listing) { const parsed = parseListing(event); if (parsed) state.listings.set(parsed.id, parsed); }
     }
+  }
+
+  function loadContentCache() {
+    try {
+      if (typeof localStorage === 'undefined') return 0;
+      const cached = safeJson(localStorage.getItem(CONTENT_CACHE_KEY));
+      if (!cached || cached.version !== 1) return 0;
+      state.profiles = { ...cached.profiles };
+      restoreCachedMap(state.posts, cached.posts);
+      restoreCachedMap(state.events, cached.events);
+      restoreCachedMap(state.fundraisers, cached.fundraisers);
+      restoreCachedMap(state.listings, cached.listings);
+      return state.posts.size + state.events.size + state.fundraisers.size + state.listings.size;
+    } catch {
+      return 0;
+    }
+  }
+
+  function saveContentCache() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const payload = {
+        version: 1,
+        savedAt: Date.now(),
+        profiles: state.profiles,
+        posts: sortByCreated(state.posts).slice(0, 90),
+        events: Array.from(state.events.values()).sort((a, b) => a.start - b.start).slice(-220),
+        fundraisers: sortByCreated(state.fundraisers).slice(0, 60),
+        listings: sortByCreated(state.listings).slice(0, 80)
+      };
+      localStorage.setItem(CONTENT_CACHE_KEY, JSON.stringify(payload));
+    } catch (error) {
+      console.warn('Could not save Anmore Social cache', error);
+    }
+  }
+
+  function restoreCachedMap(map, items) {
+    if (!Array.isArray(items)) return;
+    for (const item of items) if (item?.id) map.set(item.id, item);
   }
 
   async function loadWorldCupFixtures() {
@@ -346,6 +400,7 @@
       state.approved.add(pubkey);
       state.profiles[pubkey] = { name: data.author || username || 'Anmore Social', nip05 };
       ingestAll([signedEvent]);
+      saveContentCache();
       renderAll();
       setSelectedDate(new Date(start * 1000));
       openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Published</p><h2>${escapeHtml(data.title)}</h2></div><p class="detail-copy">The event was published to Nostr and added to this calendar. If this is a new identity, the public cache may take a moment to index it.</p><div class="modal-actions"><button class="create-button" data-modal-close>Done</button><button class="secondary-button" data-create="event">Create another event</button></div>`);

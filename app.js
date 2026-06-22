@@ -4,8 +4,8 @@
   const RELAYS = ['wss://nostr-cache.trailscoffee.com', 'wss://relay.anmore.me', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
   const APPROVED_URL = 'https://nostr-cache.trailscoffee.com/approved';
   const WORLD_CUP_FIXTURES_URL = './data/world-cup-2026.json?v=20260621-3';
-  const TRAILS_BROADCAST_NOTE = 'Trails Coffee is broadcasting this match during opening hours.';
-  const CONTENT_CACHE_KEY = 'anmore-social-content-cache-v1';
+  const CONTENT_CACHE_KEY = 'anmore-social-content-cache-v2';
+  const OLD_WORLD_CUP_COPY_RE = /\s*(?:Result|Status|Broadcast|Schedule source):\s*[^.]*\./gi;
   const APPROVED_DOMAINS = new Set(['anmore.me', 'trailscoffee.com', 'anmore.cash']);
   const KINDS = { profile: 0, post: 1, dateEvent: 31922, timeEvent: 31923, fundraiser: 9041, listing: 30402 };
   const CREATE_ROUTES = { event: 'https://trailscoffee.com/events.html', post: 'https://trailscoffee.com/feed.html', fundraiser: 'https://trailscoffee.com/fundraiser.html', listing: 'https://trailscoffee.com/marketplace.html' };
@@ -28,7 +28,8 @@
     f4c9457d2a710aec0bab80cc82d2350c964c732570aabc9d80f25390bc53bb4f: { displayName: 'Coffee Lover', nip05: 'coffeelover635280@trailscoffee.com' },
     f3f3a288b9551deed41c8e9241dab89583411d99d3b493abb6b908b08adb9864: { displayName: 'Torca', nip05: 'torca@trailscoffee.com' },
     '3176ffec038ffb0e016818ecb541b382add3b6c6ba148b22a1fd4ddf5d8b94af': { displayName: 'Coffee Lover', nip05: 'coffeelover339076@trailscoffee.com' },
-    be82529a6c42986ab8e20bd6c47fc69e14fa1e04f4ac0f74aeac42bd5840c1e8: { displayName: 'Charlene', nip05: 'charlene@trailscoffee.com' }
+    be82529a6c42986ab8e20bd6c47fc69e14fa1e04f4ac0f74aeac42bd5840c1e8: { displayName: 'Charlene', nip05: 'charlene@trailscoffee.com' },
+    ce07b6293ef1889eb80234240673e257bc159e7b79219adbc0726c5c7b220c22: { displayName: 'World Cup at Trails Coffee', nip05: 'world-cup@trailscoffee.com' }
   };
 
   const state = { calendar: null, relay: null, approved: new Set(Object.keys(KNOWN)), profiles: {}, posts: new Map(), events: new Map(), fundraisers: new Map(), listings: new Map(), selectedDate: null };
@@ -244,7 +245,7 @@
       stage: match.stage || 'World Cup',
       status: match.status || 'Scheduled',
       title: match.title || 'World Cup match',
-      description: match.description || 'FIFA World Cup 2026 fixture.',
+      description: cleanWorldCupDescription(match.description || 'FIFA World Cup 2026 fixture.', match.title, Boolean(match.broadcastAtTrails)),
       broadcastAtTrails: Boolean(match.broadcastAtTrails),
       location: match.location || '',
       start,
@@ -278,8 +279,9 @@
     if (!start) return null;
     const rawEnd = tags.end || tags.ends || str(json?.end);
     const end = parseEventStart(rawEnd, event.kind === KINDS.dateEvent) || start + (event.kind === KINDS.dateEvent ? 86400 : 3600);
-    const description = tags.summary || tags.description || str(json?.description) || str(json?.content) || (json ? '' : event.content);
-    const broadcastAtTrails = tags.trails_broadcast === 'true' || json?.broadcastAtTrails === true || String(description || '').includes(TRAILS_BROADCAST_NOTE);
+    const rawDescription = tags.summary || tags.description || str(json?.description) || str(json?.content) || (json ? '' : event.content);
+    const broadcastAtTrails = tags.trails_broadcast === 'true' || json?.broadcastAtTrails === true || /Showing at Trails Coffee|Trails Coffee is broadcasting/i.test(String(rawDescription || ''));
+    const description = isWorldCup ? cleanWorldCupDescription(rawDescription, tags.title || tags.name || str(json?.title) || str(json?.name), broadcastAtTrails) : rawDescription;
     return { id: isWorldCup && dTag ? dTag : event.id, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: isWorldCup ? '' : tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: isWorldCup ? '' : tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', start, end, created_at: event.created_at };
   }
   function parseFundraiser(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.name) || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.description) || str(json?.about) || str(json?.content) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, goal: str(json?.goal) || tags.goal || '', created_at: event.created_at }; }
@@ -289,6 +291,18 @@
   function tagMap(tags = []) { const map = {}; for (const tag of tags) if (tag?.[0] && tag?.[1] && !map[tag[0]]) map[tag[0]] = tag[1]; return map; }
   function tagValue(event, name) { return event.tags?.find((tag) => tag[0] === name && tag[1])?.[1]; }
   function tagValues(event, name) { return (event.tags || []).filter((tag) => tag[0] === name && tag[1]).map((tag) => tag[1]); }
+  function cleanWorldCupDescription(description = '', title = '', showingAtTrails = false) {
+    const matchup = String(title || '').replace(/^World Cup:\s*/i, '').trim();
+    const base = String(description || '')
+      .replace(OLD_WORLD_CUP_COPY_RE, ' ')
+      .replace(/\b(?:FOX|FS1|ESPN|Peacock|Tele|Universo|FOX One)\b[,. ]*/gi, '')
+      .replace(/Trails Coffee is broadcasting this match during opening hours\.?/gi, 'Showing at Trails Coffee.')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (showingAtTrails && matchup) return `FIFA World Cup 2026 fixture. ${matchup} is showing at Trails Coffee.`;
+    if (matchup) return `FIFA World Cup 2026 fixture. ${matchup}.`;
+    return base || 'FIFA World Cup 2026 fixture.';
+  }
   function parseEventStart(value, allDay) { if (!value) return 0; if (/^\d+$/.test(String(value))) return Number(value); const date = new Date(allDay && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value); return Number.isNaN(date.getTime()) ? 0 : Math.floor(date.getTime() / 1000); }
   function safeJson(text) { try { const parsed = JSON.parse(text); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null; } catch { return null; } }
   function str(value) { return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined; }

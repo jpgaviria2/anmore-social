@@ -3,7 +3,7 @@
 
   const RELAYS = ['wss://nostr-cache.trailscoffee.com', 'wss://relay.anmore.me', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
   const APPROVED_URL = 'https://nostr-cache.trailscoffee.com/approved';
-  const WORLD_CUP_FIXTURES_URL = './data/world-cup-2026.json?v=20260621-2';
+  const WORLD_CUP_FIXTURES_URL = './data/world-cup-2026.json?v=20260621-3';
   const TRAILS_BROADCAST_NOTE = 'Trails Coffee is broadcasting this match during opening hours.';
   const CONTENT_CACHE_KEY = 'anmore-social-content-cache-v1';
   const APPROVED_DOMAINS = new Set(['anmore.me', 'trailscoffee.com', 'anmore.cash']);
@@ -240,7 +240,7 @@
       pubkey: 'world-cup-2026',
       source: 'world-cup',
       sourceLabel: 'FIFA World Cup 2026',
-      sourceUrl: match.sourceUrl,
+      sourceUrl: '',
       stage: match.stage || 'World Cup',
       status: match.status || 'Scheduled',
       title: match.title || 'World Cup match',
@@ -280,7 +280,7 @@
     const end = parseEventStart(rawEnd, event.kind === KINDS.dateEvent) || start + (event.kind === KINDS.dateEvent ? 86400 : 3600);
     const description = tags.summary || tags.description || str(json?.description) || str(json?.content) || (json ? '' : event.content);
     const broadcastAtTrails = tags.trails_broadcast === 'true' || json?.broadcastAtTrails === true || String(description || '').includes(TRAILS_BROADCAST_NOTE);
-    return { id: isWorldCup && dTag ? dTag : event.id, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', start, end, created_at: event.created_at };
+    return { id: isWorldCup && dTag ? dTag : event.id, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: isWorldCup ? '' : tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: isWorldCup ? '' : tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', start, end, created_at: event.created_at };
   }
   function parseFundraiser(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.name) || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.description) || str(json?.about) || str(json?.content) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, goal: str(json?.goal) || tags.goal || '', created_at: event.created_at }; }
   function parseListing(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.summary) || str(json?.description) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, price: tags.price || str(json?.price) || '', location: tags.location || str(json?.location) || '', created_at: event.created_at }; }
@@ -358,9 +358,10 @@
   function openEventDetails(eventId) {
     const event = state.events.get(eventId);
     if (!event) return;
+    const isWorldCup = event.source === 'world-cup';
     const host = event.sourceLabel || profileName(event.pubkey);
     const sourceLink = event.sourceUrl ? `<a href="${escapeHtml(event.sourceUrl)}" target="_blank" rel="noopener">source</a>` : '';
-    openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${event.source === 'world-cup' ? 'World Cup fixture' : 'Event details'}</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}${event.broadcastAtTrails ? `<div><strong>Trails Coffee</strong><span>Broadcasting during opening hours</span></div>` : ''}${event.stage ? `<div><strong>Stage</strong><span>${escapeHtml(event.stage)}</span></div>` : ''}${event.status ? `<div><strong>Status</strong><span>${escapeHtml(event.status)}</span></div>` : ''}<div><strong>${event.source === 'world-cup' ? 'Calendar' : 'Host'}</strong><span>${escapeHtml(host)} ${sourceLink}</span></div></div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions"><button class="create-button" data-create="event">Create another event</button></div>`);
+    openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${isWorldCup ? 'World Cup fixture' : 'Event details'}</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}${event.broadcastAtTrails ? `<div><strong>Trails Coffee</strong><span>Showing at Trails Coffee</span></div>` : ''}${event.stage ? `<div><strong>Stage</strong><span>${escapeHtml(event.stage)}</span></div>` : ''}${event.status ? `<div><strong>Status</strong><span>${escapeHtml(event.status)}</span></div>` : ''}${isWorldCup ? '' : `<div><strong>Host</strong><span>${escapeHtml(host)} ${sourceLink}</span></div>`}</div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions"><button class="create-button" data-create="event">Create another event</button></div>`);
   }
   function closeModal() { document.querySelector('.modal-overlay')?.remove(); document.body.classList.remove('modal-open'); }
   function openModal(html) { closeModal(); const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.innerHTML = `<div class="modal-card">${html}</div>`; overlay.addEventListener('click', (event) => { if (event.target === overlay || event.target.closest('[data-modal-close]')) closeModal(); }); document.body.classList.add('modal-open'); document.body.appendChild(overlay); overlay.querySelector('.modal-card')?.scrollTo(0, 0); }

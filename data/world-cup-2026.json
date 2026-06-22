@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-22T05:42:07.514Z",
+  "generatedAt": "2026-06-22T06:11:38.583Z",
   "sourceUrl": "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?limit=500&dates=20260611-20260719",
   "publicSourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
   "tournament": "FIFA World Cup 2026",
@@ -15,12 +15,12 @@
       "start": "2026-06-11T19:00Z",
       "end": "2026-06-11T21:00:00.000Z",
       "location": "Estadio Banorte, Mexico City, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Result: South Africa 0, Mexico 2. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. South Africa vs Mexico is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760414",
@@ -32,9 +32,9 @@
       "start": "2026-06-12T02:00Z",
       "end": "2026-06-12T04:00:00.000Z",
       "location": "Estadio Akron, Guadalajara, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Czechia 1, South Korea 2. Status: Full Time. Broadcast: FS1, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Czechia vs South Korea.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -49,12 +49,12 @@
       "start": "2026-06-12T19:00Z",
       "end": "2026-06-12T21:00:00.000Z",
       "location": "BMO Field, Toronto, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Bosnia-Herzegovina 1, Canada 1. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Bosnia-Herzegovina vs Canada is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760417",
@@ -66,9 +66,9 @@
       "start": "2026-06-13T01:00Z",
       "end": "2026-06-13T03:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Paraguay 1, United States 4. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Paraguay vs United States.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -83,12 +83,12 @@
       "start": "2026-06-13T19:00Z",
       "end": "2026-06-13T21:00:00.000Z",
       "location": "Levi's Stadium, Santa Clara, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Switzerland 1, Qatar 1. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Switzerland vs Qatar is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760419",
@@ -100,12 +100,12 @@
       "start": "2026-06-13T22:00Z",
       "end": "2026-06-14T00:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Morocco 1, Brazil 1. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Morocco vs Brazil is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760418",
@@ -117,9 +117,9 @@
       "start": "2026-06-14T01:00Z",
       "end": "2026-06-14T03:00:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Scotland 1, Haiti 0. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Scotland vs Haiti.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -134,9 +134,9 @@
       "start": "2026-06-14T04:00Z",
       "end": "2026-06-14T06:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Türkiye 0, Australia 2. Status: Full Time. Broadcast: FS1, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Türkiye vs Australia.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -151,12 +151,12 @@
       "start": "2026-06-14T17:00Z",
       "end": "2026-06-14T19:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Curaçao 1, Germany 7. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Curaçao vs Germany is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760425",
@@ -168,12 +168,12 @@
       "start": "2026-06-14T20:00Z",
       "end": "2026-06-14T22:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Japan 2, Netherlands 2. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Japan vs Netherlands is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760423",
@@ -185,12 +185,12 @@
       "start": "2026-06-14T23:00Z",
       "end": "2026-06-15T01:00:00.000Z",
       "location": "Lincoln Financial Field, Philadelphia, Pennsylvania, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Ecuador 0, Ivory Coast 1. Status: Full Time. Broadcast: FS1, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Ecuador vs Ivory Coast is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760424",
@@ -202,9 +202,9 @@
       "start": "2026-06-15T02:00Z",
       "end": "2026-06-15T04:00:00.000Z",
       "location": "Estadio BBVA, Guadalupe, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Tunisia 1, Sweden 5. Status: Full Time. Broadcast: FS1, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Tunisia vs Sweden.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -219,12 +219,12 @@
       "start": "2026-06-15T16:00Z",
       "end": "2026-06-15T18:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Cape Verde 0, Spain 0. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Cape Verde vs Spain is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760426",
@@ -236,12 +236,12 @@
       "start": "2026-06-15T19:00Z",
       "end": "2026-06-15T21:00:00.000Z",
       "location": "Lumen Field, Seattle, Washington, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Egypt 1, Belgium 1. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Egypt vs Belgium is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760429",
@@ -253,12 +253,12 @@
       "start": "2026-06-15T22:00Z",
       "end": "2026-06-16T00:00:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Uruguay 1, Saudi Arabia 1. Status: Full Time. Broadcast: FS1, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Uruguay vs Saudi Arabia is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760427",
@@ -270,9 +270,9 @@
       "start": "2026-06-16T01:00Z",
       "end": "2026-06-16T03:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: New Zealand 2, Iran 2. Status: Full Time. Broadcast: FS1, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. New Zealand vs Iran.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -287,12 +287,12 @@
       "start": "2026-06-16T19:00Z",
       "end": "2026-06-16T21:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Senegal 1, France 3. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Senegal vs France is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760430",
@@ -304,12 +304,12 @@
       "start": "2026-06-16T22:00Z",
       "end": "2026-06-17T00:00:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Norway 4, Iraq 1. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Norway vs Iraq is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760433",
@@ -321,9 +321,9 @@
       "start": "2026-06-17T01:00Z",
       "end": "2026-06-17T03:00:00.000Z",
       "location": "GEHA Field at Arrowhead Stadium, Kansas City, Missouri, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Algeria 0, Argentina 3. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Algeria vs Argentina.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -338,9 +338,9 @@
       "start": "2026-06-17T04:00Z",
       "end": "2026-06-17T06:00:00.000Z",
       "location": "Levi's Stadium, Santa Clara, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Jordan 1, Austria 3. Status: Full Time. Broadcast: FS1, Tele. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Jordan vs Austria.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -355,12 +355,12 @@
       "start": "2026-06-17T17:00Z",
       "end": "2026-06-17T19:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Congo DR 1, Portugal 1. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Congo DR vs Portugal is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760437",
@@ -372,12 +372,12 @@
       "start": "2026-06-17T20:00Z",
       "end": "2026-06-17T22:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Croatia 2, England 4. Status: Full Time. Broadcast: FOX, Tele, Peacock. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Croatia vs England is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760434",
@@ -389,9 +389,9 @@
       "start": "2026-06-17T23:00Z",
       "end": "2026-06-18T01:00:00.000Z",
       "location": "BMO Field, Toronto, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Panama 0, Ghana 1. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Panama vs Ghana.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -406,9 +406,9 @@
       "start": "2026-06-18T02:00Z",
       "end": "2026-06-18T04:00:00.000Z",
       "location": "Estadio Banorte, Mexico City, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Colombia 3, Uzbekistan 1. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Colombia vs Uzbekistan.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -423,12 +423,12 @@
       "start": "2026-06-18T16:00Z",
       "end": "2026-06-18T18:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: South Africa 1, Czechia 1. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. South Africa vs Czechia is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760439",
@@ -440,12 +440,12 @@
       "start": "2026-06-18T19:00Z",
       "end": "2026-06-18T21:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Bosnia-Herzegovina 1, Switzerland 4. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Bosnia-Herzegovina vs Switzerland is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760440",
@@ -457,12 +457,12 @@
       "start": "2026-06-18T22:00Z",
       "end": "2026-06-19T00:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Qatar 0, Canada 6. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Qatar vs Canada is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760441",
@@ -474,9 +474,9 @@
       "start": "2026-06-19T01:00Z",
       "end": "2026-06-19T03:00:00.000Z",
       "location": "Estadio Akron, Guadalajara, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Result: South Korea 0, Mexico 1. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. South Korea vs Mexico.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -491,12 +491,12 @@
       "start": "2026-06-19T19:00Z",
       "end": "2026-06-19T21:00:00.000Z",
       "location": "Lumen Field, Seattle, Washington, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Australia 0, United States 2. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Australia vs United States is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760445",
@@ -508,12 +508,12 @@
       "start": "2026-06-19T22:00Z",
       "end": "2026-06-20T00:00:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Morocco 1, Scotland 0. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Morocco vs Scotland is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760444",
@@ -525,9 +525,9 @@
       "start": "2026-06-20T00:30Z",
       "end": "2026-06-20T02:30:00.000Z",
       "location": "Lincoln Financial Field, Philadelphia, Pennsylvania, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Haiti 0, Brazil 3. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Haiti vs Brazil.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -542,9 +542,9 @@
       "start": "2026-06-20T03:00Z",
       "end": "2026-06-20T05:00:00.000Z",
       "location": "Levi's Stadium, Santa Clara, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Paraguay 1, Türkiye 0. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Paraguay vs Türkiye.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -559,12 +559,12 @@
       "start": "2026-06-20T17:00Z",
       "end": "2026-06-20T19:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Sweden 1, Netherlands 5. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Sweden vs Netherlands is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760448",
@@ -576,12 +576,12 @@
       "start": "2026-06-20T20:00Z",
       "end": "2026-06-20T22:00:00.000Z",
       "location": "BMO Field, Toronto, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Ivory Coast 1, Germany 2. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Ivory Coast vs Germany is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760446",
@@ -593,9 +593,9 @@
       "start": "2026-06-21T00:00Z",
       "end": "2026-06-21T02:00:00.000Z",
       "location": "GEHA Field at Arrowhead Stadium, Kansas City, Missouri, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Curaçao 0, Ecuador 0. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Curaçao vs Ecuador.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -610,9 +610,9 @@
       "start": "2026-06-21T04:00Z",
       "end": "2026-06-21T06:00:00.000Z",
       "location": "Estadio BBVA, Guadalupe, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Japan 4, Tunisia 0. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Japan vs Tunisia.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -627,12 +627,12 @@
       "start": "2026-06-21T16:00Z",
       "end": "2026-06-21T18:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Saudi Arabia 0, Spain 4. Status: Full Time. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Saudi Arabia vs Spain is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760451",
@@ -644,12 +644,12 @@
       "start": "2026-06-21T19:00Z",
       "end": "2026-06-21T21:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Iran 0, Belgium 0. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Iran vs Belgium is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760450",
@@ -661,12 +661,12 @@
       "start": "2026-06-21T22:00Z",
       "end": "2026-06-22T00:00:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Cape Verde 2, Uruguay 2. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Cape Verde vs Uruguay is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760452",
@@ -678,9 +678,9 @@
       "start": "2026-06-22T01:00Z",
       "end": "2026-06-22T03:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Result: Egypt 3, New Zealand 1. Status: Full Time. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Egypt vs New Zealand.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -695,12 +695,12 @@
       "start": "2026-06-22T17:00Z",
       "end": "2026-06-22T19:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Austria vs Argentina is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760457",
@@ -712,12 +712,12 @@
       "start": "2026-06-22T21:00Z",
       "end": "2026-06-22T23:00:00.000Z",
       "location": "Lincoln Financial Field, Philadelphia, Pennsylvania, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Iraq vs France is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760454",
@@ -729,9 +729,9 @@
       "start": "2026-06-23T00:00Z",
       "end": "2026-06-23T02:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Senegal vs Norway.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -746,9 +746,9 @@
       "start": "2026-06-23T03:00Z",
       "end": "2026-06-23T05:00:00.000Z",
       "location": "Levi's Stadium, Santa Clara, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Algeria vs Jordan.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -763,12 +763,12 @@
       "start": "2026-06-23T17:00Z",
       "end": "2026-06-23T19:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Uzbekistan vs Portugal is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760458",
@@ -780,12 +780,12 @@
       "start": "2026-06-23T20:00Z",
       "end": "2026-06-23T22:00:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Ghana vs England is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760460",
@@ -797,9 +797,9 @@
       "start": "2026-06-23T23:00Z",
       "end": "2026-06-24T01:00:00.000Z",
       "location": "BMO Field, Toronto, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Croatia vs Panama.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -814,9 +814,9 @@
       "start": "2026-06-24T02:00Z",
       "end": "2026-06-24T04:00:00.000Z",
       "location": "Estadio Akron, Guadalajara, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Congo DR vs Colombia.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -831,12 +831,12 @@
       "start": "2026-06-24T19:00Z",
       "end": "2026-06-24T21:00:00.000Z",
       "location": "Lumen Field, Seattle, Washington, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Qatar vs Bosnia-Herzegovina is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760463",
@@ -848,12 +848,12 @@
       "start": "2026-06-24T19:00Z",
       "end": "2026-06-24T21:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Canada vs Switzerland is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760464",
@@ -865,12 +865,12 @@
       "start": "2026-06-24T22:00Z",
       "end": "2026-06-25T00:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Haiti vs Morocco is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760465",
@@ -882,12 +882,12 @@
       "start": "2026-06-24T22:00Z",
       "end": "2026-06-25T00:00:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Brazil vs Scotland is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760467",
@@ -899,9 +899,9 @@
       "start": "2026-06-25T01:00Z",
       "end": "2026-06-25T03:00:00.000Z",
       "location": "Estadio Banorte, Mexico City, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Mexico vs Czechia.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -916,9 +916,9 @@
       "start": "2026-06-25T01:00Z",
       "end": "2026-06-25T03:00:00.000Z",
       "location": "Estadio BBVA, Guadalupe, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. South Korea vs South Africa.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -933,12 +933,12 @@
       "start": "2026-06-25T20:00Z",
       "end": "2026-06-25T22:00:00.000Z",
       "location": "Lincoln Financial Field, Philadelphia, Pennsylvania, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Ivory Coast vs Curaçao is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760468",
@@ -950,12 +950,12 @@
       "start": "2026-06-25T20:00Z",
       "end": "2026-06-25T22:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Germany vs Ecuador is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760471",
@@ -967,9 +967,9 @@
       "start": "2026-06-25T23:00Z",
       "end": "2026-06-26T01:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Sweden vs Japan.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -984,9 +984,9 @@
       "start": "2026-06-25T23:00Z",
       "end": "2026-06-26T01:00:00.000Z",
       "location": "GEHA Field at Arrowhead Stadium, Kansas City, Missouri, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Netherlands vs Tunisia.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1001,9 +1001,9 @@
       "start": "2026-06-26T02:00Z",
       "end": "2026-06-26T04:00:00.000Z",
       "location": "Levi's Stadium, Santa Clara, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Australia vs Paraguay.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1018,9 +1018,9 @@
       "start": "2026-06-26T02:00Z",
       "end": "2026-06-26T04:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. United States vs Türkiye.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1035,12 +1035,12 @@
       "start": "2026-06-26T19:00Z",
       "end": "2026-06-26T21:00:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. France vs Norway is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760474",
@@ -1052,12 +1052,12 @@
       "start": "2026-06-26T19:00Z",
       "end": "2026-06-26T21:00:00.000Z",
       "location": "BMO Field, Toronto, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Iraq vs Senegal is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760478",
@@ -1069,9 +1069,9 @@
       "start": "2026-06-27T00:00Z",
       "end": "2026-06-27T02:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Saudi Arabia vs Cape Verde.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1086,9 +1086,9 @@
       "start": "2026-06-27T00:00Z",
       "end": "2026-06-27T02:00:00.000Z",
       "location": "Estadio Akron, Guadalajara, Mexico",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Spain vs Uruguay.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1103,9 +1103,9 @@
       "start": "2026-06-27T03:00Z",
       "end": "2026-06-27T05:00:00.000Z",
       "location": "Lumen Field, Seattle, Washington, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Iran vs Egypt.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1120,9 +1120,9 @@
       "start": "2026-06-27T03:00Z",
       "end": "2026-06-27T05:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Belgium vs New Zealand.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1137,12 +1137,12 @@
       "start": "2026-06-27T21:00Z",
       "end": "2026-06-27T23:00:00.000Z",
       "location": "Lincoln Financial Field, Philadelphia, Pennsylvania, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Ghana vs Croatia is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760485",
@@ -1154,12 +1154,12 @@
       "start": "2026-06-27T21:00Z",
       "end": "2026-06-27T23:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. England vs Panama is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760481",
@@ -1171,12 +1171,12 @@
       "start": "2026-06-27T23:30Z",
       "end": "2026-06-28T01:30:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Portugal vs Colombia is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760482",
@@ -1188,12 +1188,12 @@
       "start": "2026-06-27T23:30Z",
       "end": "2026-06-28T01:30:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Uzbekistan vs Congo DR is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760484",
@@ -1205,9 +1205,9 @@
       "start": "2026-06-28T02:00Z",
       "end": "2026-06-28T04:00:00.000Z",
       "location": "GEHA Field at Arrowhead Stadium, Kansas City, Missouri, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FS1, Universo, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Austria vs Algeria.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1222,9 +1222,9 @@
       "start": "2026-06-28T02:00Z",
       "end": "2026-06-28T04:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Group Stage. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Group Stage. Argentina vs Jordan.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "group-stage",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1239,12 +1239,12 @@
       "start": "2026-06-28T19:00Z",
       "end": "2026-06-28T21:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group B 2nd Place vs Group A 2nd Place is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760487",
@@ -1256,12 +1256,12 @@
       "start": "2026-06-29T17:00Z",
       "end": "2026-06-29T19:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group F 2nd Place vs Group C Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760489",
@@ -1273,12 +1273,12 @@
       "start": "2026-06-29T20:30Z",
       "end": "2026-06-29T22:30:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group A/B/C/D/F vs Germany is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760488",
@@ -1290,9 +1290,9 @@
       "start": "2026-06-30T01:00Z",
       "end": "2026-06-30T03:00:00.000Z",
       "location": "Estadio BBVA, Guadalupe, Mexico",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group C 2nd Place vs Group F Winner.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1307,12 +1307,12 @@
       "start": "2026-06-30T17:00Z",
       "end": "2026-06-30T19:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group I 2nd Place vs Group E 2nd Place is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760492",
@@ -1324,12 +1324,12 @@
       "start": "2026-06-30T21:00Z",
       "end": "2026-06-30T23:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group C/D/F/G/H vs Group I Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760491",
@@ -1341,9 +1341,9 @@
       "start": "2026-07-01T01:00Z",
       "end": "2026-07-01T03:00:00.000Z",
       "location": "Estadio Banorte, Mexico City, Mexico",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group C/E/F/H/I vs Mexico.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1358,12 +1358,12 @@
       "start": "2026-07-01T16:00Z",
       "end": "2026-07-01T18:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group E/H/I/J/K vs Group L Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760493",
@@ -1375,12 +1375,12 @@
       "start": "2026-07-01T20:00Z",
       "end": "2026-07-01T22:00:00.000Z",
       "location": "Lumen Field, Seattle, Washington, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group A/E/H/I/J vs Group G Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760494",
@@ -1392,9 +1392,9 @@
       "start": "2026-07-02T00:00Z",
       "end": "2026-07-02T02:00:00.000Z",
       "location": "Levi's Stadium, Santa Clara, California, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group B/E/F/I/J vs United States.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1409,12 +1409,12 @@
       "start": "2026-07-02T19:00Z",
       "end": "2026-07-02T21:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group J 2nd Place vs Group H Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760496",
@@ -1426,9 +1426,9 @@
       "start": "2026-07-02T23:00Z",
       "end": "2026-07-03T01:00:00.000Z",
       "location": "BMO Field, Toronto, Canada",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group L 2nd Place vs Group K 2nd Place.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1443,9 +1443,9 @@
       "start": "2026-07-03T03:00Z",
       "end": "2026-07-03T05:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FS1, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group E/F/G/I/J vs Group B Winner.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1460,12 +1460,12 @@
       "start": "2026-07-03T18:00Z",
       "end": "2026-07-03T20:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group G 2nd Place vs Group D 2nd Place is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760500",
@@ -1477,12 +1477,12 @@
       "start": "2026-07-03T22:00Z",
       "end": "2026-07-04T00:00:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Group H 2nd Place vs Group J Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760501",
@@ -1494,9 +1494,9 @@
       "start": "2026-07-04T01:30Z",
       "end": "2026-07-04T03:30:00.000Z",
       "location": "GEHA Field at Arrowhead Stadium, Kansas City, Missouri, USA",
-      "description": "FIFA World Cup 2026 Round of 32. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 32. Third Place Group D/E/I/J/L vs Group K Winner.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-32",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1511,12 +1511,12 @@
       "start": "2026-07-04T17:00Z",
       "end": "2026-07-04T19:00:00.000Z",
       "location": "NRG Stadium, Houston, Texas, USA",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 3 Winner vs Round of 32 1 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760503",
@@ -1528,12 +1528,12 @@
       "start": "2026-07-04T21:00Z",
       "end": "2026-07-04T23:00:00.000Z",
       "location": "Lincoln Financial Field, Philadelphia, Pennsylvania, USA",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 5 Winner vs Round of 32 2 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760504",
@@ -1545,12 +1545,12 @@
       "start": "2026-07-05T20:00Z",
       "end": "2026-07-05T22:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 6 Winner vs Round of 32 4 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760505",
@@ -1562,9 +1562,9 @@
       "start": "2026-07-06T00:00Z",
       "end": "2026-07-06T02:00:00.000Z",
       "location": "Estadio Banorte, Mexico City, Mexico",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 8 Winner vs Round of 32 7 Winner.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1579,12 +1579,12 @@
       "start": "2026-07-06T19:00Z",
       "end": "2026-07-06T21:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 12 Winner vs Round of 32 11 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760507",
@@ -1596,9 +1596,9 @@
       "start": "2026-07-07T00:00Z",
       "end": "2026-07-07T02:00:00.000Z",
       "location": "Lumen Field, Seattle, Washington, USA",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 10 Winner vs Round of 32 9 Winner.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1613,12 +1613,12 @@
       "start": "2026-07-07T16:00Z",
       "end": "2026-07-07T18:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 16 Winner vs Round of 32 14 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760508",
@@ -1630,12 +1630,12 @@
       "start": "2026-07-07T20:00Z",
       "end": "2026-07-07T22:00:00.000Z",
       "location": "BC Place, Vancouver, Canada",
-      "description": "FIFA World Cup 2026 Round of 16. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Round of 16. Round of 32 15 Winner vs Round of 32 13 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "round-of-16",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760510",
@@ -1647,12 +1647,12 @@
       "start": "2026-07-09T20:00Z",
       "end": "2026-07-09T22:00:00.000Z",
       "location": "Gillette Stadium, Foxborough, Massachusetts, USA",
-      "description": "FIFA World Cup 2026 quarterfinals. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 quarterfinals. Round of 16 2 Winner vs Round of 16 1 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "quarterfinals",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760511",
@@ -1664,12 +1664,12 @@
       "start": "2026-07-10T19:00Z",
       "end": "2026-07-10T21:00:00.000Z",
       "location": "SoFi Stadium, Inglewood, California, USA",
-      "description": "FIFA World Cup 2026 quarterfinals. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 quarterfinals. Round of 16 6 Winner vs Round of 16 5 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "quarterfinals",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760512",
@@ -1681,12 +1681,12 @@
       "start": "2026-07-11T21:00Z",
       "end": "2026-07-11T23:00:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 quarterfinals. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 quarterfinals. Round of 16 4 Winner vs Round of 16 3 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "quarterfinals",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760513",
@@ -1698,9 +1698,9 @@
       "start": "2026-07-12T01:00Z",
       "end": "2026-07-12T03:00:00.000Z",
       "location": "GEHA Field at Arrowhead Stadium, Kansas City, Missouri, USA",
-      "description": "FIFA World Cup 2026 quarterfinals. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 quarterfinals. Round of 16 8 Winner vs Round of 16 7 Winner.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "quarterfinals",
       "broadcastAtTrails": false,
       "trailsBroadcastNote": ""
@@ -1715,12 +1715,12 @@
       "start": "2026-07-14T19:00Z",
       "end": "2026-07-14T21:00:00.000Z",
       "location": "AT&T Stadium, Arlington, Texas, USA",
-      "description": "FIFA World Cup 2026 semifinals. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 semifinals. Quarterfinal 2 Winner vs Quarterfinal 1 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "semifinals",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760515",
@@ -1732,12 +1732,12 @@
       "start": "2026-07-15T19:00Z",
       "end": "2026-07-15T21:00:00.000Z",
       "location": "Mercedes-Benz Stadium, Atlanta, Georgia, USA",
-      "description": "FIFA World Cup 2026 semifinals. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 semifinals. Quarterfinal 4 Winner vs Quarterfinal 3 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "semifinals",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760516",
@@ -1749,12 +1749,12 @@
       "start": "2026-07-18T21:00Z",
       "end": "2026-07-18T23:00:00.000Z",
       "location": "Hard Rock Stadium, Miami Gardens, Florida, USA",
-      "description": "FIFA World Cup 2026 3rd-place-match. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 3rd-place-match. Semifinal 2 Loser vs Semifinal 1 Loser is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "3rd-place-match",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     },
     {
       "id": "world-cup-2026-760517",
@@ -1766,12 +1766,12 @@
       "start": "2026-07-19T19:00Z",
       "end": "2026-07-19T21:00:00.000Z",
       "location": "MetLife Stadium, East Rutherford, New Jersey, USA",
-      "description": "FIFA World Cup 2026 Final. Broadcast: FOX, Tele, FOX One. Schedule source: ESPN FIFA World Cup schedule feed. Trails Coffee is broadcasting this match during opening hours.",
-      "source": "ESPN",
-      "sourceUrl": "https://www.espn.com/soccer/schedule/_/league/fifa.world",
+      "description": "FIFA World Cup 2026 Final. Semifinal 2 Winner vs Semifinal 1 Winner is showing at Trails Coffee.",
+      "source": "FIFA World Cup 2026",
+      "sourceUrl": "",
       "rawSlug": "final",
       "broadcastAtTrails": true,
-      "trailsBroadcastNote": "Trails Coffee is broadcasting this match during opening hours."
+      "trailsBroadcastNote": "Showing at Trails Coffee."
     }
   ]
 }

@@ -127,7 +127,7 @@
     const profiles = {};
     const unknown = pubkeys.filter((p) => !KNOWN[p]);
     if (!unknown.length) return profiles;
-    for (const relay of [state.relay, ...RELAYS].filter(Boolean)) {
+    for (const relay of RELAYS) {
       const events = await fetchRelayEvents(relay, [{ kinds: [KINDS.profile], authors: unknown, limit: unknown.length }], 2800);
       for (const event of events) {
         const profile = safeJson(event.content);

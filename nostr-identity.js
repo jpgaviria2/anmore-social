@@ -129,6 +129,7 @@
     sessionStorage.setItem(STORAGE_KEY_SESSION, _privateKeyHex);
     sessionStorage.setItem(STORAGE_KEY_MODE, 'anonymous');
     console.log('[NostrIdentity] Generated ephemeral key, pubkey:', _publicKeyHex.substring(0, 12) + '...');
+    updateIdentityUI();
     return _privateKeyHex;
   }
 
@@ -145,6 +146,7 @@
       _publicKeyHex = pk;
       _privateKeyHex = null;
       console.log('[NostrIdentity] NIP-07 login, pubkey:', pk.substring(0, 12) + '...');
+      updateIdentityUI();
       return pk;
     });
   }
@@ -159,6 +161,7 @@
     
     _privateKeyHex = hex;
     _publicKeyHex = pubkeyFromPrivate(hex);
+    if (!_publicKeyHex) throw new Error('Could not read public key from nsec.');
     _mode = 'nsec';
     
     // Persist imported key
@@ -168,6 +171,7 @@
     sessionStorage.setItem(STORAGE_KEY_MODE, 'nsec');
     
     console.log('[NostrIdentity] nsec login, pubkey:', _publicKeyHex?.substring(0, 12) + '...');
+    updateIdentityUI();
     return _publicKeyHex;
   }
 
@@ -181,6 +185,7 @@
     _privateKeyHex = null;
     _publicKeyHex = null;
     _mode = null;
+    updateIdentityUI();
     // No ephemeral key generation on logout!
   }
 
@@ -383,6 +388,9 @@
   }
 
   function _showNsecLoginForPrompt(resolve, reject) {
+    const existing = document.getElementById('nostr-identity-prompt');
+    if (existing) existing.remove();
+
     const modal = document.createElement('div');
     modal.id = 'nostr-identity-prompt';
     modal.innerHTML = `
@@ -427,6 +435,12 @@
     document.getElementById('identity-nsec-cancel').addEventListener('click', function() {
       modal.remove();
       reject(new Error('User cancelled login'));
+    });
+  }
+
+  function showNsecLogin() {
+    return new Promise(function(resolve, reject) {
+      _showNsecLoginForPrompt(resolve, reject);
     });
   }
 
@@ -554,6 +568,7 @@
     
     // Show identity prompt (returns promise resolving to 'anonymous'|'nsec'|'nip07')
     showIdentityPrompt: showIdentityPrompt,
+    showNsecLogin: showNsecLogin,
     
     signEvent: signEvent,
     nip04Encrypt: nip04Encrypt,

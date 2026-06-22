@@ -386,14 +386,17 @@
     start.setHours(Math.max(new Date().getHours() + 1, 9), 0, 0, 0);
     const end = new Date(start.getTime() + 60 * 60 * 1000);
     const template = EVENT_TEMPLATES[templateKey] || {};
-    openModal(`<form id="event-composer-form" class="composer-form"><div class="modal-head"><button class="back-button" type="button" data-modal-close>×</button><p class="eyebrow">Create event</p><h2>Add to Anmore Social</h2></div><p class="detail-copy">Publish a community calendar event directly to Anmore Social. Existing approved identities appear fastest; new community identities may take a moment to show publicly.</p><div class="quick-template-row composer-templates">${renderTemplateButtons()}</div><div class="form-grid"><label class="field-label">Event title<input class="text-input" name="title" required maxlength="90" placeholder="Coffee meetup, school fundraiser, trail day" value="${escapeHtml(template.title || '')}"></label><label class="field-label">Organizer<input class="text-input" name="author" maxlength="80" placeholder="Your name or group"></label><label class="field-label">Start<input class="text-input" type="datetime-local" name="start" required value="${escapeHtml(datetimeLocalValue(start))}"></label><label class="field-label">End<input class="text-input" type="datetime-local" name="end" required value="${escapeHtml(datetimeLocalValue(end))}"></label><label class="field-label form-grid-full">Location<input class="text-input" name="location" maxlength="120" placeholder="Spirit Park, Buntzen Lake, Trails Coffee, online" value="${escapeHtml(template.location || '')}"></label><label class="field-label form-grid-full">Description<textarea class="text-input textarea-input" name="description" required rows="5" maxlength="1200" placeholder="What should people know? Include cost, registration, age range, and anything to bring.">${escapeHtml(template.description || '')}</textarea></label><label class="field-label form-grid-full">Community identity<input id="composer-username" class="text-input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="optional, e.g. anmore-events"></label></div><p class="hint">Identity usernames use lowercase letters, numbers, and dashes. Leave blank to use your existing identity or create an automatic one.</p><p id="composer-feedback" class="username-feedback" aria-live="polite"></p><div class="modal-actions"><button class="create-button" type="submit">Publish event</button><button class="secondary-button" type="button" id="composer-login">Login with nsec</button></div></form>`);
+    openModal(`<form id="event-composer-form" class="composer-form"><div class="modal-head"><button class="back-button" type="button" data-modal-close>×</button><p class="eyebrow">Create event</p><h2>Add to Anmore Social</h2></div><p class="detail-copy">Publish a community calendar event directly to Anmore Social. Existing approved identities appear fastest; new community identities may take a moment to show publicly.</p><div class="quick-template-row composer-templates">${renderTemplateButtons()}</div><div class="form-grid"><label class="field-label">Event title<input class="text-input" name="title" required maxlength="90" placeholder="Coffee meetup, school fundraiser, trail day" value="${escapeHtml(template.title || '')}"></label><label class="field-label">Organizer<input class="text-input" name="author" maxlength="80" placeholder="Your name or group"></label><label class="field-label">Start<input class="text-input" type="datetime-local" name="start" required value="${escapeHtml(datetimeLocalValue(start))}"></label><label class="field-label">End<input class="text-input" type="datetime-local" name="end" required value="${escapeHtml(datetimeLocalValue(end))}"></label><label class="field-label form-grid-full">Location<input class="text-input" name="location" maxlength="120" placeholder="Spirit Park, Buntzen Lake, Trails Coffee, online" value="${escapeHtml(template.location || '')}"></label><label class="field-label form-grid-full">Description<textarea class="text-input textarea-input" name="description" required rows="5" maxlength="1200" placeholder="What should people know? Include cost, registration, age range, and anything people should bring.">${escapeHtml(template.description || '')}</textarea></label><label class="field-label form-grid-full">Community identity<input id="composer-username" class="text-input" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="optional, e.g. anmore-events"></label></div><p class="hint">Identity usernames use lowercase letters, numbers, and dashes. Leave blank to use your existing identity or create an automatic one.</p><p id="composer-feedback" class="username-feedback" aria-live="polite"></p><div class="modal-actions"><button class="create-button" type="submit">Publish event</button><button class="secondary-button" type="button" id="composer-login">Login with nsec</button></div></form>`);
     const form = document.getElementById('event-composer-form');
     document.getElementById('composer-login')?.addEventListener('click', async () => {
       try {
-        await window.NostrIdentity?.showIdentityPrompt?.();
-        setComposerFeedback('Identity loaded.', 'success');
-      } catch {}
+        await promptForComposerLogin();
+        updateComposerIdentityState();
+      } catch (error) {
+        if (error?.message) setComposerFeedback(error.message, 'error');
+      }
     });
+    updateComposerIdentityState();
     form?.addEventListener('submit', submitEventComposer);
   }
 
@@ -413,6 +416,13 @@
       if (!data.description?.trim()) throw new Error('Description is required.');
       if (!start || !end || end <= start) throw new Error('End time must be after start time.');
 
+      if (!window.NostrIdentity.hasIdentity?.()) {
+        button.textContent = 'Waiting for login...';
+        setComposerFeedback('Log in with your nsec to publish this event.', 'checking');
+        await promptForComposerLogin();
+        updateComposerIdentityState();
+        button.textContent = 'Publishing...';
+      }
       const username = cleanUsername(data.username);
       const pubkey = await ensurePublishingIdentity(username);
       const nip05 = await ensureNip05(pubkey, username);
@@ -437,7 +447,7 @@
 
   async function ensurePublishingIdentity(username) {
     if (!window.NostrIdentity.hasIdentity?.()) {
-      window.NostrIdentity.generateEphemeral?.();
+      throw new Error('Log in with your nsec before publishing.');
     }
     const pubkey = window.NostrIdentity.getPublicKey?.();
     if (!pubkey) throw new Error('Could not create a Nostr identity.');
@@ -446,6 +456,24 @@
       if (!format.valid) throw new Error(format.message.replace(/^✗\s*/, ''));
     }
     return pubkey;
+  }
+
+  function updateComposerIdentityState() {
+    const loginButton = document.getElementById('composer-login');
+    if (!loginButton || !window.NostrIdentity) return;
+    const pubkey = window.NostrIdentity.getPublicKey?.();
+    const mode = window.NostrIdentity.getMode?.();
+    if (pubkey) {
+      loginButton.textContent = mode === 'anonymous' ? 'Anonymous identity loaded' : 'nsec loaded';
+      setComposerFeedback(`Identity ready: ${pubkey.slice(0, 8)}...`, 'success');
+      return;
+    }
+    loginButton.textContent = 'Login with nsec';
+  }
+
+  async function promptForComposerLogin() {
+    if (window.NostrIdentity?.showNsecLogin) return window.NostrIdentity.showNsecLogin();
+    return window.NostrIdentity?.showIdentityPrompt?.();
   }
 
   async function ensureNip05(pubkey, requestedUsername) {

@@ -3,6 +3,7 @@
 
   const RELAYS = ['wss://nostr-cache.trailscoffee.com', 'wss://relay.anmore.me', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
   const APPROVED_URL = 'https://nostr-cache.trailscoffee.com/approved';
+  const WORLD_CUP_FIXTURES_URL = './data/world-cup-2026.json?v=20260621-1';
   const APPROVED_DOMAINS = new Set(['anmore.me', 'trailscoffee.com', 'anmore.cash']);
   const KINDS = { profile: 0, post: 1, dateEvent: 31922, timeEvent: 31923, fundraiser: 9041, listing: 30402 };
   const CREATE_ROUTES = { event: 'https://trailscoffee.com/events.html', post: 'https://trailscoffee.com/feed.html', fundraiser: 'https://trailscoffee.com/fundraiser.html', listing: 'https://trailscoffee.com/marketplace.html' };
@@ -53,11 +54,13 @@
       const pubkeys = Array.from(new Set(events.map((event) => event.pubkey)));
       state.profiles = await fetchProfiles(pubkeys);
       ingestAll(events);
+      await loadWorldCupFixtures();
       renderAll();
       if (events.length) setConnection('connected', 'Anmore Social is live', `${events.length} relay events loaded from ${state.relay}.`);
       else setConnection('error', 'No local events found', 'Connected, but no approved Anmore/Trails events matched yet.');
     } catch (error) {
       console.error(error);
+      await loadWorldCupFixtures();
       renderAll();
       setConnection('error', 'Relay data unavailable', 'Could not read the cache or fallback relays right now.');
     }
@@ -159,6 +162,41 @@
     }
   }
 
+  async function loadWorldCupFixtures() {
+    try {
+      const response = await fetch(WORLD_CUP_FIXTURES_URL, { cache: 'no-store' });
+      if (!response.ok) return 0;
+      const json = await response.json();
+      const matches = Array.isArray(json.matches) ? json.matches : [];
+      matches.forEach(ingestWorldCupFixture);
+      return matches.length;
+    } catch (error) {
+      console.warn('World Cup fixtures unavailable', error);
+      return 0;
+    }
+  }
+
+  function ingestWorldCupFixture(match) {
+    const start = parseEventStart(match.start);
+    if (!start) return;
+    const end = parseEventStart(match.end) || start + 7200;
+    state.events.set(match.id, {
+      id: match.id,
+      pubkey: 'world-cup-2026',
+      source: 'world-cup',
+      sourceLabel: 'FIFA World Cup 2026',
+      sourceUrl: match.sourceUrl,
+      stage: match.stage || 'World Cup',
+      status: match.status || 'Scheduled',
+      title: match.title || 'World Cup match',
+      description: match.description || 'FIFA World Cup 2026 fixture.',
+      location: match.location || '',
+      start,
+      end,
+      created_at: start
+    });
+  }
+
   function isApproved(pubkey) {
     if (state.approved.has(pubkey) || KNOWN[pubkey]) return true;
     const nip05 = state.profiles[pubkey]?.nip05;
@@ -228,7 +266,10 @@
   function renderEventEmpty() { return `<div class="empty-action"><h3>Start the calendar</h3><p>No upcoming approved events are listed yet. Add the first community event, then use the templates to quickly add meetups, fundraisers, outdoor events, and school/family events.</p><div class="quick-template-row">${renderTemplateButtons()}</div></div>`; }
   function renderTemplateButtons() { return Object.entries(EVENT_TEMPLATES).map(([key, item]) => `<button class="secondary-button template-button" type="button" data-create="event" data-template="${escapeHtml(key)}">${escapeHtml(item.title)}</button>`).join(''); }
   function renderPostCard(post) { return `<article class="item-card clickable-card" data-card-kind="post" data-card-id="${escapeHtml(post.id)}"><h3>${escapeHtml(profileName(post.pubkey))}</h3>${mediaMarkup(post.media)}<p>${escapeHtml(truncate(post.content, 210))}</p><div class="meta"><span class="badge">${fmtDate(post.created_at)}</span><span class="badge">verified local</span><span class="badge">details →</span></div></article>`; }
-  function renderEventCard(event) { return `<article class="item-card event-card clickable-card" data-card-kind="event" data-card-id="${escapeHtml(event.id)}"><h3>${escapeHtml(event.title)}</h3><p>${escapeHtml(truncate(event.description || 'Tap for details', 170))}</p><div class="meta"><span class="badge">${fmtDate(event.start)}</span>${event.location ? `<span class="badge">${escapeHtml(event.location)}</span>` : ''}<span class="badge">details →</span></div></article>`; }
+  function renderEventCard(event) {
+    const isWorldCup = event.source === 'world-cup';
+    return `<article class="item-card event-card clickable-card ${isWorldCup ? 'world-cup-card' : ''}" data-card-kind="event" data-card-id="${escapeHtml(event.id)}"><h3>${escapeHtml(event.title)}</h3><p>${escapeHtml(truncate(event.description || 'Tap for details', 170))}</p><div class="meta">${isWorldCup ? `<span class="badge world-cup-badge">World Cup</span>` : ''}${event.stage ? `<span class="badge">${escapeHtml(event.stage)}</span>` : ''}<span class="badge">${fmtDate(event.start)}</span>${event.location ? `<span class="badge">${escapeHtml(event.location)}</span>` : ''}<span class="badge">details →</span></div></article>`;
+  }
   function renderFundraiserCard(item) { return `<article class="item-card clickable-card" data-card-kind="fundraiser" data-card-id="${escapeHtml(item.id)}"><h3>${escapeHtml(item.title)}</h3>${mediaMarkup(item.media)}<p>${escapeHtml(truncate(item.description, 170))}</p><div class="meta">${item.goal ? `<span class="badge">Goal: ${escapeHtml(item.goal)}</span>` : ''}<span class="badge">${escapeHtml(profileName(item.pubkey))}</span><span class="badge">details →</span></div></article>`; }
   function renderListingCard(item) { return `<article class="item-card clickable-card" data-card-kind="listing" data-card-id="${escapeHtml(item.id)}"><h3>${escapeHtml(item.title)}</h3>${mediaMarkup(item.media)}<p>${escapeHtml(truncate(item.description, 170))}</p><div class="meta">${item.price ? `<span class="badge">${escapeHtml(item.price)}</span>` : ''}${item.location ? `<span class="badge">${escapeHtml(item.location)}</span>` : ''}<span class="badge">details →</span></div></article>`; }
 
@@ -246,7 +287,7 @@
   }
 
   function initCalendar() { const el = $('calendar-grid'); if (!el || !window.FullCalendar) return; state.calendar = new FullCalendar.Calendar(el, { initialView: 'dayGridMonth', height: 'auto', fixedWeekCount: false, headerToolbar: { left: 'prev,next today', center: 'title', right: '' }, eventClick(info) { info.jsEvent.preventDefault(); openEventDetails(info.event.id); }, dateClick(info) { openDayView(info.date); } }); state.calendar.render(); }
-  function updateCalendar() { if (!state.calendar) return; state.calendar.removeAllEvents(); state.calendar.addEventSource(Array.from(state.events.values()).map((event) => ({ id: event.id, title: event.title, start: new Date(event.start * 1000), end: new Date(event.end * 1000), allDay: isAllDay(event), backgroundColor: '#173f35', borderColor: '#173f35', textColor: '#fff' }))); }
+  function updateCalendar() { if (!state.calendar) return; state.calendar.removeAllEvents(); state.calendar.addEventSource(Array.from(state.events.values()).map((event) => { const isWorldCup = event.source === 'world-cup'; const color = isWorldCup ? '#8f2638' : '#173f35'; return { id: event.id, title: event.title, start: new Date(event.start * 1000), end: new Date(event.end * 1000), allDay: isAllDay(event), backgroundColor: color, borderColor: color, textColor: '#fff' }; })); }
   function isAllDay(event) { const start = new Date(event.start * 1000); const end = new Date(event.end * 1000); return start.getHours() === 0 && start.getMinutes() === 0 && end.getHours() === 0 && end.getMinutes() === 0; }
   function setSelectedDate(date) { state.selectedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()); renderSelectedDay(); }
   function eventsForDay(date) { const day = new Date(date.getFullYear(), date.getMonth(), date.getDate()).toDateString(); return Array.from(state.events.values()).filter((event) => new Date(event.start * 1000).toDateString() === day).sort((a, b) => a.start - b.start); }
@@ -254,7 +295,13 @@
 
   function openDayView(date) { setSelectedDate(date); const events = eventsForDay(date); const title = new Intl.DateTimeFormat('en-CA', { weekday: 'long', month: 'long', day: 'numeric' }).format(date); openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Day view</p><h2>${escapeHtml(title)}</h2></div><div class="modal-list">${events.length ? events.map(renderEventCard).join('') : `<div class="empty-action"><p>No events on this day yet.</p><button class="create-button" data-create="event">Create event on this date</button></div>`}</div>`); }
   function openItemDetails(kind, id) { if (kind === 'event') return openEventDetails(id); const collections = { post: state.posts, fundraiser: state.fundraisers, listing: state.listings }; const item = collections[kind]?.get(id); if (!item) return; const title = kind === 'post' ? profileName(item.pubkey) : item.title; const copy = kind === 'post' ? item.content : item.description; const meta = kind === 'post' ? `<div><strong>Posted</strong><span>${escapeHtml(fmtDate(item.created_at))}</span></div><div><strong>Author</strong><span>${escapeHtml(profileName(item.pubkey))}</span></div>` : `<div><strong>Author</strong><span>${escapeHtml(profileName(item.pubkey))}</span></div>${item.goal ? `<div><strong>Goal</strong><span>${escapeHtml(item.goal)}</span></div>` : ''}${item.price ? `<div><strong>Price</strong><span>${escapeHtml(item.price)}</span></div>` : ''}${item.location ? `<div><strong>Location</strong><span>${escapeHtml(item.location)}</span></div>` : ''}`; openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${escapeHtml(kind)} details</p><h2>${escapeHtml(title || 'Details')}</h2></div>${mediaMarkup(item.media)}<div class="detail-grid">${meta}</div><p class="detail-copy">${escapeHtml(copy || 'No description provided.')}</p>`); }
-  function openEventDetails(eventId) { const event = state.events.get(eventId); if (!event) return; openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Event details</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}<div><strong>Host</strong><span>${escapeHtml(profileName(event.pubkey))}</span></div></div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions"><button class="create-button" data-create="event">Create another event</button></div>`); }
+  function openEventDetails(eventId) {
+    const event = state.events.get(eventId);
+    if (!event) return;
+    const host = event.sourceLabel || profileName(event.pubkey);
+    const sourceLink = event.sourceUrl ? `<a href="${escapeHtml(event.sourceUrl)}" target="_blank" rel="noopener">source</a>` : '';
+    openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${event.source === 'world-cup' ? 'World Cup fixture' : 'Event details'}</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}${event.stage ? `<div><strong>Stage</strong><span>${escapeHtml(event.stage)}</span></div>` : ''}${event.status ? `<div><strong>Status</strong><span>${escapeHtml(event.status)}</span></div>` : ''}<div><strong>${event.source === 'world-cup' ? 'Calendar' : 'Host'}</strong><span>${escapeHtml(host)} ${sourceLink}</span></div></div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions"><button class="create-button" data-create="event">Create another event</button></div>`);
+  }
   function openModal(html) { document.querySelector('.modal-overlay')?.remove(); const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.innerHTML = `<div class="modal-card">${html}</div>`; overlay.addEventListener('click', (event) => { if (event.target === overlay || event.target.closest('[data-modal-close]')) overlay.remove(); }); document.body.appendChild(overlay); }
 
   function openEventComposer(templateKey) {

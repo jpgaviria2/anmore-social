@@ -104,7 +104,7 @@
     const authors = Array.from(state.approved);
     const filters = [
       { kinds: [KINDS.post], authors, limit: 70 },
-      { kinds: [KINDS.dateEvent, KINDS.timeEvent], authors, limit: 60 },
+      { kinds: [KINDS.dateEvent, KINDS.timeEvent], authors, limit: 220 },
       { kinds: [KINDS.fundraiser], authors, limit: 30 },
       { kinds: [KINDS.listing], authors, limit: 40 }
     ];

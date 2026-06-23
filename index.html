@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=20260621-6">
+  <link rel="stylesheet" href="./styles.css?v=20260623-2">
 </head>
 <body>
   <main id="top" class="app-shell">
@@ -33,10 +33,14 @@
         <p class="eyebrow">Anmore Social</p>
         <h1>Community Calendar</h1>
       </div>
-      <aside class="status-card" aria-live="polite">
-        <span class="pulse" id="connection-pulse"></span>
-        <div><strong id="connection-label">Connecting…</strong><p id="connection-detail">Loading local activity.</p></div>
-      </aside>
+      <div class="header-actions">
+        <button class="identity-button" id="identity-login-button" type="button" data-login>Login</button>
+        <button class="identity-button secondary" id="identity-logout-button" type="button" data-logout hidden>Logout</button>
+        <aside class="status-card" aria-live="polite">
+          <span class="pulse" id="connection-pulse"></span>
+          <div><strong id="connection-label">Connecting…</strong><p id="connection-detail">Loading local activity.</p></div>
+        </aside>
+      </div>
     </header>
 
     <section class="calendar-card" id="calendar" aria-label="Community calendar">
@@ -78,7 +82,7 @@
   </main>
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.10.4/lib/nostr.bundle.js"></script>
-  <script src="./nostr-identity.js?v=20260622-1"></script>
-  <script src="./app.js?v=20260623-1"></script>
+  <script src="./nostr-identity.js?v=20260623-2"></script>
+  <script src="./app.js?v=20260623-2"></script>
 </body>
 </html>

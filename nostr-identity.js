@@ -458,7 +458,7 @@
     modal.innerHTML = `
       <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px;">
         <div style="background:#fff;border-radius:16px;max-width:420px;width:100%;padding:28px;font-family:'Quicksand',sans-serif;">
-          <h3 style="color:#6B4423;margin:0 0 16px;font-size:18px;">🔐 Login to Trails Coffee</h3>
+          <h3 style="color:#6B4423;margin:0 0 16px;font-size:18px;">🔐 Login to Anmore Social</h3>
           
           ${hasNip07 ? `
           <button id="nostr-login-nip07" style="width:100%;padding:12px;background:linear-gradient(135deg,#6B4423,#8B6914);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:14px;margin-bottom:12px;">

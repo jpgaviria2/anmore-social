@@ -1,11 +1,11 @@
-const CACHE_VERSION = 'anmore-social-pwa-20260623-1';
+const CACHE_VERSION = 'anmore-social-pwa-20260623-2';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/offline.html',
-  '/styles.css?v=20260621-6',
-  '/app.js?v=20260623-1',
-  '/nostr-identity.js?v=20260622-1',
+  '/styles.css?v=20260623-2',
+  '/app.js?v=20260623-2',
+  '/nostr-identity.js?v=20260623-2',
   '/manifest.webmanifest',
   '/TEXT-BROWN.png',
   '/icons/icon-192.png',

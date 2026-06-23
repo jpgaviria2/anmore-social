@@ -32,9 +32,9 @@
     ce07b6293ef1889eb80234240673e257bc159e7b79219adbc0726c5c7b220c22: { displayName: 'World Cup at Trails Coffee', nip05: 'world-cup@trailscoffee.com' }
   };
 
-  const state = { calendar: null, relay: null, approved: new Set(Object.keys(KNOWN)), profiles: {}, posts: new Map(), events: new Map(), fundraisers: new Map(), listings: new Map(), selectedDate: null };
+  const state = { calendar: null, relay: null, approved: new Set(Object.keys(KNOWN)), profiles: {}, posts: new Map(), events: new Map(), fundraisers: new Map(), listings: new Map(), selectedDate: null, identityPubkey: null, identityMode: null };
   const $ = (id) => document.getElementById(id);
-  const els = { pulse: $('connection-pulse'), label: $('connection-label'), detail: $('connection-detail'), stats: { events: $('stat-events'), posts: $('stat-posts'), fundraisers: $('stat-fundraisers'), listings: $('stat-listings') }, feed: $('feed-list'), events: $('events-list'), fundraisers: $('fundraiser-list'), listings: $('marketplace-list'), dayTitle: $('selected-day-title'), dayEvents: $('selected-day-events') };
+  const els = { pulse: $('connection-pulse'), label: $('connection-label'), detail: $('connection-detail'), login: $('identity-login-button'), logout: $('identity-logout-button'), stats: { events: $('stat-events'), posts: $('stat-posts'), fundraisers: $('stat-fundraisers'), listings: $('stat-listings') }, feed: $('feed-list'), events: $('events-list'), fundraisers: $('fundraiser-list'), listings: $('marketplace-list'), dayTitle: $('selected-day-title'), dayEvents: $('selected-day-events') };
 
   document.addEventListener('DOMContentLoaded', init);
   document.addEventListener('click', (event) => {
@@ -43,6 +43,10 @@
     const createButton = event.target.closest?.('[data-create]');
     if (createButton?.dataset.create === 'event') return openEventComposer(createButton.dataset.template);
     if (createButton) return openCreateIdentityGate(createButton.dataset.create);
+    if (event.target.closest?.('[data-login]')) return loginForEditing();
+    if (event.target.closest?.('[data-logout]')) return logoutIdentity();
+    const editButton = event.target.closest?.('[data-edit-event]');
+    if (editButton) return openEventEditor(editButton.dataset.editEvent);
     const socialCard = event.target.closest?.('[data-card-kind][data-card-id]');
     if (socialCard) return openItemDetails(socialCard.dataset.cardKind, socialCard.dataset.cardId);
   });
@@ -52,6 +56,8 @@
     syncOnlineState();
     window.addEventListener('online', syncOnlineState);
     window.addEventListener('offline', syncOnlineState);
+    window.addEventListener('nostr-identity-changed', () => syncIdentityState());
+    syncIdentityState(false);
     initCalendar();
     setSelectedDate(new Date());
     const cached = loadContentCache();
@@ -102,6 +108,39 @@
 
   function syncOnlineState() {
     document.documentElement.classList.toggle('is-offline', navigator.onLine === false);
+  }
+
+  function syncIdentityState(shouldRender = true) {
+    state.identityPubkey = window.NostrIdentity?.getPublicKey?.() || null;
+    state.identityMode = window.NostrIdentity?.getMode?.() || null;
+    updateIdentityButtons();
+    if (shouldRender) renderAll();
+  }
+
+  function updateIdentityButtons() {
+    if (!els.login || !els.logout) return;
+    if (state.identityPubkey) {
+      els.login.textContent = `${state.identityMode === 'anonymous' ? 'Anonymous' : 'Logged in'} ${state.identityPubkey.slice(0, 8)}...`;
+      els.logout.hidden = false;
+      return;
+    }
+    els.login.textContent = 'Login';
+    els.logout.hidden = true;
+  }
+
+  async function loginForEditing() {
+    try {
+      if (window.NostrIdentity?.showNsecLogin) await window.NostrIdentity.showNsecLogin();
+      else await window.NostrIdentity?.showIdentityPrompt?.();
+      syncIdentityState();
+    } catch (error) {
+      console.warn('Login cancelled or failed', error);
+    }
+  }
+
+  function logoutIdentity() {
+    window.NostrIdentity?.logout?.();
+    syncIdentityState();
   }
 
   async function loadApproved() {
@@ -188,7 +227,7 @@
     for (const event of events) {
       if (!SOCIAL_KINDS.includes(event.kind) || !isApproved(event.pubkey)) continue;
       if (event.kind === KINDS.post && isHumanPost(event)) state.posts.set(event.id, parsePost(event));
-      if (event.kind === KINDS.dateEvent || event.kind === KINDS.timeEvent) { const parsed = parseCalendarEvent(event); if (parsed) state.events.set(parsed.id, parsed); }
+      if (event.kind === KINDS.dateEvent || event.kind === KINDS.timeEvent) { const parsed = parseCalendarEvent(event); if (parsed) { removeStaleCalendarCopies(parsed); state.events.set(parsed.id, parsed); } }
       if (event.kind === KINDS.fundraiser) { const parsed = parseFundraiser(event); if (parsed) state.fundraisers.set(parsed.id, parsed); }
       if (event.kind === KINDS.listing) { const parsed = parseListing(event); if (parsed) state.listings.set(parsed.id, parsed); }
     }
@@ -231,6 +270,14 @@
   function restoreCachedMap(map, items) {
     if (!Array.isArray(items)) return;
     for (const item of items) if (item?.id) map.set(item.id, item);
+  }
+
+  function removeStaleCalendarCopies(event) {
+    for (const [id, item] of state.events.entries()) {
+      if (id === event.id) continue;
+      if (event.eventId && item.eventId === event.eventId) state.events.delete(id);
+      else if (event.dTag && item.dTag === event.dTag && item.pubkey === event.pubkey && item.kind === event.kind) state.events.delete(id);
+    }
   }
 
   async function loadWorldCupFixtures() {
@@ -297,7 +344,8 @@
     const rawDescription = tags.summary || tags.description || str(json?.description) || str(json?.content) || (json ? '' : event.content);
     const broadcastAtTrails = tags.trails_broadcast === 'true' || json?.broadcastAtTrails === true || /Showing at Trails Coffee|Trails Coffee is broadcasting/i.test(String(rawDescription || ''));
     const description = isWorldCup ? cleanWorldCupDescription(rawDescription, tags.title || tags.name || str(json?.title) || str(json?.name), broadcastAtTrails) : rawDescription;
-    return { id: isWorldCup && dTag ? dTag : event.id, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: isWorldCup ? '' : tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: isWorldCup ? '' : tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', start, end, created_at: event.created_at };
+    const id = dTag ? `${event.kind}:${event.pubkey}:${dTag}` : event.id;
+    return { id, eventId: event.id, kind: event.kind, dTag, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: isWorldCup ? '' : tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: isWorldCup ? '' : tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', author: tags.author || str(json?.author) || '', start, end, created_at: event.created_at };
   }
   function parseFundraiser(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.name) || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.description) || str(json?.about) || str(json?.content) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, goal: str(json?.goal) || tags.goal || '', created_at: event.created_at }; }
   function parseListing(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.summary) || str(json?.description) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, price: tags.price || str(json?.price) || '', location: tags.location || str(json?.location) || '', created_at: event.created_at }; }
@@ -390,10 +438,17 @@
     const isWorldCup = event.source === 'world-cup';
     const host = event.sourceLabel || profileName(event.pubkey);
     const sourceLink = event.sourceUrl ? `<a href="${escapeHtml(event.sourceUrl)}" target="_blank" rel="noopener">source</a>` : '';
-    openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${isWorldCup ? 'World Cup fixture' : 'Event details'}</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}${event.broadcastAtTrails ? `<div><strong>Trails Coffee</strong><span>Showing at Trails Coffee</span></div>` : ''}${event.stage ? `<div><strong>Stage</strong><span>${escapeHtml(event.stage)}</span></div>` : ''}${event.status ? `<div><strong>Status</strong><span>${escapeHtml(event.status)}</span></div>` : ''}${isWorldCup ? '' : `<div><strong>Host</strong><span>${escapeHtml(host)} ${sourceLink}</span></div>`}</div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions"><button class="create-button" data-create="event">Create another event</button></div>`);
+    const editAction = eventEditable(event)
+      ? `<button class="create-button" data-edit-event="${escapeHtml(event.id)}">Edit event</button>`
+      : isWorldCup ? '' : `<button class="secondary-button" data-login>Login to edit</button>`;
+    openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${isWorldCup ? 'World Cup fixture' : 'Event details'}</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}${event.broadcastAtTrails ? `<div><strong>Trails Coffee</strong><span>Showing at Trails Coffee</span></div>` : ''}${event.stage ? `<div><strong>Stage</strong><span>${escapeHtml(event.stage)}</span></div>` : ''}${event.status ? `<div><strong>Status</strong><span>${escapeHtml(event.status)}</span></div>` : ''}${isWorldCup ? '' : `<div><strong>Host</strong><span>${escapeHtml(host)} ${sourceLink}</span></div>`}</div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions">${editAction}<button class="secondary-button" data-create="event">Create another event</button></div>`);
   }
   function closeModal() { document.querySelector('.modal-overlay')?.remove(); document.body.classList.remove('modal-open'); }
   function openModal(html) { closeModal(); const overlay = document.createElement('div'); overlay.className = 'modal-overlay'; overlay.innerHTML = `<div class="modal-card">${html}</div>`; overlay.addEventListener('click', (event) => { if (event.target === overlay || event.target.closest('[data-modal-close]')) closeModal(); }); document.body.classList.add('modal-open'); document.body.appendChild(overlay); overlay.querySelector('.modal-card')?.scrollTo(0, 0); }
+
+  function eventEditable(event) {
+    return Boolean(event && event.source !== 'world-cup' && state.identityPubkey && event.pubkey === state.identityPubkey && event.dTag);
+  }
 
   function openEventComposer(templateKey) {
     const baseDate = state.selectedDate || new Date();
@@ -415,6 +470,17 @@
     form?.addEventListener('submit', submitEventComposer);
   }
 
+  function openEventEditor(eventId) {
+    const item = state.events.get(eventId);
+    if (!item) return;
+    if (!eventEditable(item)) {
+      openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Edit event</p><h2>Login required</h2></div><p class="detail-copy">Log in with the same nsec that created this event, then open it again to edit.</p><div class="modal-actions"><button class="create-button" data-login>Login</button><button class="secondary-button" data-modal-close>Cancel</button></div>`);
+      return;
+    }
+    openModal(`<form id="event-composer-form" class="composer-form" data-edit-event-id="${escapeHtml(item.id)}"><div class="modal-head"><button class="back-button" type="button" data-modal-close>×</button><p class="eyebrow">Edit event</p><h2>${escapeHtml(item.title)}</h2></div><p class="detail-copy">Update the event and publish it with the same Nostr event key. This replaces the existing calendar entry instead of creating a duplicate.</p><div class="form-grid"><label class="field-label">Event title<input class="text-input" name="title" required maxlength="90" value="${escapeHtml(item.title || '')}"></label><label class="field-label">Organizer<input class="text-input" name="author" maxlength="80" value="${escapeHtml(item.author || profileName(item.pubkey))}"></label><label class="field-label">Start<input class="text-input" type="datetime-local" name="start" required value="${escapeHtml(datetimeLocalValue(new Date(item.start * 1000)))}"></label><label class="field-label">End<input class="text-input" type="datetime-local" name="end" required value="${escapeHtml(datetimeLocalValue(new Date(item.end * 1000)))}"></label><label class="field-label form-grid-full">Location<input class="text-input" name="location" maxlength="120" value="${escapeHtml(item.location || '')}"></label><label class="field-label form-grid-full">Description<textarea class="text-input textarea-input" name="description" required rows="5" maxlength="1200">${escapeHtml(item.description || '')}</textarea></label><input type="hidden" name="username" value=""></div><p id="composer-feedback" class="username-feedback" aria-live="polite"></p><div class="modal-actions"><button class="create-button" type="submit">Publish edit</button><button class="secondary-button" type="button" data-modal-close>Cancel</button></div></form>`);
+    document.getElementById('event-composer-form')?.addEventListener('submit', submitEventComposer);
+  }
+
   async function submitEventComposer(event) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -430,6 +496,8 @@
       if (!data.title?.trim()) throw new Error('Event title is required.');
       if (!data.description?.trim()) throw new Error('Description is required.');
       if (!start || !end || end <= start) throw new Error('End time must be after start time.');
+      const editId = form.dataset.editEventId;
+      const existingEvent = editId ? state.events.get(editId) : null;
 
       if (!window.NostrIdentity.hasIdentity?.()) {
         button.textContent = 'Waiting for login...';
@@ -440,17 +508,21 @@
       }
       const username = cleanUsername(data.username);
       const pubkey = await ensurePublishingIdentity(username);
-      const nip05 = await ensureNip05(pubkey, username);
-      await publishProfile(pubkey, nip05, data.author || username || 'Anmore Social');
-      const signedEvent = await createSignedCalendarEvent({ ...data, start, end, pubkey });
+      if (existingEvent && existingEvent.pubkey !== pubkey) throw new Error('This login does not own that event.');
+      if (!existingEvent) {
+        const nip05 = await ensureNip05(pubkey, username);
+        await publishProfile(pubkey, nip05, data.author || username || 'Anmore Social');
+        state.profiles[pubkey] = { name: data.author || username || 'Anmore Social', nip05 };
+      }
+      const signedEvent = await createSignedCalendarEvent({ ...data, start, end, pubkey, kind: existingEvent?.kind, dTag: existingEvent?.dTag });
       await publishToRelays(signedEvent);
       state.approved.add(pubkey);
-      state.profiles[pubkey] = { name: data.author || username || 'Anmore Social', nip05 };
+      if (existingEvent) state.events.delete(existingEvent.id);
       ingestAll([signedEvent]);
       saveContentCache();
       renderAll();
       setSelectedDate(new Date(start * 1000));
-      openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Published</p><h2>${escapeHtml(data.title)}</h2></div><p class="detail-copy">The event was published to Nostr and added to this calendar. If this is a new identity, the public cache may take a moment to index it.</p><div class="modal-actions"><button class="create-button" data-modal-close>Done</button><button class="secondary-button" data-create="event">Create another event</button></div>`);
+      openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${existingEvent ? 'Updated' : 'Published'}</p><h2>${escapeHtml(data.title)}</h2></div><p class="detail-copy">${existingEvent ? 'The corrected event was published to Nostr with the same event key. The local calendar is updated now; public relay caches may take a moment.' : 'The event was published to Nostr and added to this calendar. If this is a new identity, the public cache may take a moment to index it.'}</p><div class="modal-actions"><button class="create-button" data-modal-close>Done</button><button class="secondary-button" data-create="event">Create another event</button></div>`);
       window.NostrIdentity.promptToSave?.();
     } catch (error) {
       setComposerFeedback(error.message || 'Publish failed.', 'error');
@@ -553,7 +625,7 @@
 
   async function createSignedCalendarEvent(data) {
     const tags = [
-      ['d', `event-${Date.now()}`],
+      ['d', data.dTag || `event-${Date.now()}`],
       ['client', 'anmore.social'],
       ['t', 'calendar'],
       ['title', data.title.trim()],
@@ -564,7 +636,7 @@
     if (data.location?.trim()) tags.push(['location', data.location.trim()]);
     if (data.author?.trim()) tags.push(['author', data.author.trim()]);
     return window.NostrIdentity.signEvent({
-      kind: KINDS.timeEvent,
+      kind: data.kind || KINDS.timeEvent,
       created_at: Math.floor(Date.now() / 1000),
       pubkey: data.pubkey,
       tags,

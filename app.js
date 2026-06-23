@@ -43,7 +43,8 @@
     const createButton = event.target.closest?.('[data-create]');
     if (createButton?.dataset.create === 'event') return openEventComposer(createButton.dataset.template);
     if (createButton) return openCreateIdentityGate(createButton.dataset.create);
-    if (event.target.closest?.('[data-login]')) return loginForEditing();
+    const loginButton = event.target.closest?.('[data-login]');
+    if (loginButton) return loginForEditing(loginButton.dataset.loginEvent || '');
     if (event.target.closest?.('[data-logout]')) return logoutIdentity();
     const editButton = event.target.closest?.('[data-edit-event]');
     if (editButton) return openEventEditor(editButton.dataset.editEvent);
@@ -128,11 +129,16 @@
     els.logout.hidden = true;
   }
 
-  async function loginForEditing() {
+  async function loginForEditing(eventId = '') {
     try {
       if (window.NostrIdentity?.showNsecLogin) await window.NostrIdentity.showNsecLogin();
       else await window.NostrIdentity?.showIdentityPrompt?.();
       syncIdentityState();
+      if (eventId) {
+        const item = state.events.get(eventId);
+        if (item && eventEditable(item)) openEventEditor(eventId);
+        else if (item) openEventDetails(eventId);
+      }
     } catch (error) {
       console.warn('Login cancelled or failed', error);
     }
@@ -438,9 +444,7 @@
     const isWorldCup = event.source === 'world-cup';
     const host = event.sourceLabel || profileName(event.pubkey);
     const sourceLink = event.sourceUrl ? `<a href="${escapeHtml(event.sourceUrl)}" target="_blank" rel="noopener">source</a>` : '';
-    const editAction = eventEditable(event)
-      ? `<button class="create-button" data-edit-event="${escapeHtml(event.id)}">Edit event</button>`
-      : isWorldCup ? '' : `<button class="secondary-button" data-login>Login to edit</button>`;
+    const editAction = eventEditAction(event);
     openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">${isWorldCup ? 'World Cup fixture' : 'Event details'}</p><h2>${escapeHtml(event.title)}</h2></div>${event.image ? `<img class="event-image" src="${escapeHtml(event.image)}" alt="">` : ''}<div class="detail-grid"><div><strong>When</strong><span>${escapeHtml(fmtDate(event.start))}</span></div>${event.location ? `<div><strong>Where</strong><span>${escapeHtml(event.location)}</span></div>` : ''}${event.broadcastAtTrails ? `<div><strong>Trails Coffee</strong><span>Showing at Trails Coffee</span></div>` : ''}${event.stage ? `<div><strong>Stage</strong><span>${escapeHtml(event.stage)}</span></div>` : ''}${event.status ? `<div><strong>Status</strong><span>${escapeHtml(event.status)}</span></div>` : ''}${isWorldCup ? '' : `<div><strong>Host</strong><span>${escapeHtml(host)} ${sourceLink}</span></div>`}</div><p class="detail-copy">${escapeHtml(event.description || 'No description provided.')}</p><div class="modal-actions">${editAction}<button class="secondary-button" data-create="event">Create another event</button></div>`);
   }
   function closeModal() { document.querySelector('.modal-overlay')?.remove(); document.body.classList.remove('modal-open'); }
@@ -448,6 +452,14 @@
 
   function eventEditable(event) {
     return Boolean(event && event.source !== 'world-cup' && state.identityPubkey && event.pubkey === state.identityPubkey && event.dTag);
+  }
+
+  function eventEditAction(event) {
+    if (!event || event.source === 'world-cup') return '';
+    if (!event.dTag) return `<p class="hint">This older event is missing its replaceable event key, so it cannot be safely edited in place.</p>`;
+    if (eventEditable(event)) return `<button class="create-button" data-edit-event="${escapeHtml(event.id)}">Edit event</button>`;
+    if (!state.identityPubkey) return `<button class="secondary-button" data-login data-login-event="${escapeHtml(event.id)}">Login to edit</button>`;
+    return `<p class="hint">Logged in as ${escapeHtml(state.identityPubkey.slice(0, 8))}..., but this event belongs to ${escapeHtml(profileName(event.pubkey))} (${escapeHtml(event.pubkey.slice(0, 8))}...).</p><button class="secondary-button" data-login data-login-event="${escapeHtml(event.id)}">Switch login to edit</button>`;
   }
 
   function openEventComposer(templateKey) {
@@ -474,7 +486,7 @@
     const item = state.events.get(eventId);
     if (!item) return;
     if (!eventEditable(item)) {
-      openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Edit event</p><h2>Login required</h2></div><p class="detail-copy">Log in with the same nsec that created this event, then open it again to edit.</p><div class="modal-actions"><button class="create-button" data-login>Login</button><button class="secondary-button" data-modal-close>Cancel</button></div>`);
+      openModal(`<div class="modal-head"><button class="back-button" data-modal-close>×</button><p class="eyebrow">Edit event</p><h2>Login required</h2></div><p class="detail-copy">Log in with the same nsec that created this event, then the editor will open automatically.</p><div class="modal-actions"><button class="create-button" data-login data-login-event="${escapeHtml(item.id)}">Login</button><button class="secondary-button" data-modal-close>Cancel</button></div>`);
       return;
     }
     openModal(`<form id="event-composer-form" class="composer-form" data-edit-event-id="${escapeHtml(item.id)}"><div class="modal-head"><button class="back-button" type="button" data-modal-close>×</button><p class="eyebrow">Edit event</p><h2>${escapeHtml(item.title)}</h2></div><p class="detail-copy">Update the event and publish it with the same Nostr event key. This replaces the existing calendar entry instead of creating a duplicate.</p><div class="form-grid"><label class="field-label">Event title<input class="text-input" name="title" required maxlength="90" value="${escapeHtml(item.title || '')}"></label><label class="field-label">Organizer<input class="text-input" name="author" maxlength="80" value="${escapeHtml(item.author || profileName(item.pubkey))}"></label><label class="field-label">Start<input class="text-input" type="datetime-local" name="start" required value="${escapeHtml(datetimeLocalValue(new Date(item.start * 1000)))}"></label><label class="field-label">End<input class="text-input" type="datetime-local" name="end" required value="${escapeHtml(datetimeLocalValue(new Date(item.end * 1000)))}"></label><label class="field-label form-grid-full">Location<input class="text-input" name="location" maxlength="120" value="${escapeHtml(item.location || '')}"></label><label class="field-label form-grid-full">Description<textarea class="text-input textarea-input" name="description" required rows="5" maxlength="1200">${escapeHtml(item.description || '')}</textarea></label><input type="hidden" name="username" value=""></div><p id="composer-feedback" class="username-feedback" aria-live="polite"></p><div class="modal-actions"><button class="create-button" type="submit">Publish edit</button><button class="secondary-button" type="button" data-modal-close>Cancel</button></div></form>`);

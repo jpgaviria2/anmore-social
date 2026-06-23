@@ -32,7 +32,7 @@
     ce07b6293ef1889eb80234240673e257bc159e7b79219adbc0726c5c7b220c22: { displayName: 'World Cup at Trails Coffee', nip05: 'world-cup@trailscoffee.com' }
   };
 
-  const state = { calendar: null, relay: null, approved: new Set(Object.keys(KNOWN)), profiles: {}, posts: new Map(), events: new Map(), fundraisers: new Map(), listings: new Map(), selectedDate: null, identityPubkey: null, identityMode: null };
+  const state = { calendar: null, relay: null, approved: new Set(Object.keys(KNOWN)), profiles: {}, posts: new Map(), events: new Map(), fundraisers: new Map(), listings: new Map(), selectedDate: null, identityPubkey: null, identityMode: null, identityLookupToken: 0 };
   const $ = (id) => document.getElementById(id);
   const els = { pulse: $('connection-pulse'), label: $('connection-label'), detail: $('connection-detail'), login: $('identity-login-button'), logout: $('identity-logout-button'), stats: { events: $('stat-events'), posts: $('stat-posts'), fundraisers: $('stat-fundraisers'), listings: $('stat-listings') }, feed: $('feed-list'), events: $('events-list'), fundraisers: $('fundraiser-list'), listings: $('marketplace-list'), dayTitle: $('selected-day-title'), dayEvents: $('selected-day-events') };
 
@@ -115,18 +115,28 @@
     state.identityPubkey = window.NostrIdentity?.getPublicKey?.() || null;
     state.identityMode = window.NostrIdentity?.getMode?.() || null;
     updateIdentityButtons();
+    hydrateIdentityProfile(state.identityPubkey);
     if (shouldRender) renderAll();
   }
 
   function updateIdentityButtons() {
     if (!els.login || !els.logout) return;
     if (state.identityPubkey) {
-      els.login.textContent = `${state.identityMode === 'anonymous' ? 'Anonymous' : 'Logged in'} ${state.identityPubkey.slice(0, 8)}...`;
+      els.login.textContent = `${state.identityMode === 'anonymous' ? 'Anonymous' : 'Logged in'} ${identityName(state.identityPubkey)}`;
       els.logout.hidden = false;
       return;
     }
     els.login.textContent = 'Login';
     els.logout.hidden = true;
+  }
+
+  async function hydrateIdentityProfile(pubkey) {
+    const token = ++state.identityLookupToken;
+    if (!pubkey || identityNip05(pubkey)) return;
+    const profile = await lookupNip05(pubkey);
+    if (token !== state.identityLookupToken || state.identityPubkey !== pubkey || !profile?.nip05) return;
+    state.profiles[pubkey] = { ...state.profiles[pubkey], nip05: profile.nip05, name: profile.name || profile.nip05.split('@')[0] };
+    updateIdentityButtons();
   }
 
   async function loginForEditing(eventId = '') {
@@ -390,6 +400,8 @@
   function escapeHtml(text = '') { return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c])); }
   function truncate(text = '', length = 150) { const clean = String(text).replace(/\s+/g, ' ').trim(); return clean.length > length ? `${clean.slice(0, length - 1)}…` : clean; }
   function fmtDate(ts) { return new Intl.DateTimeFormat('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(ts * 1000)); }
+  function identityNip05(pubkey) { const p = state.profiles[pubkey]; return p?.nip05 || KNOWN[pubkey]?.nip05 || ''; }
+  function identityName(pubkey) { return identityNip05(pubkey) || profileName(pubkey); }
   function profileName(pubkey) { const p = state.profiles[pubkey]; return p?.display_name || p?.displayName || p?.name || KNOWN[pubkey]?.displayName || p?.nip05 || KNOWN[pubkey]?.nip05 || `${pubkey.slice(0, 8)}…`; }
   function sortByCreated(map) { return Array.from(map.values()).sort((a, b) => (b.created_at || 0) - (a.created_at || 0)); }
 

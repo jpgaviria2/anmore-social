@@ -48,6 +48,10 @@
   });
 
   async function init() {
+    registerServiceWorker();
+    syncOnlineState();
+    window.addEventListener('online', syncOnlineState);
+    window.addEventListener('offline', syncOnlineState);
     initCalendar();
     setSelectedDate(new Date());
     const cached = loadContentCache();
@@ -87,6 +91,17 @@
     els.pulse.className = `pulse ${status === 'connected' ? 'connected' : status === 'error' ? 'error' : ''}`;
     els.label.textContent = label;
     els.detail.textContent = detail;
+  }
+
+  function registerServiceWorker() {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
+    navigator.serviceWorker.register('./sw.js').catch((error) => {
+      console.warn('Anmore Social service worker registration failed', error);
+    });
+  }
+
+  function syncOnlineState() {
+    document.documentElement.classList.toggle('is-offline', navigator.onLine === false);
   }
 
   async function loadApproved() {

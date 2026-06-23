@@ -1,6 +1,6 @@
 # Anmore Social Production Readiness Review
 
-Date: 2026-06-21
+Date: 2026-06-23
 
 ## Current State
 
@@ -22,6 +22,14 @@ At the start of this review, Anmore Social was production-readable, but not prod
 This pass added a native `+ Event` composer so the site can now publish NIP-52 calendar events directly.
 
 It also added useful empty states and quick event templates so the live site does not feel dead while the community calendar is being seeded.
+
+The 2026-06-23 pass added the PWA layer:
+- `manifest.webmanifest` with app identity, standalone display, start URL, scope, theme/background colors, and install icons.
+- Square 192px, 512px, and Apple touch icons generated from the Anmore Social wordmark.
+- `sw.js` service worker with app-shell precache, runtime caching for same-origin/static assets, navigation fallback, and old-cache cleanup.
+- `offline.html` fallback for offline navigation.
+- Service-worker registration from `app.js`.
+- Install metadata in `index.html` for mobile browsers.
 
 ## Main Production Gap
 
@@ -208,13 +216,13 @@ Build:
 
 ## Verdict
 
-The repo is small and recoverable. It is not production-ready as a standalone community publishing product yet, but it is close.
+The repo is small and recoverable. It is now live-web-app ready and PWA-installable, with the remaining product risk concentrated in community publishing workflows.
 
-The first real move is not a redesign. It is native event creation.
+The first real move was not a redesign. It was native event creation, followed by the PWA shell.
 
 Recommended next implementation:
-1. Build the native event composer in `app.js`.
-2. Wire it to `NostrIdentity.signEvent`.
-3. Publish to `wss://relay.anmore.me`.
-4. Add optimistic calendar insertion.
-5. Keep post/fundraiser/marketplace creation out of scope until event creation works cleanly.
+1. Add native post composer.
+2. Add event poster/media upload.
+3. Add lightweight moderation/report controls.
+4. Add analytics for install, detail-open, create-open, publish-success, and publish-failure events.
+5. Keep fundraiser/marketplace creation out of scope until event creation and posting work cleanly.

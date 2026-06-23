@@ -4,7 +4,7 @@
   const RELAYS = ['wss://nostr-cache.trailscoffee.com', 'wss://relay.anmore.me', 'wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net'];
   const APPROVED_URL = 'https://nostr-cache.trailscoffee.com/approved';
   const WORLD_CUP_FIXTURES_URL = './data/world-cup-2026.json?v=20260621-3';
-  const CONTENT_CACHE_KEY = 'anmore-social-content-cache-v2';
+  const CONTENT_CACHE_KEY = 'anmore-social-content-cache-v3';
   const OLD_WORLD_CUP_COPY_RE = /\s*(?:Result|Status|Broadcast|Schedule source):\s*[^.]*\./gi;
   const APPROVED_DOMAINS = new Set(['anmore.me', 'trailscoffee.com', 'anmore.cash']);
   const KINDS = { profile: 0, post: 1, dateEvent: 31922, timeEvent: 31923, fundraiser: 9041, listing: 30402 };
@@ -243,7 +243,7 @@
     for (const event of events) {
       if (!SOCIAL_KINDS.includes(event.kind) || !isApproved(event.pubkey)) continue;
       if (event.kind === KINDS.post && isHumanPost(event)) state.posts.set(event.id, parsePost(event));
-      if (event.kind === KINDS.dateEvent || event.kind === KINDS.timeEvent) { const parsed = parseCalendarEvent(event); if (parsed) { removeStaleCalendarCopies(parsed); state.events.set(parsed.id, parsed); } }
+      if (event.kind === KINDS.dateEvent || event.kind === KINDS.timeEvent) { const parsed = parseCalendarEvent(event); if (parsed) upsertCalendarEvent(parsed); }
       if (event.kind === KINDS.fundraiser) { const parsed = parseFundraiser(event); if (parsed) state.fundraisers.set(parsed.id, parsed); }
       if (event.kind === KINDS.listing) { const parsed = parseListing(event); if (parsed) state.listings.set(parsed.id, parsed); }
     }
@@ -288,12 +288,36 @@
     for (const item of items) if (item?.id) map.set(item.id, item);
   }
 
+  function upsertCalendarEvent(event) {
+    if (!event?.id) return;
+    const duplicate = findCalendarDuplicate(event);
+    if (duplicate && (duplicate.sourcePriority || 0) > (event.sourcePriority || 0)) return;
+    removeStaleCalendarCopies(event);
+    state.events.set(event.id, event);
+  }
+
+  function findCalendarDuplicate(event) {
+    const semanticKey = calendarSemanticKey(event);
+    if (!semanticKey) return null;
+    for (const [id, item] of state.events.entries()) {
+      if (id !== event.id && calendarSemanticKey(item) === semanticKey) return item;
+    }
+    return null;
+  }
+
   function removeStaleCalendarCopies(event) {
+    const semanticKey = calendarSemanticKey(event);
     for (const [id, item] of state.events.entries()) {
       if (id === event.id) continue;
       if (event.eventId && item.eventId === event.eventId) state.events.delete(id);
       else if (event.dTag && item.dTag === event.dTag && item.pubkey === event.pubkey && item.kind === event.kind) state.events.delete(id);
+      else if (semanticKey && calendarSemanticKey(item) === semanticKey) state.events.delete(id);
     }
+  }
+
+  function calendarSemanticKey(event) {
+    if (!event || event.source !== 'world-cup' || !event.start) return '';
+    return `world-cup:${normalizeWorldCupTitle(event.title)}:${event.start}`;
   }
 
   async function loadWorldCupFixtures() {
@@ -314,10 +338,11 @@
     const start = parseEventStart(match.start);
     if (!start) return;
     const end = parseEventStart(match.end) || start + 7200;
-    state.events.set(match.id, {
+    upsertCalendarEvent({
       id: match.id,
       pubkey: 'world-cup-2026',
       source: 'world-cup',
+      sourcePriority: 2,
       sourceLabel: 'FIFA World Cup 2026',
       sourceUrl: '',
       stage: match.stage || 'World Cup',
@@ -361,7 +386,7 @@
     const broadcastAtTrails = tags.trails_broadcast === 'true' || json?.broadcastAtTrails === true || /Showing at Trails Coffee|Trails Coffee is broadcasting/i.test(String(rawDescription || ''));
     const description = isWorldCup ? cleanWorldCupDescription(rawDescription, tags.title || tags.name || str(json?.title) || str(json?.name), broadcastAtTrails) : rawDescription;
     const id = dTag ? `${event.kind}:${event.pubkey}:${dTag}` : event.id;
-    return { id, eventId: event.id, kind: event.kind, dTag, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: isWorldCup ? '' : tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: isWorldCup ? '' : tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', author: tags.author || str(json?.author) || '', start, end, created_at: event.created_at };
+    return { id, eventId: event.id, kind: event.kind, dTag, pubkey: event.pubkey, source: isWorldCup ? 'world-cup' : undefined, sourcePriority: isWorldCup ? 1 : 0, sourceLabel: isWorldCup ? 'FIFA World Cup 2026' : undefined, sourceUrl: isWorldCup ? '' : tags.source || str(json?.sourceUrl), stage: tags.stage || str(json?.stage), status: isWorldCup ? '' : tags.status || str(json?.status), title: tags.title || tags.name || str(json?.title) || str(json?.name) || firstLine(event.content) || 'Community event', description, broadcastAtTrails, location: tags.location || str(json?.location) || '', author: tags.author || str(json?.author) || '', start, end, created_at: event.created_at };
   }
   function parseFundraiser(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.name) || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.description) || str(json?.about) || str(json?.content) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, goal: str(json?.goal) || tags.goal || '', created_at: event.created_at }; }
   function parseListing(event) { const tags = tagMap(event.tags); const json = safeJson(event.content); const title = tags.title || tags.name || str(json?.title) || firstLine(event.content); if (!title) return null; const media = mediaUrls(event); const description = tags.summary || tags.description || str(json?.summary) || str(json?.description) || (json ? '' : event.content); return { id: event.id, pubkey: event.pubkey, title, description: stripMedia(description, media), media, price: tags.price || str(json?.price) || '', location: tags.location || str(json?.location) || '', created_at: event.created_at }; }
@@ -382,6 +407,7 @@
     if (matchup) return `FIFA World Cup 2026 fixture. ${matchup}.`;
     return base || 'FIFA World Cup 2026 fixture.';
   }
+  function normalizeWorldCupTitle(title = '') { return String(title).replace(/^World Cup:\s*/i, '').replace(/\s+/g, ' ').trim().toLowerCase(); }
   function parseEventStart(value, allDay) { if (!value) return 0; if (/^\d+$/.test(String(value))) return Number(value); const date = new Date(allDay && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value); return Number.isNaN(date.getTime()) ? 0 : Math.floor(date.getTime() / 1000); }
   function safeJson(text) { try { const parsed = JSON.parse(text); return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null; } catch { return null; } }
   function str(value) { return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined; }

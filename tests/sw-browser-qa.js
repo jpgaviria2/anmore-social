@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 let baseline = true;
+const legacyCommit = "9e89c6ae178e6a934a0637bbdfbd951cf7d68602";
 const server = http.createServer(async (req, res) => {
   const path = new URL(req.url, "http://localhost").pathname;
   if (path === "/migration") {
@@ -20,7 +21,7 @@ const server = http.createServer(async (req, res) => {
   }
   try {
     const body = baseline
-      ? execFileSync("git", ["show", `HEAD:${file}`], {
+      ? execFileSync("git", ["show", `${legacyCommit}:${file}`], {
           stdio: ["ignore", "pipe", "ignore"],
         })
       : await readFile(new URL("../" + file, import.meta.url));
@@ -81,7 +82,7 @@ try {
     0,
   );
   const result = {
-    oldWorker: "Exact baseline HEAD:sw.js",
+    oldWorker: `Exact legacy ${legacyCommit}:sw.js`,
     before,
     after,
     unregistered: true,

@@ -1,4 +1,6 @@
 import { Relay } from "./relay.js";
+import { sortPosts, resolveCommunity, verifiedTotals } from "./zaps.js";
+import { setupZaps } from "./zap-ui.js";
 import {
   RELAY,
   identify,
@@ -10,6 +12,71 @@ import {
   safeURL,
 } from "./core.js";
 const $ = (id) => document.getElementById(id);
+let currentPosts = new Map(),
+  currentIdentities = new Map(),
+  totals = new Map();
+let zapState = {
+  authority: null,
+  error: "Community zap verification has not completed.",
+};
+const zapUI = setupZaps({
+  getPost: (id) => currentPosts.get(id),
+  getState: () => zapState,
+  recheck: recheckZap,
+});
+function renderFeed() {
+  $("sort-note").hidden = $("feed-order").value !== "top";
+  $("feed").replaceChildren(
+    ...sortPosts([...currentPosts.values()], totals, $("feed-order").value).map(
+      (e) => post(e, currentIdentities.get(e.pubkey)),
+    ),
+  );
+}
+async function recheckZap(id) {
+  const target = currentPosts.get(id);
+  if (!target || busy)
+    throw Error("The post is no longer available. Refresh to recheck.");
+  const relay = new Relay();
+  try {
+    await relay.open();
+    const profiles = await relay.query([
+      { kinds: [0], authors: [target.pubkey], limit: 1 },
+    ]);
+    const deletions = await relay.query([
+      { kinds: [5], authors: [target.pubkey], limit: 500 },
+    ]);
+    const exact = await relay.query([
+      { ids: [id], kinds: [target.kind], limit: 1 },
+    ]);
+    const profile = latestProfile(profiles, target.pubkey);
+    if (
+      deletions.length >= 500 ||
+      !profile ||
+      deletions.some((d) =>
+        d.tags.some(
+          (t) =>
+            (t[0] === "e" && t[1] === profile.id) ||
+            (t[0] === "a" &&
+              t[1] === `0:${target.pubkey}:` &&
+              d.created_at >= profile.created_at),
+        ),
+      ) ||
+      !visibleEvents([...exact, ...deletions]).some((e) => e.id === id) ||
+      !(await identify(profile))
+    )
+      throw Error(
+        "The post or its author could not be reverified. No invoice was requested.",
+      );
+    const authority = await resolveCommunity(relay);
+    if (currentPosts.get(id) !== target || busy)
+      throw Error(
+        "The feed changed during verification. No invoice was requested.",
+      );
+    return authority;
+  } finally {
+    relay.close();
+  }
+}
 const el = (name, cls, text) => {
   const n = document.createElement(name);
   if (cls) n.className = cls;
@@ -165,7 +232,31 @@ function post(e, identity) {
     el("span", "", "Community update"),
     el("span", "", "Signed on Nostr"),
   );
-  article.append(source, provenance(e, identity));
+  const tipping = el("div", "post-zap");
+  const confirmed = totals.get(e.id) ?? 0n;
+  const amount = el(
+    "span",
+    "zap-total",
+    zapState.error
+      ? "0 confirmed here · zap checks unavailable"
+      : `${confirmed / 1000n} verified sats to community`,
+  );
+  amount.title = zapState.error
+    ? "Verification is unavailable, not proof that no payments exist."
+    : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
+  const zap = el("button", "quiet-button", "Zap this post");
+  zap.type = "button";
+  zap.addEventListener("click", () => zapUI.open(e.id, zap));
+  tipping.append(
+    amount,
+    zap,
+    el(
+      "span",
+      "zap-beneficiary",
+      "All zaps go to the community group, not the author.",
+    ),
+  );
+  article.append(tipping, source, provenance(e, identity));
   return article;
 }
 function eventCard(e, identity, info) {
@@ -221,6 +312,11 @@ async function batches(items, size, fn) {
 async function load(reset = false) {
   if (busy) return;
   busy = true;
+  zapUI.invalidate();
+  currentPosts = new Map();
+  currentIdentities = new Map();
+  totals = new Map();
+  zapState = { authority: null, error: "Zap checks unavailable." };
   $("refresh").disabled = true;
   $("load-more").disabled = true;
   $("feed").setAttribute("aria-busy", "true");
@@ -329,9 +425,36 @@ async function load(reset = false) {
       identities.has(e.pubkey),
     );
     const feed = visible.filter((e) => [1, 20].includes(e.kind));
-    $("feed").replaceChildren(
-      ...feed.map((e) => post(e, identities.get(e.pubkey))),
-    );
+    try {
+      const authority = await resolveCommunity(relay),
+        receipts = [];
+      for (let i = 0; i < feed.length; i += 20) {
+        const page = await relay.query([
+          {
+            kinds: [9735],
+            authors: [authority.issuer],
+            "#p": [authority.recipient],
+            "#e": feed.slice(i, i + 20).map((e) => e.id),
+            limit: 500,
+          },
+        ]);
+        if (page.length >= 500 || receipts.length + page.length > 1000)
+          throw Error(
+            "Receipt history exceeds this reading session’s safety limit.",
+          );
+        receipts.push(...page);
+      }
+      totals = verifiedTotals(receipts, feed, authority);
+      zapState = { authority, error: null };
+    } catch (error) {
+      zapState = {
+        authority: null,
+        error: error.message || "Community zap verification is unavailable.",
+      };
+    }
+    currentPosts = new Map(feed.map((e) => [e.id, e]));
+    currentIdentities = identities;
+    renderFeed();
     $("empty").hidden = feed.length > 0;
     const events = visible
       .filter((e) => e.kind >= 30000)
@@ -382,6 +505,14 @@ async function load(reset = false) {
       ? "You’ve reached the end of this relay page. Refresh for new updates."
       : "No endless scroll. Take your time.";
   } catch (error) {
+    zapUI.invalidate();
+    currentPosts = new Map();
+    currentIdentities = new Map();
+    totals = new Map();
+    zapState = {
+      authority: null,
+      error: "Feed checks unavailable. No invoice can be created.",
+    };
     // Fail closed rather than retaining a stale identity/deletion assertion after a failed refresh.
     $("feed").replaceChildren();
     $("empty").hidden = true;
@@ -410,6 +541,7 @@ async function load(reset = false) {
   }
 }
 $("refresh").addEventListener("click", () => load(true));
+$("feed-order").addEventListener("change", renderFeed);
 $("load-more").addEventListener("click", () => load(false));
 window.addEventListener("offline", () => {
   status(

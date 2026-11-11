@@ -1,8 +1,2110 @@
+var __create = Object.create;
 var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod2) => function __require() {
+  return mod2 || (0, cb[__getOwnPropNames(cb)[0]])((mod2 = { exports: {} }).exports, mod2), mod2.exports;
+};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
 };
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod2, isNodeMode, target) => (target = mod2 != null ? __create(__getProtoOf(mod2)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod2 || !mod2.__esModule ? __defProp(target, "default", { value: mod2, enumerable: true }) : target,
+  mod2
+));
+
+// node_modules/qrcode/lib/can-promise.js
+var require_can_promise = __commonJS({
+  "node_modules/qrcode/lib/can-promise.js"(exports, module) {
+    module.exports = function() {
+      return typeof Promise === "function" && Promise.prototype && Promise.prototype.then;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/utils.js
+var require_utils = __commonJS({
+  "node_modules/qrcode/lib/core/utils.js"(exports) {
+    var toSJISFunction;
+    var CODEWORDS_COUNT = [
+      0,
+      // Not used
+      26,
+      44,
+      70,
+      100,
+      134,
+      172,
+      196,
+      242,
+      292,
+      346,
+      404,
+      466,
+      532,
+      581,
+      655,
+      733,
+      815,
+      901,
+      991,
+      1085,
+      1156,
+      1258,
+      1364,
+      1474,
+      1588,
+      1706,
+      1828,
+      1921,
+      2051,
+      2185,
+      2323,
+      2465,
+      2611,
+      2761,
+      2876,
+      3034,
+      3196,
+      3362,
+      3532,
+      3706
+    ];
+    exports.getSymbolSize = function getSymbolSize(version) {
+      if (!version) throw new Error('"version" cannot be null or undefined');
+      if (version < 1 || version > 40) throw new Error('"version" should be in range from 1 to 40');
+      return version * 4 + 17;
+    };
+    exports.getSymbolTotalCodewords = function getSymbolTotalCodewords(version) {
+      return CODEWORDS_COUNT[version];
+    };
+    exports.getBCHDigit = function(data) {
+      let digit = 0;
+      while (data !== 0) {
+        digit++;
+        data >>>= 1;
+      }
+      return digit;
+    };
+    exports.setToSJISFunction = function setToSJISFunction(f) {
+      if (typeof f !== "function") {
+        throw new Error('"toSJISFunc" is not a valid function.');
+      }
+      toSJISFunction = f;
+    };
+    exports.isKanjiModeEnabled = function() {
+      return typeof toSJISFunction !== "undefined";
+    };
+    exports.toSJIS = function toSJIS(kanji) {
+      return toSJISFunction(kanji);
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/error-correction-level.js
+var require_error_correction_level = __commonJS({
+  "node_modules/qrcode/lib/core/error-correction-level.js"(exports) {
+    exports.L = { bit: 1 };
+    exports.M = { bit: 0 };
+    exports.Q = { bit: 3 };
+    exports.H = { bit: 2 };
+    function fromString(string) {
+      if (typeof string !== "string") {
+        throw new Error("Param is not a string");
+      }
+      const lcStr = string.toLowerCase();
+      switch (lcStr) {
+        case "l":
+        case "low":
+          return exports.L;
+        case "m":
+        case "medium":
+          return exports.M;
+        case "q":
+        case "quartile":
+          return exports.Q;
+        case "h":
+        case "high":
+          return exports.H;
+        default:
+          throw new Error("Unknown EC Level: " + string);
+      }
+    }
+    exports.isValid = function isValid(level) {
+      return level && typeof level.bit !== "undefined" && level.bit >= 0 && level.bit < 4;
+    };
+    exports.from = function from(value, defaultValue) {
+      if (exports.isValid(value)) {
+        return value;
+      }
+      try {
+        return fromString(value);
+      } catch (e) {
+        return defaultValue;
+      }
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/bit-buffer.js
+var require_bit_buffer = __commonJS({
+  "node_modules/qrcode/lib/core/bit-buffer.js"(exports, module) {
+    function BitBuffer() {
+      this.buffer = [];
+      this.length = 0;
+    }
+    BitBuffer.prototype = {
+      get: function(index) {
+        const bufIndex = Math.floor(index / 8);
+        return (this.buffer[bufIndex] >>> 7 - index % 8 & 1) === 1;
+      },
+      put: function(num, length) {
+        for (let i2 = 0; i2 < length; i2++) {
+          this.putBit((num >>> length - i2 - 1 & 1) === 1);
+        }
+      },
+      getLengthInBits: function() {
+        return this.length;
+      },
+      putBit: function(bit) {
+        const bufIndex = Math.floor(this.length / 8);
+        if (this.buffer.length <= bufIndex) {
+          this.buffer.push(0);
+        }
+        if (bit) {
+          this.buffer[bufIndex] |= 128 >>> this.length % 8;
+        }
+        this.length++;
+      }
+    };
+    module.exports = BitBuffer;
+  }
+});
+
+// node_modules/qrcode/lib/core/bit-matrix.js
+var require_bit_matrix = __commonJS({
+  "node_modules/qrcode/lib/core/bit-matrix.js"(exports, module) {
+    function BitMatrix(size) {
+      if (!size || size < 1) {
+        throw new Error("BitMatrix size must be defined and greater than 0");
+      }
+      this.size = size;
+      this.data = new Uint8Array(size * size);
+      this.reservedBit = new Uint8Array(size * size);
+    }
+    BitMatrix.prototype.set = function(row, col, value, reserved) {
+      const index = row * this.size + col;
+      this.data[index] = value;
+      if (reserved) this.reservedBit[index] = true;
+    };
+    BitMatrix.prototype.get = function(row, col) {
+      return this.data[row * this.size + col];
+    };
+    BitMatrix.prototype.xor = function(row, col, value) {
+      this.data[row * this.size + col] ^= value;
+    };
+    BitMatrix.prototype.isReserved = function(row, col) {
+      return this.reservedBit[row * this.size + col];
+    };
+    module.exports = BitMatrix;
+  }
+});
+
+// node_modules/qrcode/lib/core/alignment-pattern.js
+var require_alignment_pattern = __commonJS({
+  "node_modules/qrcode/lib/core/alignment-pattern.js"(exports) {
+    var getSymbolSize = require_utils().getSymbolSize;
+    exports.getRowColCoords = function getRowColCoords(version) {
+      if (version === 1) return [];
+      const posCount = Math.floor(version / 7) + 2;
+      const size = getSymbolSize(version);
+      const intervals = size === 145 ? 26 : Math.ceil((size - 13) / (2 * posCount - 2)) * 2;
+      const positions = [size - 7];
+      for (let i2 = 1; i2 < posCount - 1; i2++) {
+        positions[i2] = positions[i2 - 1] - intervals;
+      }
+      positions.push(6);
+      return positions.reverse();
+    };
+    exports.getPositions = function getPositions(version) {
+      const coords = [];
+      const pos = exports.getRowColCoords(version);
+      const posLength = pos.length;
+      for (let i2 = 0; i2 < posLength; i2++) {
+        for (let j = 0; j < posLength; j++) {
+          if (i2 === 0 && j === 0 || // top-left
+          i2 === 0 && j === posLength - 1 || // bottom-left
+          i2 === posLength - 1 && j === 0) {
+            continue;
+          }
+          coords.push([pos[i2], pos[j]]);
+        }
+      }
+      return coords;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/finder-pattern.js
+var require_finder_pattern = __commonJS({
+  "node_modules/qrcode/lib/core/finder-pattern.js"(exports) {
+    var getSymbolSize = require_utils().getSymbolSize;
+    var FINDER_PATTERN_SIZE = 7;
+    exports.getPositions = function getPositions(version) {
+      const size = getSymbolSize(version);
+      return [
+        // top-left
+        [0, 0],
+        // top-right
+        [size - FINDER_PATTERN_SIZE, 0],
+        // bottom-left
+        [0, size - FINDER_PATTERN_SIZE]
+      ];
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/mask-pattern.js
+var require_mask_pattern = __commonJS({
+  "node_modules/qrcode/lib/core/mask-pattern.js"(exports) {
+    exports.Patterns = {
+      PATTERN000: 0,
+      PATTERN001: 1,
+      PATTERN010: 2,
+      PATTERN011: 3,
+      PATTERN100: 4,
+      PATTERN101: 5,
+      PATTERN110: 6,
+      PATTERN111: 7
+    };
+    var PenaltyScores = {
+      N1: 3,
+      N2: 3,
+      N3: 40,
+      N4: 10
+    };
+    exports.isValid = function isValid(mask) {
+      return mask != null && mask !== "" && !isNaN(mask) && mask >= 0 && mask <= 7;
+    };
+    exports.from = function from(value) {
+      return exports.isValid(value) ? parseInt(value, 10) : void 0;
+    };
+    exports.getPenaltyN1 = function getPenaltyN1(data) {
+      const size = data.size;
+      let points = 0;
+      let sameCountCol = 0;
+      let sameCountRow = 0;
+      let lastCol = null;
+      let lastRow = null;
+      for (let row = 0; row < size; row++) {
+        sameCountCol = sameCountRow = 0;
+        lastCol = lastRow = null;
+        for (let col = 0; col < size; col++) {
+          let module2 = data.get(row, col);
+          if (module2 === lastCol) {
+            sameCountCol++;
+          } else {
+            if (sameCountCol >= 5) points += PenaltyScores.N1 + (sameCountCol - 5);
+            lastCol = module2;
+            sameCountCol = 1;
+          }
+          module2 = data.get(col, row);
+          if (module2 === lastRow) {
+            sameCountRow++;
+          } else {
+            if (sameCountRow >= 5) points += PenaltyScores.N1 + (sameCountRow - 5);
+            lastRow = module2;
+            sameCountRow = 1;
+          }
+        }
+        if (sameCountCol >= 5) points += PenaltyScores.N1 + (sameCountCol - 5);
+        if (sameCountRow >= 5) points += PenaltyScores.N1 + (sameCountRow - 5);
+      }
+      return points;
+    };
+    exports.getPenaltyN2 = function getPenaltyN2(data) {
+      const size = data.size;
+      let points = 0;
+      for (let row = 0; row < size - 1; row++) {
+        for (let col = 0; col < size - 1; col++) {
+          const last = data.get(row, col) + data.get(row, col + 1) + data.get(row + 1, col) + data.get(row + 1, col + 1);
+          if (last === 4 || last === 0) points++;
+        }
+      }
+      return points * PenaltyScores.N2;
+    };
+    exports.getPenaltyN3 = function getPenaltyN3(data) {
+      const size = data.size;
+      let points = 0;
+      let bitsCol = 0;
+      let bitsRow = 0;
+      for (let row = 0; row < size; row++) {
+        bitsCol = bitsRow = 0;
+        for (let col = 0; col < size; col++) {
+          bitsCol = bitsCol << 1 & 2047 | data.get(row, col);
+          if (col >= 10 && (bitsCol === 1488 || bitsCol === 93)) points++;
+          bitsRow = bitsRow << 1 & 2047 | data.get(col, row);
+          if (col >= 10 && (bitsRow === 1488 || bitsRow === 93)) points++;
+        }
+      }
+      return points * PenaltyScores.N3;
+    };
+    exports.getPenaltyN4 = function getPenaltyN4(data) {
+      let darkCount = 0;
+      const modulesCount = data.data.length;
+      for (let i2 = 0; i2 < modulesCount; i2++) darkCount += data.data[i2];
+      const k = Math.abs(Math.ceil(darkCount * 100 / modulesCount / 5) - 10);
+      return k * PenaltyScores.N4;
+    };
+    function getMaskAt(maskPattern, i2, j) {
+      switch (maskPattern) {
+        case exports.Patterns.PATTERN000:
+          return (i2 + j) % 2 === 0;
+        case exports.Patterns.PATTERN001:
+          return i2 % 2 === 0;
+        case exports.Patterns.PATTERN010:
+          return j % 3 === 0;
+        case exports.Patterns.PATTERN011:
+          return (i2 + j) % 3 === 0;
+        case exports.Patterns.PATTERN100:
+          return (Math.floor(i2 / 2) + Math.floor(j / 3)) % 2 === 0;
+        case exports.Patterns.PATTERN101:
+          return i2 * j % 2 + i2 * j % 3 === 0;
+        case exports.Patterns.PATTERN110:
+          return (i2 * j % 2 + i2 * j % 3) % 2 === 0;
+        case exports.Patterns.PATTERN111:
+          return (i2 * j % 3 + (i2 + j) % 2) % 2 === 0;
+        default:
+          throw new Error("bad maskPattern:" + maskPattern);
+      }
+    }
+    exports.applyMask = function applyMask(pattern, data) {
+      const size = data.size;
+      for (let col = 0; col < size; col++) {
+        for (let row = 0; row < size; row++) {
+          if (data.isReserved(row, col)) continue;
+          data.xor(row, col, getMaskAt(pattern, row, col));
+        }
+      }
+    };
+    exports.getBestMask = function getBestMask(data, setupFormatFunc) {
+      const numPatterns = Object.keys(exports.Patterns).length;
+      let bestPattern = 0;
+      let lowerPenalty = Infinity;
+      for (let p = 0; p < numPatterns; p++) {
+        setupFormatFunc(p);
+        exports.applyMask(p, data);
+        const penalty = exports.getPenaltyN1(data) + exports.getPenaltyN2(data) + exports.getPenaltyN3(data) + exports.getPenaltyN4(data);
+        exports.applyMask(p, data);
+        if (penalty < lowerPenalty) {
+          lowerPenalty = penalty;
+          bestPattern = p;
+        }
+      }
+      return bestPattern;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/error-correction-code.js
+var require_error_correction_code = __commonJS({
+  "node_modules/qrcode/lib/core/error-correction-code.js"(exports) {
+    var ECLevel = require_error_correction_level();
+    var EC_BLOCKS_TABLE = [
+      // L  M  Q  H
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      2,
+      2,
+      1,
+      2,
+      2,
+      4,
+      1,
+      2,
+      4,
+      4,
+      2,
+      4,
+      4,
+      4,
+      2,
+      4,
+      6,
+      5,
+      2,
+      4,
+      6,
+      6,
+      2,
+      5,
+      8,
+      8,
+      4,
+      5,
+      8,
+      8,
+      4,
+      5,
+      8,
+      11,
+      4,
+      8,
+      10,
+      11,
+      4,
+      9,
+      12,
+      16,
+      4,
+      9,
+      16,
+      16,
+      6,
+      10,
+      12,
+      18,
+      6,
+      10,
+      17,
+      16,
+      6,
+      11,
+      16,
+      19,
+      6,
+      13,
+      18,
+      21,
+      7,
+      14,
+      21,
+      25,
+      8,
+      16,
+      20,
+      25,
+      8,
+      17,
+      23,
+      25,
+      9,
+      17,
+      23,
+      34,
+      9,
+      18,
+      25,
+      30,
+      10,
+      20,
+      27,
+      32,
+      12,
+      21,
+      29,
+      35,
+      12,
+      23,
+      34,
+      37,
+      12,
+      25,
+      34,
+      40,
+      13,
+      26,
+      35,
+      42,
+      14,
+      28,
+      38,
+      45,
+      15,
+      29,
+      40,
+      48,
+      16,
+      31,
+      43,
+      51,
+      17,
+      33,
+      45,
+      54,
+      18,
+      35,
+      48,
+      57,
+      19,
+      37,
+      51,
+      60,
+      19,
+      38,
+      53,
+      63,
+      20,
+      40,
+      56,
+      66,
+      21,
+      43,
+      59,
+      70,
+      22,
+      45,
+      62,
+      74,
+      24,
+      47,
+      65,
+      77,
+      25,
+      49,
+      68,
+      81
+    ];
+    var EC_CODEWORDS_TABLE = [
+      // L  M  Q  H
+      7,
+      10,
+      13,
+      17,
+      10,
+      16,
+      22,
+      28,
+      15,
+      26,
+      36,
+      44,
+      20,
+      36,
+      52,
+      64,
+      26,
+      48,
+      72,
+      88,
+      36,
+      64,
+      96,
+      112,
+      40,
+      72,
+      108,
+      130,
+      48,
+      88,
+      132,
+      156,
+      60,
+      110,
+      160,
+      192,
+      72,
+      130,
+      192,
+      224,
+      80,
+      150,
+      224,
+      264,
+      96,
+      176,
+      260,
+      308,
+      104,
+      198,
+      288,
+      352,
+      120,
+      216,
+      320,
+      384,
+      132,
+      240,
+      360,
+      432,
+      144,
+      280,
+      408,
+      480,
+      168,
+      308,
+      448,
+      532,
+      180,
+      338,
+      504,
+      588,
+      196,
+      364,
+      546,
+      650,
+      224,
+      416,
+      600,
+      700,
+      224,
+      442,
+      644,
+      750,
+      252,
+      476,
+      690,
+      816,
+      270,
+      504,
+      750,
+      900,
+      300,
+      560,
+      810,
+      960,
+      312,
+      588,
+      870,
+      1050,
+      336,
+      644,
+      952,
+      1110,
+      360,
+      700,
+      1020,
+      1200,
+      390,
+      728,
+      1050,
+      1260,
+      420,
+      784,
+      1140,
+      1350,
+      450,
+      812,
+      1200,
+      1440,
+      480,
+      868,
+      1290,
+      1530,
+      510,
+      924,
+      1350,
+      1620,
+      540,
+      980,
+      1440,
+      1710,
+      570,
+      1036,
+      1530,
+      1800,
+      570,
+      1064,
+      1590,
+      1890,
+      600,
+      1120,
+      1680,
+      1980,
+      630,
+      1204,
+      1770,
+      2100,
+      660,
+      1260,
+      1860,
+      2220,
+      720,
+      1316,
+      1950,
+      2310,
+      750,
+      1372,
+      2040,
+      2430
+    ];
+    exports.getBlocksCount = function getBlocksCount(version, errorCorrectionLevel) {
+      switch (errorCorrectionLevel) {
+        case ECLevel.L:
+          return EC_BLOCKS_TABLE[(version - 1) * 4 + 0];
+        case ECLevel.M:
+          return EC_BLOCKS_TABLE[(version - 1) * 4 + 1];
+        case ECLevel.Q:
+          return EC_BLOCKS_TABLE[(version - 1) * 4 + 2];
+        case ECLevel.H:
+          return EC_BLOCKS_TABLE[(version - 1) * 4 + 3];
+        default:
+          return void 0;
+      }
+    };
+    exports.getTotalCodewordsCount = function getTotalCodewordsCount(version, errorCorrectionLevel) {
+      switch (errorCorrectionLevel) {
+        case ECLevel.L:
+          return EC_CODEWORDS_TABLE[(version - 1) * 4 + 0];
+        case ECLevel.M:
+          return EC_CODEWORDS_TABLE[(version - 1) * 4 + 1];
+        case ECLevel.Q:
+          return EC_CODEWORDS_TABLE[(version - 1) * 4 + 2];
+        case ECLevel.H:
+          return EC_CODEWORDS_TABLE[(version - 1) * 4 + 3];
+        default:
+          return void 0;
+      }
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/galois-field.js
+var require_galois_field = __commonJS({
+  "node_modules/qrcode/lib/core/galois-field.js"(exports) {
+    var EXP_TABLE = new Uint8Array(512);
+    var LOG_TABLE = new Uint8Array(256);
+    (function initTables() {
+      let x = 1;
+      for (let i2 = 0; i2 < 255; i2++) {
+        EXP_TABLE[i2] = x;
+        LOG_TABLE[x] = i2;
+        x <<= 1;
+        if (x & 256) {
+          x ^= 285;
+        }
+      }
+      for (let i2 = 255; i2 < 512; i2++) {
+        EXP_TABLE[i2] = EXP_TABLE[i2 - 255];
+      }
+    })();
+    exports.log = function log(n) {
+      if (n < 1) throw new Error("log(" + n + ")");
+      return LOG_TABLE[n];
+    };
+    exports.exp = function exp(n) {
+      return EXP_TABLE[n];
+    };
+    exports.mul = function mul(x, y) {
+      if (x === 0 || y === 0) return 0;
+      return EXP_TABLE[LOG_TABLE[x] + LOG_TABLE[y]];
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/polynomial.js
+var require_polynomial = __commonJS({
+  "node_modules/qrcode/lib/core/polynomial.js"(exports) {
+    var GF = require_galois_field();
+    exports.mul = function mul(p1, p2) {
+      const coeff = new Uint8Array(p1.length + p2.length - 1);
+      for (let i2 = 0; i2 < p1.length; i2++) {
+        for (let j = 0; j < p2.length; j++) {
+          coeff[i2 + j] ^= GF.mul(p1[i2], p2[j]);
+        }
+      }
+      return coeff;
+    };
+    exports.mod = function mod2(divident, divisor) {
+      let result = new Uint8Array(divident);
+      while (result.length - divisor.length >= 0) {
+        const coeff = result[0];
+        for (let i2 = 0; i2 < divisor.length; i2++) {
+          result[i2] ^= GF.mul(divisor[i2], coeff);
+        }
+        let offset = 0;
+        while (offset < result.length && result[offset] === 0) offset++;
+        result = result.slice(offset);
+      }
+      return result;
+    };
+    exports.generateECPolynomial = function generateECPolynomial(degree) {
+      let poly = new Uint8Array([1]);
+      for (let i2 = 0; i2 < degree; i2++) {
+        poly = exports.mul(poly, new Uint8Array([1, GF.exp(i2)]));
+      }
+      return poly;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/reed-solomon-encoder.js
+var require_reed_solomon_encoder = __commonJS({
+  "node_modules/qrcode/lib/core/reed-solomon-encoder.js"(exports, module) {
+    var Polynomial = require_polynomial();
+    function ReedSolomonEncoder(degree) {
+      this.genPoly = void 0;
+      this.degree = degree;
+      if (this.degree) this.initialize(this.degree);
+    }
+    ReedSolomonEncoder.prototype.initialize = function initialize(degree) {
+      this.degree = degree;
+      this.genPoly = Polynomial.generateECPolynomial(this.degree);
+    };
+    ReedSolomonEncoder.prototype.encode = function encode(data) {
+      if (!this.genPoly) {
+        throw new Error("Encoder not initialized");
+      }
+      const paddedData = new Uint8Array(data.length + this.degree);
+      paddedData.set(data);
+      const remainder = Polynomial.mod(paddedData, this.genPoly);
+      const start = this.degree - remainder.length;
+      if (start > 0) {
+        const buff = new Uint8Array(this.degree);
+        buff.set(remainder, start);
+        return buff;
+      }
+      return remainder;
+    };
+    module.exports = ReedSolomonEncoder;
+  }
+});
+
+// node_modules/qrcode/lib/core/version-check.js
+var require_version_check = __commonJS({
+  "node_modules/qrcode/lib/core/version-check.js"(exports) {
+    exports.isValid = function isValid(version) {
+      return !isNaN(version) && version >= 1 && version <= 40;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/regex.js
+var require_regex = __commonJS({
+  "node_modules/qrcode/lib/core/regex.js"(exports) {
+    var numeric = "[0-9]+";
+    var alphanumeric = "[A-Z $%*+\\-./:]+";
+    var kanji = "(?:[u3000-u303F]|[u3040-u309F]|[u30A0-u30FF]|[uFF00-uFFEF]|[u4E00-u9FAF]|[u2605-u2606]|[u2190-u2195]|u203B|[u2010u2015u2018u2019u2025u2026u201Cu201Du2225u2260]|[u0391-u0451]|[u00A7u00A8u00B1u00B4u00D7u00F7])+";
+    kanji = kanji.replace(/u/g, "\\u");
+    var byte = "(?:(?![A-Z0-9 $%*+\\-./:]|" + kanji + ")(?:.|[\r\n]))+";
+    exports.KANJI = new RegExp(kanji, "g");
+    exports.BYTE_KANJI = new RegExp("[^A-Z0-9 $%*+\\-./:]+", "g");
+    exports.BYTE = new RegExp(byte, "g");
+    exports.NUMERIC = new RegExp(numeric, "g");
+    exports.ALPHANUMERIC = new RegExp(alphanumeric, "g");
+    var TEST_KANJI = new RegExp("^" + kanji + "$");
+    var TEST_NUMERIC = new RegExp("^" + numeric + "$");
+    var TEST_ALPHANUMERIC = new RegExp("^[A-Z0-9 $%*+\\-./:]+$");
+    exports.testKanji = function testKanji(str) {
+      return TEST_KANJI.test(str);
+    };
+    exports.testNumeric = function testNumeric(str) {
+      return TEST_NUMERIC.test(str);
+    };
+    exports.testAlphanumeric = function testAlphanumeric(str) {
+      return TEST_ALPHANUMERIC.test(str);
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/mode.js
+var require_mode = __commonJS({
+  "node_modules/qrcode/lib/core/mode.js"(exports) {
+    var VersionCheck = require_version_check();
+    var Regex = require_regex();
+    exports.NUMERIC = {
+      id: "Numeric",
+      bit: 1 << 0,
+      ccBits: [10, 12, 14]
+    };
+    exports.ALPHANUMERIC = {
+      id: "Alphanumeric",
+      bit: 1 << 1,
+      ccBits: [9, 11, 13]
+    };
+    exports.BYTE = {
+      id: "Byte",
+      bit: 1 << 2,
+      ccBits: [8, 16, 16]
+    };
+    exports.KANJI = {
+      id: "Kanji",
+      bit: 1 << 3,
+      ccBits: [8, 10, 12]
+    };
+    exports.MIXED = {
+      bit: -1
+    };
+    exports.getCharCountIndicator = function getCharCountIndicator(mode, version) {
+      if (!mode.ccBits) throw new Error("Invalid mode: " + mode);
+      if (!VersionCheck.isValid(version)) {
+        throw new Error("Invalid version: " + version);
+      }
+      if (version >= 1 && version < 10) return mode.ccBits[0];
+      else if (version < 27) return mode.ccBits[1];
+      return mode.ccBits[2];
+    };
+    exports.getBestModeForData = function getBestModeForData(dataStr) {
+      if (Regex.testNumeric(dataStr)) return exports.NUMERIC;
+      else if (Regex.testAlphanumeric(dataStr)) return exports.ALPHANUMERIC;
+      else if (Regex.testKanji(dataStr)) return exports.KANJI;
+      else return exports.BYTE;
+    };
+    exports.toString = function toString(mode) {
+      if (mode && mode.id) return mode.id;
+      throw new Error("Invalid mode");
+    };
+    exports.isValid = function isValid(mode) {
+      return mode && mode.bit && mode.ccBits;
+    };
+    function fromString(string) {
+      if (typeof string !== "string") {
+        throw new Error("Param is not a string");
+      }
+      const lcStr = string.toLowerCase();
+      switch (lcStr) {
+        case "numeric":
+          return exports.NUMERIC;
+        case "alphanumeric":
+          return exports.ALPHANUMERIC;
+        case "kanji":
+          return exports.KANJI;
+        case "byte":
+          return exports.BYTE;
+        default:
+          throw new Error("Unknown mode: " + string);
+      }
+    }
+    exports.from = function from(value, defaultValue) {
+      if (exports.isValid(value)) {
+        return value;
+      }
+      try {
+        return fromString(value);
+      } catch (e) {
+        return defaultValue;
+      }
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/version.js
+var require_version = __commonJS({
+  "node_modules/qrcode/lib/core/version.js"(exports) {
+    var Utils = require_utils();
+    var ECCode = require_error_correction_code();
+    var ECLevel = require_error_correction_level();
+    var Mode = require_mode();
+    var VersionCheck = require_version_check();
+    var G18 = 1 << 12 | 1 << 11 | 1 << 10 | 1 << 9 | 1 << 8 | 1 << 5 | 1 << 2 | 1 << 0;
+    var G18_BCH = Utils.getBCHDigit(G18);
+    function getBestVersionForDataLength(mode, length, errorCorrectionLevel) {
+      for (let currentVersion = 1; currentVersion <= 40; currentVersion++) {
+        if (length <= exports.getCapacity(currentVersion, errorCorrectionLevel, mode)) {
+          return currentVersion;
+        }
+      }
+      return void 0;
+    }
+    function getReservedBitsCount(mode, version) {
+      return Mode.getCharCountIndicator(mode, version) + 4;
+    }
+    function getTotalBitsFromDataArray(segments, version) {
+      let totalBits = 0;
+      segments.forEach(function(data) {
+        const reservedBits = getReservedBitsCount(data.mode, version);
+        totalBits += reservedBits + data.getBitsLength();
+      });
+      return totalBits;
+    }
+    function getBestVersionForMixedData(segments, errorCorrectionLevel) {
+      for (let currentVersion = 1; currentVersion <= 40; currentVersion++) {
+        const length = getTotalBitsFromDataArray(segments, currentVersion);
+        if (length <= exports.getCapacity(currentVersion, errorCorrectionLevel, Mode.MIXED)) {
+          return currentVersion;
+        }
+      }
+      return void 0;
+    }
+    exports.from = function from(value, defaultValue) {
+      if (VersionCheck.isValid(value)) {
+        return parseInt(value, 10);
+      }
+      return defaultValue;
+    };
+    exports.getCapacity = function getCapacity(version, errorCorrectionLevel, mode) {
+      if (!VersionCheck.isValid(version)) {
+        throw new Error("Invalid QR Code version");
+      }
+      if (typeof mode === "undefined") mode = Mode.BYTE;
+      const totalCodewords = Utils.getSymbolTotalCodewords(version);
+      const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+      const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
+      if (mode === Mode.MIXED) return dataTotalCodewordsBits;
+      const usableBits = dataTotalCodewordsBits - getReservedBitsCount(mode, version);
+      switch (mode) {
+        case Mode.NUMERIC:
+          return Math.floor(usableBits / 10 * 3);
+        case Mode.ALPHANUMERIC:
+          return Math.floor(usableBits / 11 * 2);
+        case Mode.KANJI:
+          return Math.floor(usableBits / 13);
+        case Mode.BYTE:
+        default:
+          return Math.floor(usableBits / 8);
+      }
+    };
+    exports.getBestVersionForData = function getBestVersionForData(data, errorCorrectionLevel) {
+      let seg;
+      const ecl = ECLevel.from(errorCorrectionLevel, ECLevel.M);
+      if (Array.isArray(data)) {
+        if (data.length > 1) {
+          return getBestVersionForMixedData(data, ecl);
+        }
+        if (data.length === 0) {
+          return 1;
+        }
+        seg = data[0];
+      } else {
+        seg = data;
+      }
+      return getBestVersionForDataLength(seg.mode, seg.getLength(), ecl);
+    };
+    exports.getEncodedBits = function getEncodedBits(version) {
+      if (!VersionCheck.isValid(version) || version < 7) {
+        throw new Error("Invalid QR Code version");
+      }
+      let d = version << 12;
+      while (Utils.getBCHDigit(d) - G18_BCH >= 0) {
+        d ^= G18 << Utils.getBCHDigit(d) - G18_BCH;
+      }
+      return version << 12 | d;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/format-info.js
+var require_format_info = __commonJS({
+  "node_modules/qrcode/lib/core/format-info.js"(exports) {
+    var Utils = require_utils();
+    var G15 = 1 << 10 | 1 << 8 | 1 << 5 | 1 << 4 | 1 << 2 | 1 << 1 | 1 << 0;
+    var G15_MASK = 1 << 14 | 1 << 12 | 1 << 10 | 1 << 4 | 1 << 1;
+    var G15_BCH = Utils.getBCHDigit(G15);
+    exports.getEncodedBits = function getEncodedBits(errorCorrectionLevel, mask) {
+      const data = errorCorrectionLevel.bit << 3 | mask;
+      let d = data << 10;
+      while (Utils.getBCHDigit(d) - G15_BCH >= 0) {
+        d ^= G15 << Utils.getBCHDigit(d) - G15_BCH;
+      }
+      return (data << 10 | d) ^ G15_MASK;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/numeric-data.js
+var require_numeric_data = __commonJS({
+  "node_modules/qrcode/lib/core/numeric-data.js"(exports, module) {
+    var Mode = require_mode();
+    function NumericData(data) {
+      this.mode = Mode.NUMERIC;
+      this.data = data.toString();
+    }
+    NumericData.getBitsLength = function getBitsLength(length) {
+      return 10 * Math.floor(length / 3) + (length % 3 ? length % 3 * 3 + 1 : 0);
+    };
+    NumericData.prototype.getLength = function getLength() {
+      return this.data.length;
+    };
+    NumericData.prototype.getBitsLength = function getBitsLength() {
+      return NumericData.getBitsLength(this.data.length);
+    };
+    NumericData.prototype.write = function write(bitBuffer) {
+      let i2, group, value;
+      for (i2 = 0; i2 + 3 <= this.data.length; i2 += 3) {
+        group = this.data.substr(i2, 3);
+        value = parseInt(group, 10);
+        bitBuffer.put(value, 10);
+      }
+      const remainingNum = this.data.length - i2;
+      if (remainingNum > 0) {
+        group = this.data.substr(i2);
+        value = parseInt(group, 10);
+        bitBuffer.put(value, remainingNum * 3 + 1);
+      }
+    };
+    module.exports = NumericData;
+  }
+});
+
+// node_modules/qrcode/lib/core/alphanumeric-data.js
+var require_alphanumeric_data = __commonJS({
+  "node_modules/qrcode/lib/core/alphanumeric-data.js"(exports, module) {
+    var Mode = require_mode();
+    var ALPHA_NUM_CHARS = [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8",
+      "9",
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "U",
+      "V",
+      "W",
+      "X",
+      "Y",
+      "Z",
+      " ",
+      "$",
+      "%",
+      "*",
+      "+",
+      "-",
+      ".",
+      "/",
+      ":"
+    ];
+    function AlphanumericData(data) {
+      this.mode = Mode.ALPHANUMERIC;
+      this.data = data;
+    }
+    AlphanumericData.getBitsLength = function getBitsLength(length) {
+      return 11 * Math.floor(length / 2) + 6 * (length % 2);
+    };
+    AlphanumericData.prototype.getLength = function getLength() {
+      return this.data.length;
+    };
+    AlphanumericData.prototype.getBitsLength = function getBitsLength() {
+      return AlphanumericData.getBitsLength(this.data.length);
+    };
+    AlphanumericData.prototype.write = function write(bitBuffer) {
+      let i2;
+      for (i2 = 0; i2 + 2 <= this.data.length; i2 += 2) {
+        let value = ALPHA_NUM_CHARS.indexOf(this.data[i2]) * 45;
+        value += ALPHA_NUM_CHARS.indexOf(this.data[i2 + 1]);
+        bitBuffer.put(value, 11);
+      }
+      if (this.data.length % 2) {
+        bitBuffer.put(ALPHA_NUM_CHARS.indexOf(this.data[i2]), 6);
+      }
+    };
+    module.exports = AlphanumericData;
+  }
+});
+
+// node_modules/qrcode/lib/core/byte-data.js
+var require_byte_data = __commonJS({
+  "node_modules/qrcode/lib/core/byte-data.js"(exports, module) {
+    var Mode = require_mode();
+    function ByteData(data) {
+      this.mode = Mode.BYTE;
+      if (typeof data === "string") {
+        this.data = new TextEncoder().encode(data);
+      } else {
+        this.data = new Uint8Array(data);
+      }
+    }
+    ByteData.getBitsLength = function getBitsLength(length) {
+      return length * 8;
+    };
+    ByteData.prototype.getLength = function getLength() {
+      return this.data.length;
+    };
+    ByteData.prototype.getBitsLength = function getBitsLength() {
+      return ByteData.getBitsLength(this.data.length);
+    };
+    ByteData.prototype.write = function(bitBuffer) {
+      for (let i2 = 0, l = this.data.length; i2 < l; i2++) {
+        bitBuffer.put(this.data[i2], 8);
+      }
+    };
+    module.exports = ByteData;
+  }
+});
+
+// node_modules/qrcode/lib/core/kanji-data.js
+var require_kanji_data = __commonJS({
+  "node_modules/qrcode/lib/core/kanji-data.js"(exports, module) {
+    var Mode = require_mode();
+    var Utils = require_utils();
+    function KanjiData(data) {
+      this.mode = Mode.KANJI;
+      this.data = data;
+    }
+    KanjiData.getBitsLength = function getBitsLength(length) {
+      return length * 13;
+    };
+    KanjiData.prototype.getLength = function getLength() {
+      return this.data.length;
+    };
+    KanjiData.prototype.getBitsLength = function getBitsLength() {
+      return KanjiData.getBitsLength(this.data.length);
+    };
+    KanjiData.prototype.write = function(bitBuffer) {
+      let i2;
+      for (i2 = 0; i2 < this.data.length; i2++) {
+        let value = Utils.toSJIS(this.data[i2]);
+        if (value >= 33088 && value <= 40956) {
+          value -= 33088;
+        } else if (value >= 57408 && value <= 60351) {
+          value -= 49472;
+        } else {
+          throw new Error(
+            "Invalid SJIS character: " + this.data[i2] + "\nMake sure your charset is UTF-8"
+          );
+        }
+        value = (value >>> 8 & 255) * 192 + (value & 255);
+        bitBuffer.put(value, 13);
+      }
+    };
+    module.exports = KanjiData;
+  }
+});
+
+// node_modules/dijkstrajs/dijkstra.js
+var require_dijkstra = __commonJS({
+  "node_modules/dijkstrajs/dijkstra.js"(exports, module) {
+    "use strict";
+    var dijkstra = {
+      single_source_shortest_paths: function(graph, s, d) {
+        var predecessors = {};
+        var costs = {};
+        costs[s] = 0;
+        var open = dijkstra.PriorityQueue.make();
+        open.push(s, 0);
+        var closest, u, v, cost_of_s_to_u, adjacent_nodes, cost_of_e, cost_of_s_to_u_plus_cost_of_e, cost_of_s_to_v, first_visit;
+        while (!open.empty()) {
+          closest = open.pop();
+          u = closest.value;
+          cost_of_s_to_u = closest.cost;
+          adjacent_nodes = graph[u] || {};
+          for (v in adjacent_nodes) {
+            if (adjacent_nodes.hasOwnProperty(v)) {
+              cost_of_e = adjacent_nodes[v];
+              cost_of_s_to_u_plus_cost_of_e = cost_of_s_to_u + cost_of_e;
+              cost_of_s_to_v = costs[v];
+              first_visit = typeof costs[v] === "undefined";
+              if (first_visit || cost_of_s_to_v > cost_of_s_to_u_plus_cost_of_e) {
+                costs[v] = cost_of_s_to_u_plus_cost_of_e;
+                open.push(v, cost_of_s_to_u_plus_cost_of_e);
+                predecessors[v] = u;
+              }
+            }
+          }
+        }
+        if (typeof d !== "undefined" && typeof costs[d] === "undefined") {
+          var msg = ["Could not find a path from ", s, " to ", d, "."].join("");
+          throw new Error(msg);
+        }
+        return predecessors;
+      },
+      extract_shortest_path_from_predecessor_list: function(predecessors, d) {
+        var nodes = [];
+        var u = d;
+        var predecessor;
+        while (u) {
+          nodes.push(u);
+          predecessor = predecessors[u];
+          u = predecessors[u];
+        }
+        nodes.reverse();
+        return nodes;
+      },
+      find_path: function(graph, s, d) {
+        var predecessors = dijkstra.single_source_shortest_paths(graph, s, d);
+        return dijkstra.extract_shortest_path_from_predecessor_list(
+          predecessors,
+          d
+        );
+      },
+      /**
+       * A very naive priority queue implementation.
+       */
+      PriorityQueue: {
+        make: function(opts) {
+          var T = dijkstra.PriorityQueue, t = {}, key;
+          opts = opts || {};
+          for (key in T) {
+            if (T.hasOwnProperty(key)) {
+              t[key] = T[key];
+            }
+          }
+          t.queue = [];
+          t.sorter = opts.sorter || T.default_sorter;
+          return t;
+        },
+        default_sorter: function(a, b) {
+          return a.cost - b.cost;
+        },
+        /**
+         * Add a new item to the queue and ensure the highest priority element
+         * is at the front of the queue.
+         */
+        push: function(value, cost) {
+          var item = { value, cost };
+          this.queue.push(item);
+          this.queue.sort(this.sorter);
+        },
+        /**
+         * Return the highest priority element in the queue.
+         */
+        pop: function() {
+          return this.queue.shift();
+        },
+        empty: function() {
+          return this.queue.length === 0;
+        }
+      }
+    };
+    if (typeof module !== "undefined") {
+      module.exports = dijkstra;
+    }
+  }
+});
+
+// node_modules/qrcode/lib/core/segments.js
+var require_segments = __commonJS({
+  "node_modules/qrcode/lib/core/segments.js"(exports) {
+    var Mode = require_mode();
+    var NumericData = require_numeric_data();
+    var AlphanumericData = require_alphanumeric_data();
+    var ByteData = require_byte_data();
+    var KanjiData = require_kanji_data();
+    var Regex = require_regex();
+    var Utils = require_utils();
+    var dijkstra = require_dijkstra();
+    function getStringByteLength(str) {
+      return unescape(encodeURIComponent(str)).length;
+    }
+    function getSegments(regex, mode, str) {
+      const segments = [];
+      let result;
+      while ((result = regex.exec(str)) !== null) {
+        segments.push({
+          data: result[0],
+          index: result.index,
+          mode,
+          length: result[0].length
+        });
+      }
+      return segments;
+    }
+    function getSegmentsFromString(dataStr) {
+      const numSegs = getSegments(Regex.NUMERIC, Mode.NUMERIC, dataStr);
+      const alphaNumSegs = getSegments(Regex.ALPHANUMERIC, Mode.ALPHANUMERIC, dataStr);
+      let byteSegs;
+      let kanjiSegs;
+      if (Utils.isKanjiModeEnabled()) {
+        byteSegs = getSegments(Regex.BYTE, Mode.BYTE, dataStr);
+        kanjiSegs = getSegments(Regex.KANJI, Mode.KANJI, dataStr);
+      } else {
+        byteSegs = getSegments(Regex.BYTE_KANJI, Mode.BYTE, dataStr);
+        kanjiSegs = [];
+      }
+      const segs = numSegs.concat(alphaNumSegs, byteSegs, kanjiSegs);
+      return segs.sort(function(s1, s2) {
+        return s1.index - s2.index;
+      }).map(function(obj) {
+        return {
+          data: obj.data,
+          mode: obj.mode,
+          length: obj.length
+        };
+      });
+    }
+    function getSegmentBitsLength(length, mode) {
+      switch (mode) {
+        case Mode.NUMERIC:
+          return NumericData.getBitsLength(length);
+        case Mode.ALPHANUMERIC:
+          return AlphanumericData.getBitsLength(length);
+        case Mode.KANJI:
+          return KanjiData.getBitsLength(length);
+        case Mode.BYTE:
+          return ByteData.getBitsLength(length);
+      }
+    }
+    function mergeSegments(segs) {
+      return segs.reduce(function(acc, curr) {
+        const prevSeg = acc.length - 1 >= 0 ? acc[acc.length - 1] : null;
+        if (prevSeg && prevSeg.mode === curr.mode) {
+          acc[acc.length - 1].data += curr.data;
+          return acc;
+        }
+        acc.push(curr);
+        return acc;
+      }, []);
+    }
+    function buildNodes(segs) {
+      const nodes = [];
+      for (let i2 = 0; i2 < segs.length; i2++) {
+        const seg = segs[i2];
+        switch (seg.mode) {
+          case Mode.NUMERIC:
+            nodes.push([
+              seg,
+              { data: seg.data, mode: Mode.ALPHANUMERIC, length: seg.length },
+              { data: seg.data, mode: Mode.BYTE, length: seg.length }
+            ]);
+            break;
+          case Mode.ALPHANUMERIC:
+            nodes.push([
+              seg,
+              { data: seg.data, mode: Mode.BYTE, length: seg.length }
+            ]);
+            break;
+          case Mode.KANJI:
+            nodes.push([
+              seg,
+              { data: seg.data, mode: Mode.BYTE, length: getStringByteLength(seg.data) }
+            ]);
+            break;
+          case Mode.BYTE:
+            nodes.push([
+              { data: seg.data, mode: Mode.BYTE, length: getStringByteLength(seg.data) }
+            ]);
+        }
+      }
+      return nodes;
+    }
+    function buildGraph(nodes, version) {
+      const table = {};
+      const graph = { start: {} };
+      let prevNodeIds = ["start"];
+      for (let i2 = 0; i2 < nodes.length; i2++) {
+        const nodeGroup = nodes[i2];
+        const currentNodeIds = [];
+        for (let j = 0; j < nodeGroup.length; j++) {
+          const node = nodeGroup[j];
+          const key = "" + i2 + j;
+          currentNodeIds.push(key);
+          table[key] = { node, lastCount: 0 };
+          graph[key] = {};
+          for (let n = 0; n < prevNodeIds.length; n++) {
+            const prevNodeId = prevNodeIds[n];
+            if (table[prevNodeId] && table[prevNodeId].node.mode === node.mode) {
+              graph[prevNodeId][key] = getSegmentBitsLength(table[prevNodeId].lastCount + node.length, node.mode) - getSegmentBitsLength(table[prevNodeId].lastCount, node.mode);
+              table[prevNodeId].lastCount += node.length;
+            } else {
+              if (table[prevNodeId]) table[prevNodeId].lastCount = node.length;
+              graph[prevNodeId][key] = getSegmentBitsLength(node.length, node.mode) + 4 + Mode.getCharCountIndicator(node.mode, version);
+            }
+          }
+        }
+        prevNodeIds = currentNodeIds;
+      }
+      for (let n = 0; n < prevNodeIds.length; n++) {
+        graph[prevNodeIds[n]].end = 0;
+      }
+      return { map: graph, table };
+    }
+    function buildSingleSegment(data, modesHint) {
+      let mode;
+      const bestMode = Mode.getBestModeForData(data);
+      mode = Mode.from(modesHint, bestMode);
+      if (mode !== Mode.BYTE && mode.bit < bestMode.bit) {
+        throw new Error('"' + data + '" cannot be encoded with mode ' + Mode.toString(mode) + ".\n Suggested mode is: " + Mode.toString(bestMode));
+      }
+      if (mode === Mode.KANJI && !Utils.isKanjiModeEnabled()) {
+        mode = Mode.BYTE;
+      }
+      switch (mode) {
+        case Mode.NUMERIC:
+          return new NumericData(data);
+        case Mode.ALPHANUMERIC:
+          return new AlphanumericData(data);
+        case Mode.KANJI:
+          return new KanjiData(data);
+        case Mode.BYTE:
+          return new ByteData(data);
+      }
+    }
+    exports.fromArray = function fromArray(array) {
+      return array.reduce(function(acc, seg) {
+        if (typeof seg === "string") {
+          acc.push(buildSingleSegment(seg, null));
+        } else if (seg.data) {
+          acc.push(buildSingleSegment(seg.data, seg.mode));
+        }
+        return acc;
+      }, []);
+    };
+    exports.fromString = function fromString(data, version) {
+      const segs = getSegmentsFromString(data, Utils.isKanjiModeEnabled());
+      const nodes = buildNodes(segs);
+      const graph = buildGraph(nodes, version);
+      const path = dijkstra.find_path(graph.map, "start", "end");
+      const optimizedSegs = [];
+      for (let i2 = 1; i2 < path.length - 1; i2++) {
+        optimizedSegs.push(graph.table[path[i2]].node);
+      }
+      return exports.fromArray(mergeSegments(optimizedSegs));
+    };
+    exports.rawSplit = function rawSplit(data) {
+      return exports.fromArray(
+        getSegmentsFromString(data, Utils.isKanjiModeEnabled())
+      );
+    };
+  }
+});
+
+// node_modules/qrcode/lib/core/qrcode.js
+var require_qrcode = __commonJS({
+  "node_modules/qrcode/lib/core/qrcode.js"(exports) {
+    var Utils = require_utils();
+    var ECLevel = require_error_correction_level();
+    var BitBuffer = require_bit_buffer();
+    var BitMatrix = require_bit_matrix();
+    var AlignmentPattern = require_alignment_pattern();
+    var FinderPattern = require_finder_pattern();
+    var MaskPattern = require_mask_pattern();
+    var ECCode = require_error_correction_code();
+    var ReedSolomonEncoder = require_reed_solomon_encoder();
+    var Version = require_version();
+    var FormatInfo = require_format_info();
+    var Mode = require_mode();
+    var Segments = require_segments();
+    function setupFinderPattern(matrix, version) {
+      const size = matrix.size;
+      const pos = FinderPattern.getPositions(version);
+      for (let i2 = 0; i2 < pos.length; i2++) {
+        const row = pos[i2][0];
+        const col = pos[i2][1];
+        for (let r = -1; r <= 7; r++) {
+          if (row + r <= -1 || size <= row + r) continue;
+          for (let c = -1; c <= 7; c++) {
+            if (col + c <= -1 || size <= col + c) continue;
+            if (r >= 0 && r <= 6 && (c === 0 || c === 6) || c >= 0 && c <= 6 && (r === 0 || r === 6) || r >= 2 && r <= 4 && c >= 2 && c <= 4) {
+              matrix.set(row + r, col + c, true, true);
+            } else {
+              matrix.set(row + r, col + c, false, true);
+            }
+          }
+        }
+      }
+    }
+    function setupTimingPattern(matrix) {
+      const size = matrix.size;
+      for (let r = 8; r < size - 8; r++) {
+        const value = r % 2 === 0;
+        matrix.set(r, 6, value, true);
+        matrix.set(6, r, value, true);
+      }
+    }
+    function setupAlignmentPattern(matrix, version) {
+      const pos = AlignmentPattern.getPositions(version);
+      for (let i2 = 0; i2 < pos.length; i2++) {
+        const row = pos[i2][0];
+        const col = pos[i2][1];
+        for (let r = -2; r <= 2; r++) {
+          for (let c = -2; c <= 2; c++) {
+            if (r === -2 || r === 2 || c === -2 || c === 2 || r === 0 && c === 0) {
+              matrix.set(row + r, col + c, true, true);
+            } else {
+              matrix.set(row + r, col + c, false, true);
+            }
+          }
+        }
+      }
+    }
+    function setupVersionInfo(matrix, version) {
+      const size = matrix.size;
+      const bits = Version.getEncodedBits(version);
+      let row, col, mod2;
+      for (let i2 = 0; i2 < 18; i2++) {
+        row = Math.floor(i2 / 3);
+        col = i2 % 3 + size - 8 - 3;
+        mod2 = (bits >> i2 & 1) === 1;
+        matrix.set(row, col, mod2, true);
+        matrix.set(col, row, mod2, true);
+      }
+    }
+    function setupFormatInfo(matrix, errorCorrectionLevel, maskPattern) {
+      const size = matrix.size;
+      const bits = FormatInfo.getEncodedBits(errorCorrectionLevel, maskPattern);
+      let i2, mod2;
+      for (i2 = 0; i2 < 15; i2++) {
+        mod2 = (bits >> i2 & 1) === 1;
+        if (i2 < 6) {
+          matrix.set(i2, 8, mod2, true);
+        } else if (i2 < 8) {
+          matrix.set(i2 + 1, 8, mod2, true);
+        } else {
+          matrix.set(size - 15 + i2, 8, mod2, true);
+        }
+        if (i2 < 8) {
+          matrix.set(8, size - i2 - 1, mod2, true);
+        } else if (i2 < 9) {
+          matrix.set(8, 15 - i2 - 1 + 1, mod2, true);
+        } else {
+          matrix.set(8, 15 - i2 - 1, mod2, true);
+        }
+      }
+      matrix.set(size - 8, 8, 1, true);
+    }
+    function setupData(matrix, data) {
+      const size = matrix.size;
+      let inc = -1;
+      let row = size - 1;
+      let bitIndex = 7;
+      let byteIndex = 0;
+      for (let col = size - 1; col > 0; col -= 2) {
+        if (col === 6) col--;
+        while (true) {
+          for (let c = 0; c < 2; c++) {
+            if (!matrix.isReserved(row, col - c)) {
+              let dark = false;
+              if (byteIndex < data.length) {
+                dark = (data[byteIndex] >>> bitIndex & 1) === 1;
+              }
+              matrix.set(row, col - c, dark);
+              bitIndex--;
+              if (bitIndex === -1) {
+                byteIndex++;
+                bitIndex = 7;
+              }
+            }
+          }
+          row += inc;
+          if (row < 0 || size <= row) {
+            row -= inc;
+            inc = -inc;
+            break;
+          }
+        }
+      }
+    }
+    function createData(version, errorCorrectionLevel, segments) {
+      const buffer = new BitBuffer();
+      segments.forEach(function(data) {
+        buffer.put(data.mode.bit, 4);
+        buffer.put(data.getLength(), Mode.getCharCountIndicator(data.mode, version));
+        data.write(buffer);
+      });
+      const totalCodewords = Utils.getSymbolTotalCodewords(version);
+      const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+      const dataTotalCodewordsBits = (totalCodewords - ecTotalCodewords) * 8;
+      if (buffer.getLengthInBits() + 4 <= dataTotalCodewordsBits) {
+        buffer.put(0, 4);
+      }
+      while (buffer.getLengthInBits() % 8 !== 0) {
+        buffer.putBit(0);
+      }
+      const remainingByte = (dataTotalCodewordsBits - buffer.getLengthInBits()) / 8;
+      for (let i2 = 0; i2 < remainingByte; i2++) {
+        buffer.put(i2 % 2 ? 17 : 236, 8);
+      }
+      return createCodewords(buffer, version, errorCorrectionLevel);
+    }
+    function createCodewords(bitBuffer, version, errorCorrectionLevel) {
+      const totalCodewords = Utils.getSymbolTotalCodewords(version);
+      const ecTotalCodewords = ECCode.getTotalCodewordsCount(version, errorCorrectionLevel);
+      const dataTotalCodewords = totalCodewords - ecTotalCodewords;
+      const ecTotalBlocks = ECCode.getBlocksCount(version, errorCorrectionLevel);
+      const blocksInGroup2 = totalCodewords % ecTotalBlocks;
+      const blocksInGroup1 = ecTotalBlocks - blocksInGroup2;
+      const totalCodewordsInGroup1 = Math.floor(totalCodewords / ecTotalBlocks);
+      const dataCodewordsInGroup1 = Math.floor(dataTotalCodewords / ecTotalBlocks);
+      const dataCodewordsInGroup2 = dataCodewordsInGroup1 + 1;
+      const ecCount = totalCodewordsInGroup1 - dataCodewordsInGroup1;
+      const rs = new ReedSolomonEncoder(ecCount);
+      let offset = 0;
+      const dcData = new Array(ecTotalBlocks);
+      const ecData = new Array(ecTotalBlocks);
+      let maxDataSize = 0;
+      const buffer = new Uint8Array(bitBuffer.buffer);
+      for (let b = 0; b < ecTotalBlocks; b++) {
+        const dataSize = b < blocksInGroup1 ? dataCodewordsInGroup1 : dataCodewordsInGroup2;
+        dcData[b] = buffer.slice(offset, offset + dataSize);
+        ecData[b] = rs.encode(dcData[b]);
+        offset += dataSize;
+        maxDataSize = Math.max(maxDataSize, dataSize);
+      }
+      const data = new Uint8Array(totalCodewords);
+      let index = 0;
+      let i2, r;
+      for (i2 = 0; i2 < maxDataSize; i2++) {
+        for (r = 0; r < ecTotalBlocks; r++) {
+          if (i2 < dcData[r].length) {
+            data[index++] = dcData[r][i2];
+          }
+        }
+      }
+      for (i2 = 0; i2 < ecCount; i2++) {
+        for (r = 0; r < ecTotalBlocks; r++) {
+          data[index++] = ecData[r][i2];
+        }
+      }
+      return data;
+    }
+    function createSymbol(data, version, errorCorrectionLevel, maskPattern) {
+      let segments;
+      if (Array.isArray(data)) {
+        segments = Segments.fromArray(data);
+      } else if (typeof data === "string") {
+        let estimatedVersion = version;
+        if (!estimatedVersion) {
+          const rawSegments = Segments.rawSplit(data);
+          estimatedVersion = Version.getBestVersionForData(rawSegments, errorCorrectionLevel);
+        }
+        segments = Segments.fromString(data, estimatedVersion || 40);
+      } else {
+        throw new Error("Invalid data");
+      }
+      const bestVersion = Version.getBestVersionForData(segments, errorCorrectionLevel);
+      if (!bestVersion) {
+        throw new Error("The amount of data is too big to be stored in a QR Code");
+      }
+      if (!version) {
+        version = bestVersion;
+      } else if (version < bestVersion) {
+        throw new Error(
+          "\nThe chosen QR Code version cannot contain this amount of data.\nMinimum version required to store current data is: " + bestVersion + ".\n"
+        );
+      }
+      const dataBits = createData(version, errorCorrectionLevel, segments);
+      const moduleCount = Utils.getSymbolSize(version);
+      const modules = new BitMatrix(moduleCount);
+      setupFinderPattern(modules, version);
+      setupTimingPattern(modules);
+      setupAlignmentPattern(modules, version);
+      setupFormatInfo(modules, errorCorrectionLevel, 0);
+      if (version >= 7) {
+        setupVersionInfo(modules, version);
+      }
+      setupData(modules, dataBits);
+      if (isNaN(maskPattern)) {
+        maskPattern = MaskPattern.getBestMask(
+          modules,
+          setupFormatInfo.bind(null, modules, errorCorrectionLevel)
+        );
+      }
+      MaskPattern.applyMask(maskPattern, modules);
+      setupFormatInfo(modules, errorCorrectionLevel, maskPattern);
+      return {
+        modules,
+        version,
+        errorCorrectionLevel,
+        maskPattern,
+        segments
+      };
+    }
+    exports.create = function create(data, options) {
+      if (typeof data === "undefined" || data === "") {
+        throw new Error("No input text");
+      }
+      let errorCorrectionLevel = ECLevel.M;
+      let version;
+      let mask;
+      if (typeof options !== "undefined") {
+        errorCorrectionLevel = ECLevel.from(options.errorCorrectionLevel, ECLevel.M);
+        version = Version.from(options.version);
+        mask = MaskPattern.from(options.maskPattern);
+        if (options.toSJISFunc) {
+          Utils.setToSJISFunction(options.toSJISFunc);
+        }
+      }
+      return createSymbol(data, version, errorCorrectionLevel, mask);
+    };
+  }
+});
+
+// node_modules/qrcode/lib/renderer/utils.js
+var require_utils2 = __commonJS({
+  "node_modules/qrcode/lib/renderer/utils.js"(exports) {
+    function hex2rgba(hex3) {
+      if (typeof hex3 === "number") {
+        hex3 = hex3.toString();
+      }
+      if (typeof hex3 !== "string") {
+        throw new Error("Color should be defined as hex string");
+      }
+      let hexCode = hex3.slice().replace("#", "").split("");
+      if (hexCode.length < 3 || hexCode.length === 5 || hexCode.length > 8) {
+        throw new Error("Invalid hex color: " + hex3);
+      }
+      if (hexCode.length === 3 || hexCode.length === 4) {
+        hexCode = Array.prototype.concat.apply([], hexCode.map(function(c) {
+          return [c, c];
+        }));
+      }
+      if (hexCode.length === 6) hexCode.push("F", "F");
+      const hexValue = parseInt(hexCode.join(""), 16);
+      return {
+        r: hexValue >> 24 & 255,
+        g: hexValue >> 16 & 255,
+        b: hexValue >> 8 & 255,
+        a: hexValue & 255,
+        hex: "#" + hexCode.slice(0, 6).join("")
+      };
+    }
+    exports.getOptions = function getOptions(options) {
+      if (!options) options = {};
+      if (!options.color) options.color = {};
+      const margin = typeof options.margin === "undefined" || options.margin === null || options.margin < 0 ? 4 : options.margin;
+      const width = options.width && options.width >= 21 ? options.width : void 0;
+      const scale = options.scale || 4;
+      return {
+        width,
+        scale: width ? 4 : scale,
+        margin,
+        color: {
+          dark: hex2rgba(options.color.dark || "#000000ff"),
+          light: hex2rgba(options.color.light || "#ffffffff")
+        },
+        type: options.type,
+        rendererOpts: options.rendererOpts || {}
+      };
+    };
+    exports.getScale = function getScale(qrSize, opts) {
+      return opts.width && opts.width >= qrSize + opts.margin * 2 ? opts.width / (qrSize + opts.margin * 2) : opts.scale;
+    };
+    exports.getImageWidth = function getImageWidth(qrSize, opts) {
+      const scale = exports.getScale(qrSize, opts);
+      return Math.floor((qrSize + opts.margin * 2) * scale);
+    };
+    exports.qrToImageData = function qrToImageData(imgData, qr, opts) {
+      const size = qr.modules.size;
+      const data = qr.modules.data;
+      const scale = exports.getScale(size, opts);
+      const symbolSize = Math.floor((size + opts.margin * 2) * scale);
+      const scaledMargin = opts.margin * scale;
+      const palette = [opts.color.light, opts.color.dark];
+      for (let i2 = 0; i2 < symbolSize; i2++) {
+        for (let j = 0; j < symbolSize; j++) {
+          let posDst = (i2 * symbolSize + j) * 4;
+          let pxColor = opts.color.light;
+          if (i2 >= scaledMargin && j >= scaledMargin && i2 < symbolSize - scaledMargin && j < symbolSize - scaledMargin) {
+            const iSrc = Math.floor((i2 - scaledMargin) / scale);
+            const jSrc = Math.floor((j - scaledMargin) / scale);
+            pxColor = palette[data[iSrc * size + jSrc] ? 1 : 0];
+          }
+          imgData[posDst++] = pxColor.r;
+          imgData[posDst++] = pxColor.g;
+          imgData[posDst++] = pxColor.b;
+          imgData[posDst] = pxColor.a;
+        }
+      }
+    };
+  }
+});
+
+// node_modules/qrcode/lib/renderer/canvas.js
+var require_canvas = __commonJS({
+  "node_modules/qrcode/lib/renderer/canvas.js"(exports) {
+    var Utils = require_utils2();
+    function clearCanvas(ctx, canvas, size) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!canvas.style) canvas.style = {};
+      canvas.height = size;
+      canvas.width = size;
+      canvas.style.height = size + "px";
+      canvas.style.width = size + "px";
+    }
+    function getCanvasElement() {
+      try {
+        return document.createElement("canvas");
+      } catch (e) {
+        throw new Error("You need to specify a canvas element");
+      }
+    }
+    exports.render = function render(qrData, canvas, options) {
+      let opts = options;
+      let canvasEl = canvas;
+      if (typeof opts === "undefined" && (!canvas || !canvas.getContext)) {
+        opts = canvas;
+        canvas = void 0;
+      }
+      if (!canvas) {
+        canvasEl = getCanvasElement();
+      }
+      opts = Utils.getOptions(opts);
+      const size = Utils.getImageWidth(qrData.modules.size, opts);
+      const ctx = canvasEl.getContext("2d");
+      const image = ctx.createImageData(size, size);
+      Utils.qrToImageData(image.data, qrData, opts);
+      clearCanvas(ctx, canvasEl, size);
+      ctx.putImageData(image, 0, 0);
+      return canvasEl;
+    };
+    exports.renderToDataURL = function renderToDataURL(qrData, canvas, options) {
+      let opts = options;
+      if (typeof opts === "undefined" && (!canvas || !canvas.getContext)) {
+        opts = canvas;
+        canvas = void 0;
+      }
+      if (!opts) opts = {};
+      const canvasEl = exports.render(qrData, canvas, opts);
+      const type = opts.type || "image/png";
+      const rendererOpts = opts.rendererOpts || {};
+      return canvasEl.toDataURL(type, rendererOpts.quality);
+    };
+  }
+});
+
+// node_modules/qrcode/lib/renderer/svg-tag.js
+var require_svg_tag = __commonJS({
+  "node_modules/qrcode/lib/renderer/svg-tag.js"(exports) {
+    var Utils = require_utils2();
+    function getColorAttrib(color, attrib) {
+      const alpha = color.a / 255;
+      const str = attrib + '="' + color.hex + '"';
+      return alpha < 1 ? str + " " + attrib + '-opacity="' + alpha.toFixed(2).slice(1) + '"' : str;
+    }
+    function svgCmd(cmd, x, y) {
+      let str = cmd + x;
+      if (typeof y !== "undefined") str += " " + y;
+      return str;
+    }
+    function qrToPath(data, size, margin) {
+      let path = "";
+      let moveBy = 0;
+      let newRow = false;
+      let lineLength = 0;
+      for (let i2 = 0; i2 < data.length; i2++) {
+        const col = Math.floor(i2 % size);
+        const row = Math.floor(i2 / size);
+        if (!col && !newRow) newRow = true;
+        if (data[i2]) {
+          lineLength++;
+          if (!(i2 > 0 && col > 0 && data[i2 - 1])) {
+            path += newRow ? svgCmd("M", col + margin, 0.5 + row + margin) : svgCmd("m", moveBy, 0);
+            moveBy = 0;
+            newRow = false;
+          }
+          if (!(col + 1 < size && data[i2 + 1])) {
+            path += svgCmd("h", lineLength);
+            lineLength = 0;
+          }
+        } else {
+          moveBy++;
+        }
+      }
+      return path;
+    }
+    exports.render = function render(qrData, options, cb) {
+      const opts = Utils.getOptions(options);
+      const size = qrData.modules.size;
+      const data = qrData.modules.data;
+      const qrcodesize = size + opts.margin * 2;
+      const bg = !opts.color.light.a ? "" : "<path " + getColorAttrib(opts.color.light, "fill") + ' d="M0 0h' + qrcodesize + "v" + qrcodesize + 'H0z"/>';
+      const path = "<path " + getColorAttrib(opts.color.dark, "stroke") + ' d="' + qrToPath(data, size, opts.margin) + '"/>';
+      const viewBox = 'viewBox="0 0 ' + qrcodesize + " " + qrcodesize + '"';
+      const width = !opts.width ? "" : 'width="' + opts.width + '" height="' + opts.width + '" ';
+      const svgTag = '<svg xmlns="http://www.w3.org/2000/svg" ' + width + viewBox + ' shape-rendering="crispEdges">' + bg + path + "</svg>\n";
+      if (typeof cb === "function") {
+        cb(null, svgTag);
+      }
+      return svgTag;
+    };
+  }
+});
+
+// node_modules/qrcode/lib/browser.js
+var require_browser = __commonJS({
+  "node_modules/qrcode/lib/browser.js"(exports) {
+    var canPromise = require_can_promise();
+    var QRCode2 = require_qrcode();
+    var CanvasRenderer = require_canvas();
+    var SvgRenderer = require_svg_tag();
+    function renderCanvas(renderFunc, canvas, text, opts, cb) {
+      const args = [].slice.call(arguments, 1);
+      const argsNum = args.length;
+      const isLastArgCb = typeof args[argsNum - 1] === "function";
+      if (!isLastArgCb && !canPromise()) {
+        throw new Error("Callback required as last argument");
+      }
+      if (isLastArgCb) {
+        if (argsNum < 2) {
+          throw new Error("Too few arguments provided");
+        }
+        if (argsNum === 2) {
+          cb = text;
+          text = canvas;
+          canvas = opts = void 0;
+        } else if (argsNum === 3) {
+          if (canvas.getContext && typeof cb === "undefined") {
+            cb = opts;
+            opts = void 0;
+          } else {
+            cb = opts;
+            opts = text;
+            text = canvas;
+            canvas = void 0;
+          }
+        }
+      } else {
+        if (argsNum < 1) {
+          throw new Error("Too few arguments provided");
+        }
+        if (argsNum === 1) {
+          text = canvas;
+          canvas = opts = void 0;
+        } else if (argsNum === 2 && !canvas.getContext) {
+          opts = text;
+          text = canvas;
+          canvas = void 0;
+        }
+        return new Promise(function(resolve, reject) {
+          try {
+            const data = QRCode2.create(text, opts);
+            resolve(renderFunc(data, canvas, opts));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+      try {
+        const data = QRCode2.create(text, opts);
+        cb(null, renderFunc(data, canvas, opts));
+      } catch (e) {
+        cb(e);
+      }
+    }
+    exports.create = QRCode2.create;
+    exports.toCanvas = renderCanvas.bind(null, CanvasRenderer.render);
+    exports.toDataURL = renderCanvas.bind(null, CanvasRenderer.renderToDataURL);
+    exports.toString = renderCanvas.bind(null, function(data, _, opts) {
+      return SvgRenderer.render(data, opts);
+    });
+  }
+});
 
 // node_modules/@noble/curves/node_modules/@noble/hashes/esm/_assert.js
 function number(n) {
@@ -373,31 +2475,31 @@ var hexes = /* @__PURE__ */ Array.from({ length: 256 }, (_, i2) => i2.toString(1
 function bytesToHex(bytes3) {
   if (!u8a2(bytes3))
     throw new Error("Uint8Array expected");
-  let hex = "";
+  let hex3 = "";
   for (let i2 = 0; i2 < bytes3.length; i2++) {
-    hex += hexes[bytes3[i2]];
+    hex3 += hexes[bytes3[i2]];
   }
-  return hex;
+  return hex3;
 }
 function numberToHexUnpadded(num) {
-  const hex = num.toString(16);
-  return hex.length & 1 ? `0${hex}` : hex;
+  const hex3 = num.toString(16);
+  return hex3.length & 1 ? `0${hex3}` : hex3;
 }
-function hexToNumber(hex) {
-  if (typeof hex !== "string")
-    throw new Error("hex string expected, got " + typeof hex);
-  return BigInt(hex === "" ? "0" : `0x${hex}`);
+function hexToNumber(hex3) {
+  if (typeof hex3 !== "string")
+    throw new Error("hex string expected, got " + typeof hex3);
+  return BigInt(hex3 === "" ? "0" : `0x${hex3}`);
 }
-function hexToBytes(hex) {
-  if (typeof hex !== "string")
-    throw new Error("hex string expected, got " + typeof hex);
-  const len = hex.length;
+function hexToBytes(hex3) {
+  if (typeof hex3 !== "string")
+    throw new Error("hex string expected, got " + typeof hex3);
+  const len = hex3.length;
   if (len % 2)
     throw new Error("padded hex string expected, got unpadded hex of length " + len);
   const array = new Uint8Array(len / 2);
   for (let i2 = 0; i2 < array.length; i2++) {
     const j = i2 * 2;
-    const hexByte = hex.slice(j, j + 2);
+    const hexByte = hex3.slice(j, j + 2);
     const byte = Number.parseInt(hexByte, 16);
     if (Number.isNaN(byte) || byte < 0)
       throw new Error("Invalid byte sequence");
@@ -422,16 +2524,16 @@ function numberToBytesLE(n, len) {
 function numberToVarBytesBE(n) {
   return hexToBytes(numberToHexUnpadded(n));
 }
-function ensureBytes(title, hex, expectedLength) {
+function ensureBytes(title, hex3, expectedLength) {
   let res;
-  if (typeof hex === "string") {
+  if (typeof hex3 === "string") {
     try {
-      res = hexToBytes(hex);
+      res = hexToBytes(hex3);
     } catch (e) {
-      throw new Error(`${title} must be valid hex string, got "${hex}". Cause: ${e}`);
+      throw new Error(`${title} must be valid hex string, got "${hex3}". Cause: ${e}`);
     }
-  } else if (u8a2(hex)) {
-    res = Uint8Array.from(hex);
+  } else if (u8a2(hex3)) {
+    res = Uint8Array.from(hex3);
   } else {
     throw new Error(`${title} must be hex string or Uint8Array`);
   }
@@ -607,8 +2709,8 @@ function invert(number3, modulo) {
     const n = y - v * q;
     b = a, a = r, x = u, y = v, u = m, v = n;
   }
-  const gcd = b;
-  if (gcd !== _1n2)
+  const gcd2 = b;
+  if (gcd2 !== _1n2)
     throw new Error("invert: does not exist");
   return mod(x, modulo);
 }
@@ -989,9 +3091,9 @@ var DER = {
       throw new E("Invalid signature integer: unnecessary leading zero");
     return { d: b2n(res), l: data.subarray(len + 2) };
   },
-  toSig(hex) {
+  toSig(hex3) {
     const { Err: E } = DER;
-    const data = typeof hex === "string" ? h2b(hex) : hex;
+    const data = typeof hex3 === "string" ? h2b(hex3) : hex3;
     if (!(data instanceof Uint8Array))
       throw new Error("ui8a expected");
     let l = data.length;
@@ -1008,8 +3110,8 @@ var DER = {
   hexFromSig(sig) {
     const slice = (s2) => Number.parseInt(s2[0], 16) & 8 ? "00" + s2 : s2;
     const h = (num) => {
-      const hex = num.toString(16);
-      return hex.length & 1 ? `0${hex}` : hex;
+      const hex3 = num.toString(16);
+      return hex3.length & 1 ? `0${hex3}` : hex3;
     };
     const s = slice(h(sig.s));
     const r = slice(h(sig.r));
@@ -1123,8 +3225,8 @@ function weierstrassPoints(opts) {
      * Converts hash string or Uint8Array to Point.
      * @param hex short/long ECDSA hex
      */
-    static fromHex(hex) {
-      const P = Point2.fromAffine(fromBytes(ensureBytes("pointHex", hex)));
+    static fromHex(hex3) {
+      const P = Point2.fromAffine(fromBytes(ensureBytes("pointHex", hex3)));
       P.assertValidity();
       return P;
     }
@@ -1494,15 +3596,15 @@ function weierstrass(curveDef) {
       this.assertValidity();
     }
     // pair (bytes of r, bytes of s)
-    static fromCompact(hex) {
+    static fromCompact(hex3) {
       const l = CURVE.nByteLength;
-      hex = ensureBytes("compactSignature", hex, l * 2);
-      return new Signature(slcNum(hex, 0, l), slcNum(hex, l, 2 * l));
+      hex3 = ensureBytes("compactSignature", hex3, l * 2);
+      return new Signature(slcNum(hex3, 0, l), slcNum(hex3, l, 2 * l));
     }
     // DER encoded ECDSA signature
     // https://bitcoin.stackexchange.com/questions/57644/what-are-the-parts-of-a-bitcoin-transaction-input-script
-    static fromDER(hex) {
-      const { r, s } = DER.toSig(ensureBytes("DER", hex));
+    static fromDER(hex3) {
+      const { r, s } = DER.toSig(ensureBytes("DER", hex3));
       return new Signature(r, s);
     }
     assertValidity() {
@@ -1993,11 +4095,11 @@ var hexes2 = Array.from({ length: 256 }, (v, i2) => i2.toString(16).padStart(2, 
 function bytesToHex2(bytes3) {
   if (!u8a3(bytes3))
     throw new Error("Uint8Array expected");
-  let hex = "";
+  let hex3 = "";
   for (let i2 = 0; i2 < bytes3.length; i2++) {
-    hex += hexes2[bytes3[i2]];
+    hex3 += hexes2[bytes3[i2]];
   }
-  return hex;
+  return hex3;
 }
 function utf8ToBytes3(str) {
   if (typeof str !== "string")
@@ -2010,6 +4112,17 @@ function toBytes2(data) {
   if (!u8a3(data))
     throw new Error(`expected Uint8Array, got ${typeof data}`);
   return data;
+}
+function concatBytes3(...arrays) {
+  const r = new Uint8Array(arrays.reduce((sum, a) => sum + a.length, 0));
+  let pad = 0;
+  arrays.forEach((a) => {
+    if (!u8a3(a))
+      throw new Error("Uint8Array expected");
+    r.set(a, pad);
+    pad += a.length;
+  });
+  return r;
 }
 var Hash2 = class {
   // Safe version that clones internal state
@@ -2642,8 +4755,902 @@ var Relay = class {
   }
 };
 
-// src/app.js
+// node_modules/@scure/base/lib/esm/index.js
+function assertNumber(n) {
+  if (!Number.isSafeInteger(n))
+    throw new Error(`Wrong integer: ${n}`);
+}
+function chain(...args) {
+  const wrap = (a, b) => (c) => a(b(c));
+  const encode = Array.from(args).reverse().reduce((acc, i2) => acc ? wrap(acc, i2.encode) : i2.encode, void 0);
+  const decode = args.reduce((acc, i2) => acc ? wrap(acc, i2.decode) : i2.decode, void 0);
+  return { encode, decode };
+}
+function alphabet(alphabet2) {
+  return {
+    encode: (digits) => {
+      if (!Array.isArray(digits) || digits.length && typeof digits[0] !== "number")
+        throw new Error("alphabet.encode input should be an array of numbers");
+      return digits.map((i2) => {
+        assertNumber(i2);
+        if (i2 < 0 || i2 >= alphabet2.length)
+          throw new Error(`Digit index outside alphabet: ${i2} (alphabet: ${alphabet2.length})`);
+        return alphabet2[i2];
+      });
+    },
+    decode: (input) => {
+      if (!Array.isArray(input) || input.length && typeof input[0] !== "string")
+        throw new Error("alphabet.decode input should be array of strings");
+      return input.map((letter) => {
+        if (typeof letter !== "string")
+          throw new Error(`alphabet.decode: not string element=${letter}`);
+        const index = alphabet2.indexOf(letter);
+        if (index === -1)
+          throw new Error(`Unknown letter: "${letter}". Allowed: ${alphabet2}`);
+        return index;
+      });
+    }
+  };
+}
+function join(separator = "") {
+  if (typeof separator !== "string")
+    throw new Error("join separator should be string");
+  return {
+    encode: (from) => {
+      if (!Array.isArray(from) || from.length && typeof from[0] !== "string")
+        throw new Error("join.encode input should be array of strings");
+      for (let i2 of from)
+        if (typeof i2 !== "string")
+          throw new Error(`join.encode: non-string input=${i2}`);
+      return from.join(separator);
+    },
+    decode: (to) => {
+      if (typeof to !== "string")
+        throw new Error("join.decode input should be string");
+      return to.split(separator);
+    }
+  };
+}
+function padding(bits, chr = "=") {
+  assertNumber(bits);
+  if (typeof chr !== "string")
+    throw new Error("padding chr should be string");
+  return {
+    encode(data) {
+      if (!Array.isArray(data) || data.length && typeof data[0] !== "string")
+        throw new Error("padding.encode input should be array of strings");
+      for (let i2 of data)
+        if (typeof i2 !== "string")
+          throw new Error(`padding.encode: non-string input=${i2}`);
+      while (data.length * bits % 8)
+        data.push(chr);
+      return data;
+    },
+    decode(input) {
+      if (!Array.isArray(input) || input.length && typeof input[0] !== "string")
+        throw new Error("padding.encode input should be array of strings");
+      for (let i2 of input)
+        if (typeof i2 !== "string")
+          throw new Error(`padding.decode: non-string input=${i2}`);
+      let end = input.length;
+      if (end * bits % 8)
+        throw new Error("Invalid padding: string should have whole number of bytes");
+      for (; end > 0 && input[end - 1] === chr; end--) {
+        if (!((end - 1) * bits % 8))
+          throw new Error("Invalid padding: string has too much padding");
+      }
+      return input.slice(0, end);
+    }
+  };
+}
+function normalize(fn) {
+  if (typeof fn !== "function")
+    throw new Error("normalize fn should be function");
+  return { encode: (from) => from, decode: (to) => fn(to) };
+}
+function convertRadix(data, from, to) {
+  if (from < 2)
+    throw new Error(`convertRadix: wrong from=${from}, base cannot be less than 2`);
+  if (to < 2)
+    throw new Error(`convertRadix: wrong to=${to}, base cannot be less than 2`);
+  if (!Array.isArray(data))
+    throw new Error("convertRadix: data should be array");
+  if (!data.length)
+    return [];
+  let pos = 0;
+  const res = [];
+  const digits = Array.from(data);
+  digits.forEach((d) => {
+    assertNumber(d);
+    if (d < 0 || d >= from)
+      throw new Error(`Wrong integer: ${d}`);
+  });
+  while (true) {
+    let carry = 0;
+    let done = true;
+    for (let i2 = pos; i2 < digits.length; i2++) {
+      const digit = digits[i2];
+      const digitBase = from * carry + digit;
+      if (!Number.isSafeInteger(digitBase) || from * carry / from !== carry || digitBase - digit !== from * carry) {
+        throw new Error("convertRadix: carry overflow");
+      }
+      carry = digitBase % to;
+      digits[i2] = Math.floor(digitBase / to);
+      if (!Number.isSafeInteger(digits[i2]) || digits[i2] * to + carry !== digitBase)
+        throw new Error("convertRadix: carry overflow");
+      if (!done)
+        continue;
+      else if (!digits[i2])
+        pos = i2;
+      else
+        done = false;
+    }
+    res.push(carry);
+    if (done)
+      break;
+  }
+  for (let i2 = 0; i2 < data.length - 1 && data[i2] === 0; i2++)
+    res.push(0);
+  return res.reverse();
+}
+var gcd = (a, b) => !b ? a : gcd(b, a % b);
+var radix2carry = (from, to) => from + (to - gcd(from, to));
+function convertRadix2(data, from, to, padding2) {
+  if (!Array.isArray(data))
+    throw new Error("convertRadix2: data should be array");
+  if (from <= 0 || from > 32)
+    throw new Error(`convertRadix2: wrong from=${from}`);
+  if (to <= 0 || to > 32)
+    throw new Error(`convertRadix2: wrong to=${to}`);
+  if (radix2carry(from, to) > 32) {
+    throw new Error(`convertRadix2: carry overflow from=${from} to=${to} carryBits=${radix2carry(from, to)}`);
+  }
+  let carry = 0;
+  let pos = 0;
+  const mask = 2 ** to - 1;
+  const res = [];
+  for (const n of data) {
+    assertNumber(n);
+    if (n >= 2 ** from)
+      throw new Error(`convertRadix2: invalid data word=${n} from=${from}`);
+    carry = carry << from | n;
+    if (pos + from > 32)
+      throw new Error(`convertRadix2: carry overflow pos=${pos} from=${from}`);
+    pos += from;
+    for (; pos >= to; pos -= to)
+      res.push((carry >> pos - to & mask) >>> 0);
+    carry &= 2 ** pos - 1;
+  }
+  carry = carry << to - pos & mask;
+  if (!padding2 && pos >= from)
+    throw new Error("Excess padding");
+  if (!padding2 && carry)
+    throw new Error(`Non-zero padding: ${carry}`);
+  if (padding2 && pos > 0)
+    res.push(carry >>> 0);
+  return res;
+}
+function radix(num) {
+  assertNumber(num);
+  return {
+    encode: (bytes3) => {
+      if (!(bytes3 instanceof Uint8Array))
+        throw new Error("radix.encode input should be Uint8Array");
+      return convertRadix(Array.from(bytes3), 2 ** 8, num);
+    },
+    decode: (digits) => {
+      if (!Array.isArray(digits) || digits.length && typeof digits[0] !== "number")
+        throw new Error("radix.decode input should be array of strings");
+      return Uint8Array.from(convertRadix(digits, num, 2 ** 8));
+    }
+  };
+}
+function radix2(bits, revPadding = false) {
+  assertNumber(bits);
+  if (bits <= 0 || bits > 32)
+    throw new Error("radix2: bits should be in (0..32]");
+  if (radix2carry(8, bits) > 32 || radix2carry(bits, 8) > 32)
+    throw new Error("radix2: carry overflow");
+  return {
+    encode: (bytes3) => {
+      if (!(bytes3 instanceof Uint8Array))
+        throw new Error("radix2.encode input should be Uint8Array");
+      return convertRadix2(Array.from(bytes3), 8, bits, !revPadding);
+    },
+    decode: (digits) => {
+      if (!Array.isArray(digits) || digits.length && typeof digits[0] !== "number")
+        throw new Error("radix2.decode input should be array of strings");
+      return Uint8Array.from(convertRadix2(digits, bits, 8, revPadding));
+    }
+  };
+}
+function unsafeWrapper(fn) {
+  if (typeof fn !== "function")
+    throw new Error("unsafeWrapper fn should be function");
+  return function(...args) {
+    try {
+      return fn.apply(null, args);
+    } catch (e) {
+    }
+  };
+}
+var base16 = chain(radix2(4), alphabet("0123456789ABCDEF"), join(""));
+var base32 = chain(radix2(5), alphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"), padding(5), join(""));
+var base32hex = chain(radix2(5), alphabet("0123456789ABCDEFGHIJKLMNOPQRSTUV"), padding(5), join(""));
+var base32crockford = chain(radix2(5), alphabet("0123456789ABCDEFGHJKMNPQRSTVWXYZ"), join(""), normalize((s) => s.toUpperCase().replace(/O/g, "0").replace(/[IL]/g, "1")));
+var base64 = chain(radix2(6), alphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"), padding(6), join(""));
+var base64url = chain(radix2(6), alphabet("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"), padding(6), join(""));
+var genBase58 = (abc) => chain(radix(58), alphabet(abc), join(""));
+var base58 = genBase58("123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz");
+var base58flickr = genBase58("123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ");
+var base58xrp = genBase58("rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz");
+var XMR_BLOCK_LEN = [0, 2, 3, 5, 6, 7, 9, 10, 11];
+var base58xmr = {
+  encode(data) {
+    let res = "";
+    for (let i2 = 0; i2 < data.length; i2 += 8) {
+      const block = data.subarray(i2, i2 + 8);
+      res += base58.encode(block).padStart(XMR_BLOCK_LEN[block.length], "1");
+    }
+    return res;
+  },
+  decode(str) {
+    let res = [];
+    for (let i2 = 0; i2 < str.length; i2 += 11) {
+      const slice = str.slice(i2, i2 + 11);
+      const blockLen = XMR_BLOCK_LEN.indexOf(slice.length);
+      const block = base58.decode(slice);
+      for (let j = 0; j < block.length - blockLen; j++) {
+        if (block[j] !== 0)
+          throw new Error("base58xmr: wrong padding");
+      }
+      res = res.concat(Array.from(block.slice(block.length - blockLen)));
+    }
+    return Uint8Array.from(res);
+  }
+};
+var BECH_ALPHABET = chain(alphabet("qpzry9x8gf2tvdw0s3jn54khce6mua7l"), join(""));
+var POLYMOD_GENERATORS = [996825010, 642813549, 513874426, 1027748829, 705979059];
+function bech32Polymod(pre) {
+  const b = pre >> 25;
+  let chk = (pre & 33554431) << 5;
+  for (let i2 = 0; i2 < POLYMOD_GENERATORS.length; i2++) {
+    if ((b >> i2 & 1) === 1)
+      chk ^= POLYMOD_GENERATORS[i2];
+  }
+  return chk;
+}
+function bechChecksum(prefix, words, encodingConst = 1) {
+  const len = prefix.length;
+  let chk = 1;
+  for (let i2 = 0; i2 < len; i2++) {
+    const c = prefix.charCodeAt(i2);
+    if (c < 33 || c > 126)
+      throw new Error(`Invalid prefix (${prefix})`);
+    chk = bech32Polymod(chk) ^ c >> 5;
+  }
+  chk = bech32Polymod(chk);
+  for (let i2 = 0; i2 < len; i2++)
+    chk = bech32Polymod(chk) ^ prefix.charCodeAt(i2) & 31;
+  for (let v of words)
+    chk = bech32Polymod(chk) ^ v;
+  for (let i2 = 0; i2 < 6; i2++)
+    chk = bech32Polymod(chk);
+  chk ^= encodingConst;
+  return BECH_ALPHABET.encode(convertRadix2([chk % 2 ** 30], 30, 5, false));
+}
+function genBech32(encoding) {
+  const ENCODING_CONST = encoding === "bech32" ? 1 : 734539939;
+  const _words = radix2(5);
+  const fromWords = _words.decode;
+  const toWords = _words.encode;
+  const fromWordsUnsafe = unsafeWrapper(fromWords);
+  function encode(prefix, words, limit2 = 90) {
+    if (typeof prefix !== "string")
+      throw new Error(`bech32.encode prefix should be string, not ${typeof prefix}`);
+    if (!Array.isArray(words) || words.length && typeof words[0] !== "number")
+      throw new Error(`bech32.encode words should be array of numbers, not ${typeof words}`);
+    const actualLength = prefix.length + 7 + words.length;
+    if (limit2 !== false && actualLength > limit2)
+      throw new TypeError(`Length ${actualLength} exceeds limit ${limit2}`);
+    prefix = prefix.toLowerCase();
+    return `${prefix}1${BECH_ALPHABET.encode(words)}${bechChecksum(prefix, words, ENCODING_CONST)}`;
+  }
+  function decode(str, limit2 = 90) {
+    if (typeof str !== "string")
+      throw new Error(`bech32.decode input should be string, not ${typeof str}`);
+    if (str.length < 8 || limit2 !== false && str.length > limit2)
+      throw new TypeError(`Wrong string length: ${str.length} (${str}). Expected (8..${limit2})`);
+    const lowered = str.toLowerCase();
+    if (str !== lowered && str !== str.toUpperCase())
+      throw new Error(`String must be lowercase or uppercase`);
+    str = lowered;
+    const sepIndex = str.lastIndexOf("1");
+    if (sepIndex === 0 || sepIndex === -1)
+      throw new Error(`Letter "1" must be present between prefix and data only`);
+    const prefix = str.slice(0, sepIndex);
+    const _words2 = str.slice(sepIndex + 1);
+    if (_words2.length < 6)
+      throw new Error("Data must be at least 6 characters long");
+    const words = BECH_ALPHABET.decode(_words2).slice(0, -6);
+    const sum = bechChecksum(prefix, words, ENCODING_CONST);
+    if (!_words2.endsWith(sum))
+      throw new Error(`Invalid checksum in ${str}: expected "${sum}"`);
+    return { prefix, words };
+  }
+  const decodeUnsafe = unsafeWrapper(decode);
+  function decodeToBytes(str) {
+    const { prefix, words } = decode(str, false);
+    return { prefix, words, bytes: fromWords(words) };
+  }
+  return { encode, decode, decodeToBytes, decodeUnsafe, fromWords, fromWordsUnsafe, toWords };
+}
+var bech32 = genBech32("bech32");
+var bech32m = genBech32("bech32m");
+var utf8 = {
+  encode: (data) => new TextDecoder().decode(data),
+  decode: (str) => new TextEncoder().encode(str)
+};
+var hex = chain(radix2(4), alphabet("0123456789abcdef"), join(""), normalize((s) => {
+  if (typeof s !== "string" || s.length % 2)
+    throw new TypeError(`hex.decode: expected string, got ${typeof s} with length ${s.length}`);
+  return s.toLowerCase();
+}));
+var CODERS = {
+  utf8,
+  hex,
+  base16,
+  base32,
+  base64,
+  base64url,
+  base58,
+  base58xmr
+};
+var coderTypeError = `Invalid encoding type. Available types: ${Object.keys(CODERS).join(", ")}`;
+
+// src/invoice.js
+var integer = (words) => words.reduce((n, w) => n * 32n + BigInt(w), 0n);
+function padded(words) {
+  let bits = 0, value = 0;
+  const bytes3 = [];
+  for (const w of words) {
+    value = value << 5 | w;
+    bits += 5;
+    while (bits >= 8) {
+      bits -= 8;
+      bytes3.push(value >>> bits & 255);
+    }
+  }
+  if (bits) bytes3.push(value << 8 - bits & 255);
+  return Uint8Array.from(bytes3);
+}
+var hashText = (text) => bytesToHex2(sha2562(utf8ToBytes3(text)));
+function readInvoice(invoice) {
+  if (typeof invoice !== "string" || invoice.length > 8192)
+    throw Error("Invalid invoice");
+  const { prefix, words } = bech32.decode(invoice, 8192);
+  const m = /^lnbc([1-9][0-9]*)([munp]?)$/.exec(prefix);
+  if (!m || words.length < 111) throw Error("Mainnet amount invoice required");
+  let msats = BigInt(m[1]);
+  if (m[2] === "p") {
+    if (msats % 10n) throw Error("Fractional millisatoshi");
+    msats /= 10n;
+  } else
+    msats *= { m: 100000000n, u: 100000n, n: 100n, "": 100000000000n }[m[2]];
+  if (msats <= 0n || msats % 1000n || msats > BigInt(Number.MAX_SAFE_INTEGER))
+    throw Error("Whole-satoshi amount out of range");
+  const unsigned = words.slice(0, -104), signature = bech32.fromWords(words.slice(-104));
+  const fields = /* @__PURE__ */ new Map();
+  for (let i2 = 7; i2 < unsigned.length; ) {
+    if (i2 + 3 > unsigned.length) throw Error("Truncated invoice");
+    const type = unsigned[i2], len = unsigned[i2 + 1] * 32 + unsigned[i2 + 2];
+    i2 += 3;
+    if (i2 + len > unsigned.length) throw Error("Truncated field");
+    const data = unsigned.slice(i2, i2 + len);
+    i2 += len;
+    if ([1, 16, 23, 19, 6, 24, 5, 13, 27].includes(type)) {
+      if (fields.has(type)) throw Error("Duplicate invoice field");
+      fields.set(type, data);
+    }
+  }
+  for (const [type, length] of [
+    [1, 52],
+    [16, 52],
+    [23, 52],
+    [19, 53]
+  ]) {
+    const f = fields.get(type);
+    if (type !== 19 && !f || f && f.length !== length)
+      throw Error("Missing or malformed invoice field");
+    if (f) {
+      const decoded = bech32.fromWords(f);
+      if (decoded.length !== (type === 19 ? 33 : 32))
+        throw Error("Malformed invoice field");
+    }
+  }
+  if (fields.has(13)) throw Error("Hashed description required");
+  for (const type of [6, 24, 5])
+    if (fields.has(type) && (!fields.get(type).length || fields.get(type)[0] === 0))
+      throw Error("Nonminimal integer");
+  const features = integer(fields.get(5) ?? []);
+  for (let bit = 0; bit < 5120; bit += 2)
+    if (features & 1n << BigInt(bit) && ![8, 14, 16, 48].includes(bit))
+      throw Error("Unsupported required feature");
+  const has = (bit) => (features & 3n << BigInt(bit)) !== 0n;
+  if (has(16) && !has(14) || has(48) && !fields.has(27))
+    throw Error("Feature dependency missing");
+  const hash3 = sha2562(concatBytes3(utf8ToBytes3(prefix), padded(unsigned)));
+  if (signature.length !== 65 || signature[64] > 3)
+    throw Error("Invalid invoice signature");
+  const sig = secp256k1.Signature.fromCompact(signature.slice(0, 64));
+  const n = fields.get(19);
+  const publicKey = n ? bech32.fromWords(n) : sig.addRecoveryBit(signature[64]).recoverPublicKey(hash3).toRawBytes(true);
+  if (!secp256k1.verify(sig, hash3, publicKey, { lowS: !!n }))
+    throw Error("Invalid invoice signature");
+  const timestamp = integer(unsigned.slice(0, 7)), expiry = fields.has(6) ? integer(fields.get(6)) : 3600n;
+  if (timestamp + expiry > BigInt(Number.MAX_SAFE_INTEGER) || expiry === 0n)
+    throw Error("Invalid expiry");
+  return {
+    msats,
+    paymentHash: bytesToHex2(bech32.fromWords(fields.get(1))),
+    descriptionHash: bytesToHex2(bech32.fromWords(fields.get(23))),
+    timestamp: Number(timestamp),
+    expiresAt: Number(timestamp + expiry)
+  };
+}
+
+// src/zaps.js
+var COMMUNITY_ADDRESS = "coffeeloverc2c2cd@pay.trailscoffee.com";
+var PAY_ENDPOINT = "https://pay.trailscoffee.com/.well-known/lnurlp/coffeeloverc2c2cd";
+var PAY_CALLBACK = "https://pay.trailscoffee.com/lnurlp/coffeeloverc2c2cd/invoice";
+var COMMUNITY_LNURL = bech32.encode(
+  "lnurl",
+  bech32.toWords(new TextEncoder().encode(PAY_ENDPOINT)),
+  2e3
+);
+var hex2 = (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value);
+async function boundedJSON(url, fetcher = fetch) {
+  const response = await fetcher(url, {
+    redirect: "error",
+    credentials: "omit",
+    cache: "no-store",
+    signal: AbortSignal.timeout(1e4)
+  });
+  if (!response.ok)
+    throw Error(
+      `Zap service returned HTTP ${response.status}. No payment was sent.`
+    );
+  const reader = response.body?.getReader();
+  if (!reader) throw Error("Zap service response unavailable");
+  let size = 0;
+  const parts = [];
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 131072)
+        throw Error("Zap service response exceeded safety limit");
+      parts.push(value);
+    }
+  } finally {
+    await reader.cancel().catch(() => {
+    });
+  }
+  const bytes3 = new Uint8Array(size);
+  let offset = 0;
+  for (const p of parts) {
+    bytes3.set(p, offset);
+    offset += p.length;
+  }
+  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes3));
+}
+async function resolveCommunity(relay, fetcher = fetch, now = Math.floor(Date.now() / 1e3)) {
+  const directory = await boundedJSON(
+    "https://trailscoffee.com/.well-known/nostr.json",
+    fetcher
+  );
+  if (!directory?.names || Array.isArray(directory.names))
+    throw Error("Community recipient directory unavailable");
+  const entries = Object.entries(directory.names);
+  if (entries.length > 128 || entries.some(([n, p]) => !/^[a-z0-9_.-]+$/.test(n) || !hex2(p)))
+    throw Error("Community recipient directory exceeds safety contract");
+  const authors = [...new Set(entries.map(([, p]) => p))];
+  const profiles = [];
+  for (let i2 = 0; i2 < authors.length; i2 += 16)
+    profiles.push(
+      ...await relay.query(
+        authors.slice(i2, i2 + 16).map((pubkey) => ({ kinds: [0], authors: [pubkey], limit: 1 }))
+      )
+    );
+  const matches2 = [];
+  for (const pubkey of authors) {
+    const profile2 = latestProfile(profiles, pubkey, now);
+    if (!profile2) continue;
+    let metadata;
+    try {
+      metadata = JSON.parse(profile2.content);
+    } catch {
+      continue;
+    }
+    if (metadata?.lud16 !== COMMUNITY_ADDRESS || typeof metadata.nip05 !== "string" || !/^[a-z0-9_.-]+@trailscoffee\.com$/.test(metadata.nip05))
+      continue;
+    const name = metadata.nip05.split("@")[0];
+    if (directory.names[name] !== pubkey) continue;
+    matches2.push(profile2);
+  }
+  if (matches2.length !== 1)
+    throw Error(
+      "Community recipient is not yet verifiable: a current signed profile must bind the exact Lightning address to its directory identity."
+    );
+  const profile = matches2[0];
+  const deletions = await relay.query([
+    { kinds: [5], authors: [profile.pubkey], limit: 500 }
+  ]);
+  if (deletions.length >= 500 || deletions.some(
+    (d) => validEvent(d, now) && d.pubkey === profile.pubkey && d.tags.some(
+      (t) => t[0] === "e" && t[1] === profile.id || t[0] === "a" && t[1] === `0:${profile.pubkey}:` && d.created_at >= profile.created_at
+    )
+  ))
+    throw Error("Community recipient profile deletion check failed");
+  const endpoint = await boundedJSON(PAY_ENDPOINT, fetcher);
+  if (endpoint?.tag !== "payRequest" || endpoint.allowsNostr !== true || !hex2(endpoint.nostrPubkey) || endpoint.callback !== PAY_CALLBACK || !Number.isSafeInteger(endpoint.minSendable) || !Number.isSafeInteger(endpoint.maxSendable) || endpoint.minSendable < 1 || endpoint.maxSendable < endpoint.minSendable || endpoint.maxSendable > Number.MAX_SAFE_INTEGER)
+    throw Error(
+      "Community endpoint does not support the approved zap contract"
+    );
+  try {
+    secp256k1.ProjectivePoint.fromHex("02" + endpoint.nostrPubkey);
+  } catch {
+    throw Error("Invalid receipt issuer key");
+  }
+  return {
+    recipient: profile.pubkey,
+    profileId: profile.id,
+    issuer: endpoint.nostrPubkey,
+    min: endpoint.minSendable,
+    max: endpoint.maxSendable,
+    checkedAt: now
+  };
+}
+function one(event, name, required = true) {
+  const tags = event.tags.filter((t) => t[0] === name);
+  if (tags.length === 0 && !required) return void 0;
+  if (tags.length !== 1 || tags[0].length !== 2)
+    throw Error("Ambiguous zap tag");
+  return tags[0][1];
+}
+function zapAmount(sats, authority) {
+  if (typeof sats !== "string" || !/^[1-9][0-9]{0,8}$/.test(sats))
+    throw Error("Enter a whole-satoshi amount.");
+  const msats = BigInt(sats) * 1000n;
+  if (!authority || msats < BigInt(authority.min) || msats > BigInt(authority.max))
+    throw Error("Amount is outside the receiving service range.");
+  return msats;
+}
+async function createZap(post2, authority, sats, fetcher = fetch, now = Math.floor(Date.now() / 1e3)) {
+  if (!validEvent(post2, now) || ![1, 20].includes(post2.kind) || !authority || !hex2(authority.recipient) || !hex2(authority.issuer) || authority.checkedAt > now || now - authority.checkedAt > 60)
+    throw Error("Refresh to recheck the post and community recipient.");
+  const msats = zapAmount(sats, authority);
+  const key = generateSecretKey();
+  let request;
+  try {
+    request = finalizeEvent(
+      {
+        kind: 9734,
+        created_at: now,
+        content: "",
+        tags: [
+          ["p", authority.recipient],
+          ["e", post2.id],
+          ["k", String(post2.kind)],
+          ["amount", String(msats)],
+          ["lnurl", COMMUNITY_LNURL],
+          ["relays", RELAY]
+        ]
+      },
+      key
+    );
+  } finally {
+    key.fill(0);
+  }
+  const serialized = JSON.stringify({
+    id: request.id,
+    pubkey: request.pubkey,
+    created_at: request.created_at,
+    kind: request.kind,
+    tags: request.tags,
+    content: request.content,
+    sig: request.sig
+  }), url = new URL(PAY_CALLBACK);
+  url.searchParams.set("amount", String(msats));
+  url.searchParams.set("nostr", serialized);
+  url.searchParams.set("lnurl", COMMUNITY_LNURL);
+  const result = await boundedJSON(url.href, fetcher);
+  if (typeof result?.pr !== "string")
+    throw Error(
+      "The community service did not return a zap invoice. No payment was sent."
+    );
+  const parsed = readInvoice(result.pr);
+  if (parsed.msats !== msats || parsed.descriptionHash !== hashText(serialized) || parsed.timestamp < now - 60 || parsed.timestamp > now + 60 || parsed.expiresAt <= now)
+    throw Error("Zap invoice binding failed. No payment was sent.");
+  return {
+    invoice: result.pr,
+    uri: "lightning:" + result.pr,
+    postId: post2.id,
+    request,
+    serialized,
+    msats,
+    ...parsed
+  };
+}
+function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() / 1e3)) {
+  const targets = new Map(posts.map((e) => [e.id, e])), payments = /* @__PURE__ */ new Map(), totals2 = /* @__PURE__ */ new Map();
+  if (!authority) return totals2;
+  for (const receipt of receipts) {
+    try {
+      if (receipt.kind !== 9735 || receipt.pubkey !== authority.issuer || !validEvent(receipt, now))
+        continue;
+      const postId = one(receipt, "e"), post2 = targets.get(postId);
+      if (!post2 || one(receipt, "p") !== authority.recipient || receipt.tags.some((t) => t[0] === "a"))
+        continue;
+      const description = one(receipt, "description"), request = JSON.parse(description), parsed = readInvoice(one(receipt, "bolt11"));
+      if (request.kind !== 9734 || !validEvent(request, now) || one(request, "e") !== postId || one(request, "p") !== authority.recipient || one(request, "lnurl") !== COMMUNITY_LNURL || request.tags.some((t) => t[0] === "a"))
+        continue;
+      const amount = one(request, "amount", false), kind = one(request, "k", false), sender = one(receipt, "P", false);
+      if (amount !== void 0 && (!/^[1-9][0-9]*$/.test(amount) || BigInt(amount) !== parsed.msats) || kind !== void 0 && kind !== String(post2.kind) || sender !== void 0 && sender !== request.pubkey)
+        continue;
+      if (parsed.descriptionHash !== hashText(description) || request.created_at > receipt.created_at || parsed.timestamp > receipt.created_at || parsed.expiresAt < receipt.created_at)
+        continue;
+      const payment = {
+        postId,
+        msats: parsed.msats,
+        descriptionHash: parsed.descriptionHash
+      };
+      const previous = payments.get(parsed.paymentHash);
+      if (previous && (previous.postId !== postId || previous.msats !== payment.msats || previous.descriptionHash !== payment.descriptionHash))
+        payments.set(parsed.paymentHash, { conflict: true });
+      else if (!previous) payments.set(parsed.paymentHash, payment);
+    } catch {
+    }
+  }
+  for (const p of payments.values())
+    if (!p.conflict)
+      totals2.set(p.postId, (totals2.get(p.postId) ?? 0n) + p.msats);
+  return totals2;
+}
+function sortPosts(posts, totals2, mode = "newest") {
+  return [...posts].sort((a, b) => {
+    const aa = totals2.get(a.id) ?? 0n, bb = totals2.get(b.id) ?? 0n;
+    return (mode === "top" && aa !== bb ? aa > bb ? -1 : 1 : 0) || b.created_at - a.created_at || a.id.localeCompare(b.id);
+  });
+}
+
+// src/zap-ui.js
+var import_qrcode = __toESM(require_browser(), 1);
 var $ = (id) => document.getElementById(id);
+function setupZaps({ getPost, getState, recheck }) {
+  const dialog = $("zap-dialog"), attempts = /* @__PURE__ */ new Map();
+  let selected, opener, epoch = 0, expiryTimer;
+  const message = (text) => {
+    $("zap-message").textContent = text;
+  };
+  function clearInvoice() {
+    clearTimeout(expiryTimer);
+    $("zap-invoice").hidden = true;
+    $("zap-wallet").removeAttribute("href");
+    $("zap-invoice-text").value = "";
+    const c = $("zap-qr");
+    c.getContext("2d").clearRect(0, 0, c.width, c.height);
+  }
+  async function showInvoice(result, token) {
+    if (!dialog.open || token !== epoch || !getPost(result.postId)) return;
+    clearInvoice();
+    if (result.expiresAt <= Math.floor(Date.now() / 1e3)) {
+      message(
+        "This invoice has expired. Check your wallet before reloading to create another."
+      );
+      return;
+    }
+    await import_qrcode.default.toCanvas($("zap-qr"), result.uri, {
+      width: 600,
+      margin: 4,
+      errorCorrectionLevel: "M"
+    });
+    if (!dialog.open || token !== epoch || !getPost(result.postId)) {
+      clearInvoice();
+      return;
+    }
+    $("zap-wallet").href = result.uri;
+    $("zap-invoice-text").value = result.uri;
+    $("zap-expiry").textContent = `${result.msats / 1000n} sats to the community group. Expires ${new Date(result.expiresAt * 1e3).toLocaleTimeString()}.`;
+    $("zap-invoice").hidden = false;
+    message(
+      "Invoice checked against this exact post, community recipient and amount. No payment has been sent by this site."
+    );
+    expiryTimer = setTimeout(
+      () => {
+        clearInvoice();
+        message(
+          "This invoice has expired. Check your wallet before reloading to create another."
+        );
+      },
+      Math.min(2147483647, result.expiresAt * 1e3 - Date.now())
+    );
+  }
+  function invalidate() {
+    epoch++;
+    selected = void 0;
+    clearInvoice();
+    if (dialog.open) dialog.close();
+  }
+  dialog.addEventListener("close", () => {
+    epoch++;
+    selected = void 0;
+    clearInvoice();
+    if (opener?.isConnected) opener.focus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (!dialog.open || event.key !== "Tab") return;
+    const controls = [
+      ...dialog.querySelectorAll(
+        'button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),[tabindex="0"]'
+      )
+    ].filter((node) => node.getClientRects().length > 0);
+    const first = controls[0], last = controls.at(-1), active = document.activeElement;
+    if (!first) {
+      event.preventDefault();
+      dialog.focus();
+      return;
+    }
+    if (!dialog.contains(active) || event.shiftKey && active === first || !event.shiftKey && active === last) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+    }
+  });
+  $("close-zap").addEventListener("click", () => dialog.close());
+  $("create-zap").addEventListener("click", async () => {
+    const id = selected, token = epoch;
+    if (!getPost(id) || attempts.has(id)) return;
+    const sats = $("zap-amount").value;
+    try {
+      zapAmount(sats, getState().authority);
+    } catch (error) {
+      message(error.message);
+      return;
+    }
+    if (attempts.size >= 32) {
+      message(
+        "This session reached the invoice safety limit. No invoice was requested."
+      );
+      return;
+    }
+    attempts.set(id, { pending: true });
+    $("create-zap").disabled = true;
+    $("zap-amount").disabled = true;
+    message(
+      "Rechecking this post and the community recipient before requesting one invoice\u2026"
+    );
+    try {
+      const authority = await recheck(id);
+      if (token !== epoch || !dialog.open || !getPost(id))
+        throw Error("Post check changed. No new invoice was requested.");
+      const result = await createZap(getPost(id), authority, sats);
+      attempts.set(id, {
+        result,
+        recipient: authority.recipient,
+        issuer: authority.issuer
+      });
+      await showInvoice(result, token);
+    } catch (error) {
+      attempts.set(id, { error: true });
+      if (dialog.open && token === epoch)
+        message(
+          error.message || "Zap invoice unavailable. No payment was sent. Check your wallet before trying elsewhere."
+        );
+    }
+  });
+  $("copy-zap").addEventListener("click", async () => {
+    const text = $("zap-invoice-text").value;
+    if (!text || $("zap-invoice").hidden) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      message("Lightning invoice copied. This does not send payment.");
+    } catch {
+      $("zap-invoice-text").focus();
+      $("zap-invoice-text").select();
+      message(
+        "Clipboard unavailable. Select and copy the exact invoice above."
+      );
+    }
+  });
+  return {
+    invalidate,
+    open(id, button) {
+      const post2 = getPost(id);
+      if (!post2) return;
+      selected = id;
+      opener = button;
+      const token = ++epoch;
+      clearInvoice();
+      $("zap-post").textContent = post2.content.slice(0, 220) || "Photo community update";
+      $("zap-post-id").textContent = id;
+      $("zap-amount").value = "21";
+      const state = getState(), attempt = attempts.get(id);
+      $("create-zap").disabled = !state.authority || !!attempt;
+      $("zap-amount").disabled = !state.authority || !!attempt;
+      message(
+        state.authority ? "Choose an amount, then request one post-bound invoice. The request uses a fresh anonymous signing key in memory only." : state.error || "Community zap verification is unavailable. No invoice can be created."
+      );
+      dialog.showModal();
+      if (attempt?.result && attempt.recipient === state.authority?.recipient && attempt.issuer === state.authority?.issuer)
+        showInvoice(attempt.result, token).catch(
+          () => message("QR rendering failed. No payment was sent.")
+        );
+      else if (attempt)
+        message(
+          "This post already has an invoice attempt in this session. Check your wallet; reload only when you are ready to start a separate request."
+        );
+    }
+  };
+}
+
+// src/app.js
+var $2 = (id) => document.getElementById(id);
+var currentPosts = /* @__PURE__ */ new Map();
+var currentIdentities = /* @__PURE__ */ new Map();
+var totals = /* @__PURE__ */ new Map();
+var zapState = {
+  authority: null,
+  error: "Community zap verification has not completed."
+};
+var zapUI = setupZaps({
+  getPost: (id) => currentPosts.get(id),
+  getState: () => zapState,
+  recheck: recheckZap
+});
+function renderFeed() {
+  $2("sort-note").hidden = $2("feed-order").value !== "top";
+  $2("feed").replaceChildren(
+    ...sortPosts([...currentPosts.values()], totals, $2("feed-order").value).map(
+      (e) => post(e, currentIdentities.get(e.pubkey))
+    )
+  );
+}
+async function recheckZap(id) {
+  const target = currentPosts.get(id);
+  if (!target || busy)
+    throw Error("The post is no longer available. Refresh to recheck.");
+  const relay = new Relay();
+  try {
+    await relay.open();
+    const profiles = await relay.query([
+      { kinds: [0], authors: [target.pubkey], limit: 1 }
+    ]);
+    const deletions = await relay.query([
+      { kinds: [5], authors: [target.pubkey], limit: 500 }
+    ]);
+    const exact = await relay.query([
+      { ids: [id], kinds: [target.kind], limit: 1 }
+    ]);
+    const profile = latestProfile(profiles, target.pubkey);
+    if (deletions.length >= 500 || !profile || deletions.some(
+      (d) => d.tags.some(
+        (t) => t[0] === "e" && t[1] === profile.id || t[0] === "a" && t[1] === `0:${target.pubkey}:` && d.created_at >= profile.created_at
+      )
+    ) || !visibleEvents([...exact, ...deletions]).some((e) => e.id === id) || !await identify(profile))
+      throw Error(
+        "The post or its author could not be reverified. No invoice was requested."
+      );
+    const authority = await resolveCommunity(relay);
+    if (currentPosts.get(id) !== target || busy)
+      throw Error(
+        "The feed changed during verification. No invoice was requested."
+      );
+    return authority;
+  } finally {
+    relay.close();
+  }
+}
 var el = (name, cls, text) => {
   const n = document.createElement(name);
   if (cls) n.className = cls;
@@ -2792,7 +5799,27 @@ function post(e, identity) {
     el("span", "", "Community update"),
     el("span", "", "Signed on Nostr")
   );
-  article.append(source, provenance(e, identity));
+  const tipping = el("div", "post-zap");
+  const confirmed = totals.get(e.id) ?? 0n;
+  const amount = el(
+    "span",
+    "zap-total",
+    zapState.error ? "0 confirmed here \xB7 zap checks unavailable" : `${confirmed / 1000n} verified sats to community`
+  );
+  amount.title = zapState.error ? "Verification is unavailable, not proof that no payments exist." : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
+  const zap = el("button", "quiet-button", "Zap this post");
+  zap.type = "button";
+  zap.addEventListener("click", () => zapUI.open(e.id, zap));
+  tipping.append(
+    amount,
+    zap,
+    el(
+      "span",
+      "zap-beneficiary",
+      "All zaps go to the community group, not the author."
+    )
+  );
+  article.append(tipping, source, provenance(e, identity));
   return article;
 }
 function eventCard(e, identity, info) {
@@ -2832,8 +5859,8 @@ function eventCard(e, identity, info) {
   return item;
 }
 function status(text, error = false) {
-  $("status").textContent = text;
-  $("status").classList.toggle("error", error);
+  $2("status").textContent = text;
+  $2("status").classList.toggle("error", error);
 }
 async function batches(items, size, fn) {
   const result = [];
@@ -2844,9 +5871,14 @@ async function batches(items, size, fn) {
 async function load(reset = false) {
   if (busy) return;
   busy = true;
-  $("refresh").disabled = true;
-  $("load-more").disabled = true;
-  $("feed").setAttribute("aria-busy", "true");
+  zapUI.invalidate();
+  currentPosts = /* @__PURE__ */ new Map();
+  currentIdentities = /* @__PURE__ */ new Map();
+  totals = /* @__PURE__ */ new Map();
+  zapState = { authority: null, error: "Zap checks unavailable." };
+  $2("refresh").disabled = true;
+  $2("load-more").disabled = true;
+  $2("feed").setAttribute("aria-busy", "true");
   status(
     reset ? "Checking the latest stories and community identities\u2026" : "Checking earlier updates and refreshing identity associations\u2026"
   );
@@ -2939,12 +5971,38 @@ async function load(reset = false) {
       (e) => identities.has(e.pubkey)
     );
     const feed = visible.filter((e) => [1, 20].includes(e.kind));
-    $("feed").replaceChildren(
-      ...feed.map((e) => post(e, identities.get(e.pubkey)))
-    );
-    $("empty").hidden = feed.length > 0;
+    try {
+      const authority = await resolveCommunity(relay), receipts = [];
+      for (let i2 = 0; i2 < feed.length; i2 += 20) {
+        const page2 = await relay.query([
+          {
+            kinds: [9735],
+            authors: [authority.issuer],
+            "#p": [authority.recipient],
+            "#e": feed.slice(i2, i2 + 20).map((e) => e.id),
+            limit: 500
+          }
+        ]);
+        if (page2.length >= 500 || receipts.length + page2.length > 1e3)
+          throw Error(
+            "Receipt history exceeds this reading session\u2019s safety limit."
+          );
+        receipts.push(...page2);
+      }
+      totals = verifiedTotals(receipts, feed, authority);
+      zapState = { authority, error: null };
+    } catch (error) {
+      zapState = {
+        authority: null,
+        error: error.message || "Community zap verification is unavailable."
+      };
+    }
+    currentPosts = new Map(feed.map((e) => [e.id, e]));
+    currentIdentities = identities;
+    renderFeed();
+    $2("empty").hidden = feed.length > 0;
     const events = visible.filter((e) => e.kind >= 3e4).map((e) => ({ e, info: calendarInfo(e) })).filter((x) => x.info).sort((a, b) => a.info.sort - b.info.sort || a.e.id.localeCompare(b.e.id)).slice(0, 4);
-    $("events").replaceChildren(
+    $2("events").replaceChildren(
       ...events.length ? events.map(
         ({ e, info }) => eventCard(e, identities.get(e.pubkey), info)
       ) : [
@@ -2971,13 +6029,21 @@ async function load(reset = false) {
         unavailable ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.` : `Updated ${format(Math.floor(Date.now() / 1e3), { hour: "numeric", minute: "2-digit" })} Pacific. Signed profiles and community identities checked.`,
         unavailable > 0
       );
-    $("connection").textContent = "Relay snapshot loaded";
-    $("connection").dataset.state = "ready";
-    $("page-note").textContent = ended ? "You\u2019ve reached the end of this relay page. Refresh for new updates." : "No endless scroll. Take your time.";
+    $2("connection").textContent = "Relay snapshot loaded";
+    $2("connection").dataset.state = "ready";
+    $2("page-note").textContent = ended ? "You\u2019ve reached the end of this relay page. Refresh for new updates." : "No endless scroll. Take your time.";
   } catch (error) {
-    $("feed").replaceChildren();
-    $("empty").hidden = true;
-    $("events").replaceChildren(
+    zapUI.invalidate();
+    currentPosts = /* @__PURE__ */ new Map();
+    currentIdentities = /* @__PURE__ */ new Map();
+    totals = /* @__PURE__ */ new Map();
+    zapState = {
+      authority: null,
+      error: "Feed checks unavailable. No invoice can be created."
+    };
+    $2("feed").replaceChildren();
+    $2("empty").hidden = true;
+    $2("events").replaceChildren(
       el(
         "p",
         "small muted",
@@ -2988,26 +6054,27 @@ async function load(reset = false) {
       error.message || "Community updates could not be verified. Please retry.",
       true
     );
-    $("connection").textContent = navigator.onLine ? "Relay check unavailable" : "Offline";
-    $("connection").dataset.state = "error";
+    $2("connection").textContent = navigator.onLine ? "Relay check unavailable" : "Offline";
+    $2("connection").dataset.state = "error";
     ended = false;
   } finally {
     relay.close();
     busy = false;
-    $("refresh").disabled = false;
-    $("load-more").disabled = ended;
-    $("feed").setAttribute("aria-busy", "false");
+    $2("refresh").disabled = false;
+    $2("load-more").disabled = ended;
+    $2("feed").setAttribute("aria-busy", "false");
   }
 }
-$("refresh").addEventListener("click", () => load(true));
-$("load-more").addEventListener("click", () => load(false));
+$2("refresh").addEventListener("click", () => load(true));
+$2("feed-order").addEventListener("change", renderFeed);
+$2("load-more").addEventListener("click", () => load(false));
 window.addEventListener("offline", () => {
   status(
     "You\u2019re offline. These are the last checked updates, not a live feed. Refresh when you\u2019re back online.",
     true
   );
-  $("connection").textContent = "Offline \xB7 last snapshot";
-  $("connection").dataset.state = "error";
+  $2("connection").textContent = "Offline \xB7 last snapshot";
+  $2("connection").dataset.state = "error";
 });
 if ("serviceWorker" in navigator)
   navigator.serviceWorker.getRegistrations().then((registrations) => {
@@ -3031,4 +6098,7 @@ load(true);
 @noble/curves/esm/_shortw_utils.js:
 @noble/curves/esm/secp256k1.js:
   (*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) *)
+
+@scure/base/lib/esm/index.js:
+  (*! scure-base - MIT License (c) 2022 Paul Miller (paulmillr.com) *)
 */

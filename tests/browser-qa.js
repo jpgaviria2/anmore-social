@@ -3,6 +3,15 @@ import AxeBuilder from "@axe-core/playwright";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { finalizeEvent } from "nostr-tools/pure";
+import { invoice, keys } from "./zap-fixtures.js";
+import {
+  COMMUNITY_ADDRESS,
+  PAY_ENDPOINT,
+  PAY_CALLBACK,
+  COMMUNITY_LNURL,
+} from "../src/zaps.js";
+import { PNG } from "pngjs";
+import jsQR from "jsqr";
 const dir = new URL("../qa/", import.meta.url);
 await mkdir(dir, { recursive: true });
 const browser = await chromium.launch({
@@ -57,6 +66,60 @@ const calendar = sign({
   content: "Everyone is welcome. Bring a warm layer.",
 });
 let mode = "normal";
+const communityProfile = finalizeEvent(
+  {
+    kind: 0,
+    created_at: now - 10,
+    content: JSON.stringify({
+      nip05: "community@trailscoffee.com",
+      lud16: COMMUNITY_ADDRESS,
+    }),
+    tags: [],
+  },
+  keys.recipient,
+);
+const zapReceipt = (post, sats) => {
+  const request = finalizeEvent(
+    {
+      kind: 9734,
+      created_at: now - 10,
+      content: "",
+      tags: [
+        ["p", communityProfile.pubkey],
+        ["e", post.id],
+        ["amount", String(sats * 1000)],
+        ["lnurl", COMMUNITY_LNURL],
+        ["relays", "wss://relay.anmore.me"],
+      ],
+    },
+    keys.sender,
+  );
+  const description = JSON.stringify(request);
+  return finalizeEvent(
+    {
+      kind: 9735,
+      created_at: now - 1,
+      content: "",
+      tags: [
+        ["p", communityProfile.pubkey],
+        ["e", post.id],
+        ["description", description],
+        [
+          "bolt11",
+          invoice(description, {
+            msats: BigInt(sats) * 1000n,
+            time: now - 5,
+            paymentHash: post.id,
+          }),
+        ],
+      ],
+    },
+    keys.issuer,
+  );
+};
+const receipts = [zapReceipt(posts[2], 21), zapReceipt(posts[0], 7)];
+let callbacks = 0,
+  lastInvoice;
 const deletion = sign({
   kind: 5,
   created_at: now - 1,
@@ -68,6 +131,50 @@ const deletion = sign({
 const requests = [],
   errors = [];
 const context = await browser.newContext();
+await context.route(
+  "https://trailscoffee.com/.well-known/nostr.json",
+  (route) =>
+    route.fulfill({
+      json: {
+        names: {
+          community: communityProfile.pubkey,
+          "any.neighbour-9": profile.pubkey,
+        },
+      },
+    }),
+);
+await context.route(PAY_ENDPOINT, (route) =>
+  route.fulfill({
+    json: {
+      tag: "payRequest",
+      allowsNostr: true,
+      nostrPubkey: receipts[0].pubkey,
+      callback: PAY_CALLBACK,
+      minSendable: 1000,
+      maxSendable: 100000000000,
+    },
+  }),
+);
+await context.route(PAY_CALLBACK + "?*", (route) => {
+  callbacks++;
+  const url = new URL(route.request().url());
+  const description = url.searchParams.get("nostr");
+  const request = JSON.parse(description);
+  assert.equal(
+    request.tags.find((t) => t[0] === "p")[1],
+    communityProfile.pubkey,
+  );
+  assert.equal(request.tags.find((t) => t[0] === "e")[1], posts[2].id);
+  assert.equal(url.searchParams.get("lnurl"), COMMUNITY_LNURL);
+  lastInvoice = invoice(
+    mode === "invoice-mismatch" ? "wrong request" : description,
+    {
+      msats: BigInt(url.searchParams.get("amount")),
+      time: Math.floor(Date.now() / 1000),
+    },
+  );
+  return route.fulfill({ json: { pr: lastInvoice } });
+});
 await context.route(
   "https://trailscoffee.com/.well-known/nostr.json?name=*",
   (route) =>
@@ -107,6 +214,8 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
             profile,
             ...posts,
             calendar,
+            ...(mode === "recipient-missing" ? [] : [communityProfile]),
+            ...receipts,
             ...(mode === "deleted" ? [deletion] : []),
           ];
     const selected = new Map();
@@ -116,6 +225,11 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
           (e) =>
             (!f.kinds || f.kinds.includes(e.kind)) &&
             (!f.authors || f.authors.includes(e.pubkey)) &&
+            (!f.ids || f.ids.includes(e.id)) &&
+            (!f["#e"] ||
+              e.tags.some((t) => t[0] === "e" && f["#e"].includes(t[1]))) &&
+            (!f["#p"] ||
+              e.tags.some((t) => t[0] === "p" && f["#p"].includes(t[1]))) &&
             (!f.until || e.created_at <= f.until) &&
             (!f["#d"] ||
               f["#d"].includes(e.tags.find((t) => t[0] === "d")?.[1])),
@@ -131,7 +245,7 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
 const page = await context.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
 try {
-  await page.goto("http://127.0.0.1:4173");
+  await page.goto(process.env.QA_URL || "http://127.0.0.1:4173");
   await page
     .getByRole("heading", { name: "The neighbourhood, in the moment." })
     .waitFor({ timeout: 5000 });
@@ -158,6 +272,126 @@ try {
       .evaluateAll((els) => els.map((e) => Number(e.dataset.createdAt))),
     posts.slice(0, 12).map((e) => e.created_at),
   );
+  assert.equal(await page.locator("#feed-order").inputValue(), "newest");
+  assert.equal(callbacks, 0, "Reading and sorting must not create invoices");
+  await page.locator("#feed-order").selectOption("top");
+  assert.equal(
+    await page.locator(".post").first().getAttribute("data-event-id"),
+    posts[2].id,
+  );
+  assert.match(
+    await page.locator(".post").first().innerText(),
+    /21 verified sats/,
+  );
+  assert.match(await page.locator("#sort-note").innerText(), /loaded posts/);
+  await page
+    .locator(".post")
+    .first()
+    .getByRole("button", { name: "Zap this post" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await dialog.waitFor();
+  assert.match(await dialog.innerText(), /community group, not the author/i);
+  assert.match(await dialog.innerText(), new RegExp(posts[2].id));
+  await page.locator("#zap-amount").fill("1.5");
+  await page.locator("#create-zap").click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#zap-message")
+      .textContent.includes("whole-satoshi"),
+  );
+  assert.equal(callbacks, 0);
+  assert.equal(
+    await page.locator("#create-zap").isEnabled(),
+    true,
+    "Invalid local input must be editable without a new invoice attempt",
+  );
+  await page.locator("#zap-amount").fill("21");
+  await page.locator("#create-zap").click();
+  await page.locator("#zap-qr").waitFor({ state: "visible" });
+  assert.equal(callbacks, 1);
+  assert.equal(
+    await page.locator("#zap-wallet").getAttribute("href"),
+    "lightning:" + lastInvoice,
+  );
+  for (const width of [320, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.ok(await dialog.evaluate((e) => e.scrollWidth <= e.clientWidth));
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    const image = PNG.sync.read(await page.locator("#zap-qr").screenshot());
+    assert.equal(
+      jsQR(new Uint8ClampedArray(image.data), image.width, image.height)?.data,
+      "lightning:" + lastInvoice,
+      "Independent QR pixel decode",
+    );
+    await page.screenshot({
+      path: new URL(`zap-dialog-${width}.png`, dir).pathname,
+    });
+  }
+  const zapA11y = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+    .analyze();
+  assert.equal(
+    zapA11y.violations.length,
+    0,
+    JSON.stringify(
+      zapA11y.violations.map((v) => ({
+        id: v.id,
+        nodes: v.nodes.map((n) => n.target),
+      })),
+    ),
+  );
+  for (let i = 0; i < 12; i++) {
+    await page.keyboard.press("Tab");
+    assert.equal(
+      await dialog.evaluate((e) => e.contains(document.activeElement)),
+      true,
+      "Native dialog must contain keyboard focus",
+    );
+  }
+  await page.locator("#copy-zap").click();
+  await page.waitForFunction(() =>
+    /copied|copy/i.test(document.querySelector("#zap-message").textContent),
+  );
+  assert.match(await page.locator("#zap-message").innerText(), /copied|copy/i);
+  await page.keyboard.press("Escape");
+  assert.equal(await dialog.isVisible(), false);
+  assert.equal(
+    await page
+      .locator(".post")
+      .first()
+      .getByRole("button", { name: "Zap this post" })
+      .evaluate((e) => e === document.activeElement),
+    true,
+  );
+  await page
+    .locator(".post")
+    .first()
+    .getByRole("button", { name: "Zap this post" })
+    .click();
+  await page.locator("#zap-qr").waitFor({ state: "visible" });
+  assert.equal(
+    callbacks,
+    1,
+    "Reopening must reuse the same invoice, never create another",
+  );
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = async () => {
+      throw Error("denied");
+    };
+  });
+  await page.locator("#copy-zap").click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#zap-message")
+      .textContent.includes("Clipboard unavailable"),
+  );
+  await page.keyboard.press("Escape");
+  await page.locator("#feed-order").selectOption("newest");
   await page.getByRole("button", { name: "Load more updates" }).click();
   await page.waitForTimeout(300);
   assert.equal(await page.locator(".post").count(), 15);
@@ -230,6 +464,68 @@ try {
       () =>
         document.querySelector("#feed").getAttribute("aria-busy") === "false",
     );
+  mode = "recipient-missing";
+  await page.locator("#refresh").click();
+  await settled();
+  await page.locator("#feed-order").selectOption("top");
+  assert.equal(
+    await page.locator(".post").first().getAttribute("data-event-id"),
+    posts[0].id,
+    "No unverified amounts may affect ranking",
+  );
+  assert.match(
+    await page.locator(".zap-total").first().innerText(),
+    /0 confirmed here.*unavailable/,
+  );
+  await page
+    .locator(".post")
+    .first()
+    .getByRole("button", { name: "Zap this post" })
+    .click();
+  assert.equal(await page.locator("#create-zap").isDisabled(), true);
+  assert.equal(await page.locator("#zap-qr").isVisible(), false);
+  assert.match(
+    await page.locator("#zap-message").innerText(),
+    /recipient.*not yet verifiable/i,
+  );
+  assert.equal(callbacks, 1);
+  await page.keyboard.press("Escape");
+  mode = "invoice-mismatch";
+  await page.reload();
+  await settled();
+  await page.locator("#feed-order").selectOption("top");
+  await page
+    .locator(".post")
+    .first()
+    .getByRole("button", { name: "Zap this post" })
+    .click();
+  await page.locator("#create-zap").click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#zap-message")
+      .textContent.includes("binding failed"),
+  );
+  assert.equal(await page.locator("#zap-qr").isVisible(), false);
+  assert.equal(callbacks, 2);
+  assert.equal(await page.locator("#create-zap").isDisabled(), true);
+  await page.keyboard.press("Escape");
+  mode = "normal";
+  await page.reload();
+  await settled();
+  await page
+    .locator(".post")
+    .first()
+    .getByRole("button", { name: "Zap this post" })
+    .click();
+  mode = "deleted";
+  await page.locator("#create-zap").click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector("#zap-message")
+      .textContent.includes("could not be reverified"),
+  );
+  assert.equal(callbacks, 2, "Deleted posts must not reach invoice callback");
+  await page.keyboard.press("Escape");
   mode = "deleted";
   await page.locator("#refresh").click();
   await settled();
@@ -283,6 +579,18 @@ try {
     JSON.stringify(
       {
         fixture: true,
+        postZaps: {
+          syntheticInvoiceCallbacks: callbacks,
+          qrPixelDecodeWidths: [320, 390, 768, 1440],
+          dialogAccessibilityViolations: zapA11y.violations.length,
+          newestDefault: true,
+          explicitLoadedPostAmountSort: true,
+          clipboardDeniedFallback: true,
+          cachedInvoiceReused: true,
+          recipientUnavailableFailsClosed: true,
+          invoiceHashMismatchRejected: true,
+          deletedPostZeroCallbacks: true,
+        },
         geometry,
         requests: requests.length,
         errors,

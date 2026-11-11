@@ -767,6 +767,138 @@ h2 {
     padding: 25px 0;
   }
 }
+.feed-order {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.feed-order select {
+  font: inherit;
+  color: var(--ink);
+  background: white;
+  border: 1px solid #c8d2c6;
+  border-radius: 5px;
+  padding: 8px;
+  min-height: 44px;
+  max-width: 150px;
+}
+.sort-note {
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0 0 15px;
+}
+.post-zap {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 0 26px 16px;
+}
+.zap-total {
+  font-size: 11px;
+  flex: 1;
+  min-width: 120px;
+}
+.zap-beneficiary {
+  flex-basis: 100%;
+  font-size: 10px;
+  color: var(--muted);
+}
+#zap-dialog {
+  width: min(520px, calc(100% - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 22px;
+  color: var(--ink);
+  background: var(--paper);
+}
+#zap-dialog::backdrop {
+  background: rgb(15 35 28 / 55%);
+}
+#zap-dialog h2 {
+  margin: 6px 75px 20px 0;
+}
+.dialog-close {
+  float: right;
+}
+#zap-dialog p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+#zap-dialog blockquote {
+  margin: 0 0 14px;
+  border-left: 2px solid #8da898;
+  padding-left: 12px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+#zap-dialog .zap-identity {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.zap-create {
+  display: grid;
+  gap: 10px;
+  margin: 15px 0;
+}
+.zap-create label,
+#zap-invoice label {
+  display: block;
+  font-size: 12px;
+}
+#zap-amount,
+#zap-invoice-text {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  border: 1px solid #c8d2c6;
+  border-radius: 5px;
+  padding: 10px;
+  color: var(--ink);
+  background: white;
+}
+#zap-amount {
+  min-height: 44px;
+}
+#zap-invoice {
+  text-align: center;
+}
+#zap-qr {
+  display: block;
+  width: min(100%, 300px) !important;
+  height: auto !important;
+  max-width: 100%;
+  margin: 0 auto 15px;
+  background: white;
+}
+#zap-wallet {
+  display: block;
+  text-decoration: none;
+  margin: 10px 0 16px;
+}
+#zap-invoice-text {
+  display: block;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  resize: vertical;
+  margin: 8px 0 12px;
+}
+#zap-dialog .zap-help {
+  font-size: 10px;
+  color: var(--muted);
+  margin: 18px 0 0;
+}
+@media (max-width: 700px) {
+  .post-zap {
+    padding-left: 17px;
+    padding-right: 17px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -11,7 +11,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss://relay.anmore.me https://trailscoffee.com; img-src 'self' https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss://relay.anmore.me https://trailscoffee.com https://pay.trailscoffee.com; img-src 'self' https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>Anmore Social — A little closer to home</title>
     <meta
@@ -25,7 +25,7 @@
     <meta property="og:type" content="website" />
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./feed.css?v=feed-first-1" />
+    <link rel="stylesheet" href="./feed.css?v=community-zaps-1" />
   </head>
   <body>
     <a class="skip" href="#community">Skip to community updates</a>
@@ -112,11 +112,21 @@
             </button>
           </div>
           <div class="feed-meta">
-            <span>Newest first. Always.</span
+            <label class="feed-order"
+              >Order
+              <select id="feed-order">
+                <option value="newest" selected>Newest</option>
+                <option value="top">Top zapped</option>
+              </select></label
             ><span class="connection" id="connection"
               >Connecting to community relay</span
             >
           </div>
+          <p id="sort-note" class="sort-note" hidden>
+            Top zapped among loaded posts only. Verified community Lightning
+            receipts, highest sats first; ties stay newest first. Load more to
+            widen the comparison. Refresh rechecks counts.
+          </p>
           <p id="status" class="status" role="status">
             Finding the latest community updates…
           </p>
@@ -163,15 +173,15 @@
             <h2>Less scrolling.<br />More belonging.</h2>
             <p>
               A community bulletin for the place we call home. No likes to
-              chase, no algorithm to keep up with. Just local stories, in the
-              order they arrive.
+              chase, no personalized feed. Newest is the default; you can choose
+              Top zapped to sort loaded posts by verified community tips.
             </p>
             <details>
               <summary>How this space works</summary>
               <p>
                 Positive community content is selected by our sources before it
-                reaches the relay. This site does not judge, score, or approve
-                posts.
+                reaches the relay. This site does not judge or approve posts.
+                Top zapped is an explicit amount sort, not a positivity score.
               </p>
               <p>
                 Authors need a signed profile with an exact
@@ -185,6 +195,14 @@
                 external hosts; opening a source link leaves this site.
               </p>
             </details>
+            <p>
+              All post zaps go to the community group, not the authors. Only
+              verified, post-bound Lightning receipts from the loaded relay
+              snapshot count. An unpaid invoice, claimed amount, or generic
+              transfer does not increase a post’s total. Receipt issuers attest
+              payment; these are not independent settlement proofs. Cashu
+              nutzaps are not supported here.
+            </p>
           </section>
         </aside>
       </div>
@@ -193,12 +211,75 @@
       <p>Made for the moments between neighbours.</p>
       <span>Anmore Social · A community bulletin</span>
     </footer>
+    <dialog
+      id="zap-dialog"
+      aria-labelledby="zap-title"
+      aria-describedby="zap-purpose"
+    >
+      <button id="close-zap" class="quiet-button dialog-close" type="button">
+        Close
+      </button>
+      <h2 id="zap-title">Zap this post</h2>
+      <p id="zap-purpose">
+        <strong>All sats go to the community group, not the author.</strong>
+        This invoice is linked only to the post below.
+      </p>
+      <blockquote id="zap-post"></blockquote>
+      <p class="zap-identity">
+        Post ID: <span id="zap-post-id"></span><br />Community destination:
+        <span id="zap-destination">coffeeloverc2c2cd@pay.trailscoffee.com</span>
+      </p>
+      <p id="zap-message" class="status" role="status"></p>
+      <div class="zap-create">
+        <label for="zap-amount">Amount (whole sats)</label
+        ><input
+          id="zap-amount"
+          inputmode="numeric"
+          type="text"
+          value="21"
+          maxlength="9"
+          autocomplete="off"
+        /><button id="create-zap" class="primary-button" type="button">
+          Create post-bound invoice
+        </button>
+      </div>
+      <div id="zap-invoice" hidden>
+        <canvas
+          id="zap-qr"
+          role="img"
+          aria-label="Lightning invoice QR linked to this post and community recipient"
+        ></canvas>
+        <p id="zap-expiry"></p>
+        <a id="zap-wallet" class="primary-button"
+          >Open invoice in Lightning wallet</a
+        >
+        <label for="zap-invoice-text">Exact post-bound invoice</label
+        ><textarea
+          id="zap-invoice-text"
+          readonly
+          rows="3"
+          spellcheck="false"
+        ></textarea>
+        <button id="copy-zap" class="quiet-button" type="button">
+          Copy Lightning invoice
+        </button>
+      </div>
+      <p class="zap-help">
+        Creating an invoice does not send payment. Choose whether to pay in your
+        own Lightning wallet; check its destination and amount. This site has no
+        wallet access and cannot confirm your payment here. Close and reopen
+        this post to reuse its invoice. Refresh the feed to check published
+        receipts. Missing receipts may mean relay or provider support is
+        unavailable, not that a payment failed. This is a Lightning zap, not a
+        Cashu nutzap.
+      </p>
+    </dialog>
     <noscript
       ><p class="wrap status">
         JavaScript is needed to verify signed community updates. No account is
         required.
       </p></noscript
     >
-    <script type="module" src="./app.js?v=feed-first-1"></script>
+    <script type="module" src="./app.js?v=community-zaps-1"></script>
   </body>
 </html>

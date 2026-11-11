@@ -17,7 +17,7 @@ page.on("websocket", (s) => {
   s.on("framesent", (f) => requests.push(JSON.parse(f.payload)));
 });
 try {
-  await page.goto("http://127.0.0.1:4173");
+  await page.goto(process.env.QA_URL || "http://127.0.0.1:4173");
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
     { timeout: 90000 },
@@ -81,7 +81,7 @@ try {
   }
   const mobileContext = await browser.newContext({ ...devices["iPhone 13"] });
   const mobile = await mobileContext.newPage();
-  await mobile.goto("http://127.0.0.1:4173");
+  await mobile.goto(process.env.QA_URL || "http://127.0.0.1:4173");
   await mobile.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
     null,

@@ -5610,6 +5610,7 @@ var zapUI = setupZaps({
 });
 function renderFeed() {
   $2("sort-note").hidden = $2("feed-order").value !== "top";
+  $2("sort-note").textContent = zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts only \xB7 ${currentPosts.size} posts. Load more to compare earlier updates.`;
   $2("feed").replaceChildren(
     ...sortPosts([...currentPosts.values()], totals, $2("feed-order").value).map(
       (e) => post(e, currentIdentities.get(e.pubkey))
@@ -5689,7 +5690,7 @@ function richText(text) {
 }
 function provenance(e, identity) {
   const details = el("details", "provenance");
-  details.append(el("summary", "", "Source & verified identity"));
+  details.append(el("summary", "", "Source"));
   const dl = el("dl");
   for (const [label, value] of [
     ["Community identity", identity.nip05],
@@ -5794,32 +5795,32 @@ function post(e, identity) {
     }
     article.append(media);
   }
-  const source = el("div", "post-source");
-  source.append(
-    el("span", "", "Community update"),
-    el("span", "", "Signed on Nostr")
-  );
   const tipping = el("div", "post-zap");
   const confirmed = totals.get(e.id) ?? 0n;
   const amount = el(
     "span",
     "zap-total",
-    zapState.error ? "0 confirmed here \xB7 zap checks unavailable" : `${confirmed / 1000n} verified sats to community`
+    zapState.error ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`
   );
-  amount.title = zapState.error ? "Verification is unavailable, not proof that no payments exist." : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
-  const zap = el("button", "quiet-button", "Zap this post");
+  amount.title = zapState.error ? "Zap checks unavailable \u2014 not proof that no payments exist." : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
+  amount.setAttribute(
+    "aria-label",
+    zapState.error ? "Zap total unavailable" : `${amount.textContent} verified to community`
+  );
+  const zap = el("button", "zap-button");
   zap.type = "button";
+  zap.setAttribute("aria-label", "Zap this post");
+  zap.title = "Zap this post \xB7 Tips support community";
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(icon.namespaceURI, "path");
+  path.setAttribute("d", "m13 2-9 12h7l-1 8 10-13h-7l0-7Z");
+  icon.append(path);
+  zap.append(icon);
   zap.addEventListener("click", () => zapUI.open(e.id, zap));
-  tipping.append(
-    amount,
-    zap,
-    el(
-      "span",
-      "zap-beneficiary",
-      "All zaps go to the community group, not the author."
-    )
-  );
-  article.append(tipping, source, provenance(e, identity));
+  tipping.append(zap, amount, provenance(e, identity));
+  article.append(tipping);
   return article;
 }
 function eventCard(e, identity, info) {
@@ -5877,6 +5878,7 @@ async function load(reset = false) {
   totals = /* @__PURE__ */ new Map();
   zapState = { authority: null, error: "Zap checks unavailable." };
   $2("refresh").disabled = true;
+  $2("feed-order").disabled = true;
   $2("load-more").disabled = true;
   $2("feed").setAttribute("aria-busy", "true");
   status(
@@ -6026,10 +6028,10 @@ async function load(reset = false) {
       );
     } else
       status(
-        unavailable ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.` : `Updated ${format(Math.floor(Date.now() / 1e3), { hour: "numeric", minute: "2-digit" })} Pacific. Signed profiles and community identities checked.`,
+        unavailable ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.` : `Updated ${format(Math.floor(Date.now() / 1e3), { hour: "numeric", minute: "2-digit" })} PT \xB7 identities checked.`,
         unavailable > 0
       );
-    $2("connection").textContent = "Relay snapshot loaded";
+    $2("connection").textContent = "Connected";
     $2("connection").dataset.state = "ready";
     $2("page-note").textContent = ended ? "You\u2019ve reached the end of this relay page. Refresh for new updates." : "No endless scroll. Take your time.";
   } catch (error) {
@@ -6041,7 +6043,7 @@ async function load(reset = false) {
       authority: null,
       error: "Feed checks unavailable. No invoice can be created."
     };
-    $2("feed").replaceChildren();
+    renderFeed();
     $2("empty").hidden = true;
     $2("events").replaceChildren(
       el(
@@ -6061,6 +6063,7 @@ async function load(reset = false) {
     relay.close();
     busy = false;
     $2("refresh").disabled = false;
+    $2("feed-order").disabled = false;
     $2("load-more").disabled = ended;
     $2("feed").setAttribute("aria-busy", "false");
   }

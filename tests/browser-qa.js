@@ -66,6 +66,8 @@ const calendar = sign({
   content: "Everyone is welcome. Bring a warm layer.",
 });
 let mode = "normal";
+let holdNextFeed = false,
+  resumeFeed;
 const communityProfile = finalizeEvent(
   {
     kind: 0,
@@ -117,7 +119,11 @@ const zapReceipt = (post, sats) => {
     keys.issuer,
   );
 };
-const receipts = [zapReceipt(posts[2], 21), zapReceipt(posts[0], 7)];
+const receipts = [
+  zapReceipt(posts[2], 21),
+  zapReceipt(posts[0], 7),
+  zapReceipt(posts[14], 1250),
+];
 let callbacks = 0,
   lastInvoice;
 const deletion = sign({
@@ -196,10 +202,16 @@ await context.route("https://example.com/forest.jpg", (route) =>
   }),
 );
 await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
-  ws.onMessage((raw) => {
+  ws.onMessage(async (raw) => {
     const m = JSON.parse(raw);
     requests.push(m);
     if (m[0] !== "REQ") return;
+    if (holdNextFeed && m.slice(2).some((f) => f.kinds?.includes(1))) {
+      holdNextFeed = false;
+      await new Promise((resolve) => {
+        resumeFeed = resolve;
+      });
+    }
     if (mode === "relay-failure") {
       ws.send(
         JSON.stringify(["CLOSED", m[1], "restricted: fixture rejection"]),
@@ -274,15 +286,28 @@ try {
   );
   assert.equal(await page.locator("#feed-order").inputValue(), "newest");
   assert.equal(callbacks, 0, "Reading and sorting must not create invoices");
+  const firstTip = page
+    .locator(".post")
+    .first()
+    .getByRole("button", { name: "Zap this post", exact: true });
+  assert.equal(
+    await firstTip.locator("svg").count(),
+    1,
+    "Tip action is a self-contained SVG lightning icon",
+  );
+  assert.equal(
+    await firstTip.innerText(),
+    "",
+    "Icon action has no bulky visible label",
+  );
+  assert.equal(await page.locator(".zap-total").first().innerText(), "7 sats");
+  assert.equal(await page.locator(".zap-total").nth(1).innerText(), "0 sats");
   await page.locator("#feed-order").selectOption("top");
   assert.equal(
     await page.locator(".post").first().getAttribute("data-event-id"),
     posts[2].id,
   );
-  assert.match(
-    await page.locator(".post").first().innerText(),
-    /21 verified sats/,
-  );
+  assert.match(await page.locator(".post").first().innerText(), /21 sats/);
   assert.match(await page.locator("#sort-note").innerText(), /loaded posts/);
   await page
     .locator(".post")
@@ -391,10 +416,109 @@ try {
       .textContent.includes("Clipboard unavailable"),
   );
   await page.keyboard.press("Escape");
-  await page.locator("#feed-order").selectOption("newest");
+  // The chronological cursor must not follow the visual Top order.
+  holdNextFeed = true;
   await page.getByRole("button", { name: "Load more updates" }).click();
-  await page.waitForTimeout(300);
+  assert.equal(
+    await page.locator("#feed-order").isDisabled(),
+    true,
+    "Sorting cannot render an emptied in-flight snapshot",
+  );
+  assert.equal(typeof resumeFeed, "function");
+  resumeFeed();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
   assert.equal(await page.locator(".post").count(), 15);
+  const assertSnapshot = async (expectedCount) => {
+    const cards = await page
+      .locator(".post")
+      .evaluateAll((els) =>
+        els.map((e) => ({
+          id: e.dataset.eventId,
+          amount: e.querySelector(".zap-total").textContent,
+        })),
+      );
+    assert.equal(cards.length, expectedCount);
+    const values = new Map([
+      [posts[0].id, 7],
+      [posts[2].id, 21],
+      [posts[14].id, 1250],
+    ]);
+    for (const card of cards)
+      assert.equal(
+        card.amount,
+        `${(values.get(card.id) || 0).toLocaleString("en-CA")} sats`,
+      );
+    const expected = posts
+      .slice(0, expectedCount)
+      .toSorted(
+        (a, b) =>
+          (values.get(b.id) || 0) - (values.get(a.id) || 0) ||
+          b.created_at - a.created_at ||
+          a.id.localeCompare(b.id),
+      );
+    assert.deepEqual(
+      cards.map((c) => c.id),
+      expected.map((e) => e.id),
+    );
+  };
+  await assertSnapshot(15);
+  assert.match(await page.locator("#sort-note").innerText(), /15 posts/);
+  await page.locator("#refresh").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+  await assertSnapshot(12);
+  await page.locator("#load-more").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+  await assertSnapshot(15);
+  // A fresh verified receipt snapshot must update both amount and order.
+  const previousReceipt = receipts[1];
+  receipts[1] = zapReceipt(posts[0], 50);
+  await page.locator("#refresh").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+  assert.equal(
+    await page.locator(".post").first().getAttribute("data-event-id"),
+    posts[0].id,
+  );
+  assert.equal(await page.locator(".zap-total").first().innerText(), "50 sats");
+  receipts[1] = previousReceipt;
+  await page.locator("#refresh").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+  await assertSnapshot(12);
+  await page.locator("#load-more").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+  await assertSnapshot(15);
+  // A failed Top refresh/pagination must not retain a successful snapshot count.
+  const settleTop = () => page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+  for (const trigger of ["#refresh", "#load-more"]) {
+    mode = "relay-failure";
+    await page.locator(trigger).click();
+    await settleTop();
+    assert.equal(await page.locator(".post").count(), 0);
+    assert.match(await page.locator("#sort-note").innerText(), /unavailable/i);
+    assert.doesNotMatch(await page.locator("#sort-note").innerText(), /15 posts/);
+    mode = "normal";
+    await page.locator("#refresh").click();
+    await settleTop();
+    await assertSnapshot(12);
+    assert.match(await page.locator("#sort-note").innerText(), /12 posts/);
+  }
+  await page.locator("#load-more").click();
+  await settleTop();
+  await assertSnapshot(15);
+  await page.locator("#feed-order").selectOption("newest");
   assert.ok(requests.every((m) => ["REQ", "CLOSE"].includes(m[0])));
   const geometry = [];
   for (const width of [1440, 768, 390, 320]) {
@@ -405,6 +529,34 @@ try {
       width: innerWidth,
       scroll: document.documentElement.scrollWidth,
     }));
+    g.firstBodyTop = await page
+      .locator(".post-body")
+      .first()
+      .evaluate((e) => e.getBoundingClientRect().top);
+    g.tip = await page
+      .locator(".zap-button")
+      .first()
+      .evaluate((e) => ({
+        width: e.getBoundingClientRect().width,
+        height: e.getBoundingClientRect().height,
+      }));
+    assert.ok(
+      g.firstBodyTop < 540,
+      `Compact content-first feed at every viewport: ${JSON.stringify(g)}`,
+    );
+    assert.ok(
+      g.tip.width >= 44 && g.tip.height >= 44,
+      "44px lightning touch target",
+    );
+    const viewportA11y = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    assert.equal(
+      viewportA11y.violations.length,
+      0,
+      JSON.stringify(viewportA11y.violations),
+    );
+    g.accessibilityViolations = viewportA11y.violations.length;
     geometry.push(g);
     assert.equal(g.width, width);
     assert.ok(g.scroll <= width, JSON.stringify(g));
@@ -424,6 +576,13 @@ try {
       path: new URL(`fixture-viewport-${width}.png`, dir).pathname,
     });
   }
+  await page.locator("#feed-order").selectOption("top");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: new URL("top-390.png", dir).pathname,
+    fullPage: true,
+  });
+  await page.locator("#feed-order").selectOption("newest");
   await page.locator(".provenance summary").first().click();
   assert.ok(
     (await page.locator(".provenance").first().innerText()).includes(
@@ -473,9 +632,14 @@ try {
     posts[0].id,
     "No unverified amounts may affect ranking",
   );
+  assert.match(await page.locator(".zap-total").first().innerText(), /^—$/);
+  assert.equal(
+    await page.locator(".zap-total").first().getAttribute("aria-label"),
+    "Zap total unavailable",
+  );
   assert.match(
-    await page.locator(".zap-total").first().innerText(),
-    /0 confirmed here.*unavailable/,
+    await page.locator("#sort-note").innerText(),
+    /unavailable.*newest/,
   );
   await page
     .locator(".post")
@@ -585,6 +749,10 @@ try {
           dialogAccessibilityViolations: zapA11y.violations.length,
           newestDefault: true,
           explicitLoadedPostAmountSort: true,
+          amountsAndOrderShareVerifiedSnapshot: true,
+          topPreservedAcrossRefreshAndPagination: true,
+          refreshedReceiptsChangeOrderAndAmounts: true,
+          inFlightSortDisabled: true,
           clipboardDeniedFallback: true,
           cachedInvoiceReused: true,
           recipientUnavailableFailsClosed: true,

@@ -61,7 +61,7 @@ button:disabled {
   top: 12px;
 }
 .site-header {
-  min-height: 102px;
+  min-height: 68px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -101,7 +101,7 @@ nav a {
   grid-template-columns: 1.25fr 1fr;
   gap: 32px;
   align-items: center;
-  padding: 62px 0 58px;
+  padding: 20px 0;
   border-bottom: 1px solid var(--line);
 }
 .eyebrow {
@@ -131,7 +131,7 @@ h1 {
 .intro {
   font-size: 14px;
   color: var(--muted);
-  line-height: 1.85;
+  line-height: 1.65;
   margin-bottom: 19px;
 }
 .text-link {
@@ -149,7 +149,7 @@ h1 {
   width: 100%;
   height: auto;
   display: block;
-  max-height: 260px;
+  max-height: 100px;
 }
 .landscape span {
   display: block;
@@ -161,8 +161,8 @@ h1 {
 .community-layout {
   display: grid;
   grid-template-columns: minmax(0, 720px) minmax(0, 300px);
-  gap: 56px;
-  padding: 46px 0 70px;
+  gap: 32px;
+  padding: 22px 0 48px;
 }
 .feed-section,
 .sidebar {
@@ -178,7 +178,7 @@ h2 {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  margin-bottom: 23px;
+  margin-bottom: 12px;
 }
 .section-head .eyebrow {
   margin-bottom: 8px;
@@ -246,7 +246,7 @@ h2 {
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 24px 26px 17px;
+  padding: 14px 18px 10px;
   min-width: 0;
 }
 .avatar {
@@ -284,11 +284,11 @@ h2 {
   padding-top: 2px;
 }
 .post-body {
-  padding: 0 26px 20px;
+  padding: 0 18px 12px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   font-size: 14px;
-  line-height: 1.85;
+  line-height: 1.65;
   color: #344c40;
 }
 .post-body p {
@@ -560,7 +560,7 @@ h2 {
     padding-right: 22px;
   }
   .site-header {
-    min-height: 84px;
+    min-height: 64px;
     gap: 12px;
   }
   .brand {
@@ -590,7 +590,7 @@ h2 {
   }
   .intro {
     font-size: 13px;
-    line-height: 1.85;
+    line-height: 1.65;
     max-width: 360px;
   }
   .desktop-break {
@@ -648,7 +648,7 @@ h2 {
     border-radius: 7px;
   }
   .post-top {
-    padding: 19px 17px 14px;
+    padding: 12px 14px 10px;
     gap: 9px;
   }
   .avatar {
@@ -668,7 +668,7 @@ h2 {
   .post-body {
     padding: 0 17px 18px;
     font-size: 13px;
-    line-height: 1.85;
+    line-height: 1.65;
   }
   .provenance {
     padding: 0 17px;
@@ -733,7 +733,7 @@ h2 {
     text-align: right;
   }
   .post-top {
-    padding: 17px 14px 12px;
+    padding: 12px 14px 10px;
   }
   .post-body {
     padding-left: 14px;
@@ -745,26 +745,27 @@ h2 {
     display: none;
   }
   .welcome {
-    padding: 28px 0;
+    padding: 16px 0;
   }
   .welcome h1 {
-    font-size: 36px;
-    letter-spacing: -1.3px;
+    font-size: 24px;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
   }
   .intro {
     margin-bottom: 15px;
   }
   .community-layout {
-    padding-top: 25px;
+    padding-top: 16px;
   }
 }
 @media (max-width: 360px) {
   .welcome h1 {
-    font-size: 30px;
-    letter-spacing: -1px;
+    font-size: 23px;
+    letter-spacing: -0.5px;
   }
   .welcome {
-    padding: 25px 0;
+    padding: 14px 0;
   }
 }
 .feed-order {
@@ -781,7 +782,7 @@ h2 {
   border-radius: 5px;
   padding: 8px;
   min-height: 44px;
-  max-width: 150px;
+  max-width: 180px;
 }
 .sort-note {
   font-size: 11px;
@@ -794,12 +795,12 @@ h2 {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px 12px;
-  padding: 0 26px 16px;
+  padding: 6px 14px;
 }
 .zap-total {
   font-size: 11px;
   flex: 1;
-  min-width: 120px;
+  min-width: 0;
 }
 .zap-beneficiary {
   flex-basis: 100%;
@@ -897,6 +898,167 @@ h2 {
   .post-zap {
     padding-left: 17px;
     padding-right: 17px;
+  }
+}
+/* Compact feed chrome; photos and updates take priority. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.welcome h1 {
+  font-size: clamp(24px, 2.7vw, 34px);
+  letter-spacing: -0.6px;
+  margin-bottom: 6px;
+}
+.welcome .eyebrow {
+  margin-bottom: 5px;
+}
+.welcome .intro {
+  margin-bottom: 0;
+}
+.landscape span {
+  display: none;
+}
+.feed-meta {
+  padding: 6px 0;
+  align-items: center;
+}
+.status {
+  padding: 7px 10px;
+  margin-bottom: 12px;
+}
+.tip-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.tip-details summary {
+  padding: 12px 0;
+  min-height: 44px;
+  cursor: pointer;
+}
+.tip-details[open] {
+  flex-basis: 100%;
+}
+.tip-details p {
+  margin-bottom: 10px;
+}
+.sort-note {
+  margin-bottom: 5px;
+}
+.zap-button {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid #c8d2c6;
+  border-radius: 50%;
+  color: var(--forest);
+  background: var(--sage);
+}
+.zap-button:hover {
+  background: #dce6d7;
+}
+.zap-button svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+.zap-total {
+  flex: 1;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.post-zap {
+  border-top: 1px solid var(--line);
+  gap: 8px;
+}
+.post-zap .provenance {
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.post-zap .provenance summary {
+  padding: 12px 4px;
+}
+.post-zap .provenance[open] {
+  flex-basis: 100%;
+}
+@media (max-width: 1000px) and (min-width: 701px) {
+  .welcome {
+    padding: 16px 0;
+  }
+  .landscape svg {
+    max-height: 80px;
+  }
+  .community-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sidebar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+}
+@media (max-width: 700px) {
+  .wrap {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .site-header {
+    gap: 8px;
+  }
+  nav {
+    gap: 12px;
+  }
+  .welcome {
+    padding: 14px 0;
+  }
+  .welcome h1 {
+    font-size: 24px;
+  }
+  .welcome .eyebrow {
+    display: none;
+  }
+  .intro {
+    font-size: 12px;
+  }
+  .post-body {
+    padding-bottom: 12px;
+    line-height: 1.65;
+  }
+  .post-zap {
+    padding: 6px 12px;
+  }
+}
+@media (max-width: 360px) {
+  .brand {
+    font-size: 20px;
+  }
+  .brand svg {
+    width: 26px;
+  }
+  nav {
+    gap: 8px;
+  }
+  .welcome h1 {
+    font-size: 23px;
+  }
+  .connection {
+    font-size: 10px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

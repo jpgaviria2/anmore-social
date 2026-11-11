@@ -26,6 +26,9 @@ const zapUI = setupZaps({
 });
 function renderFeed() {
   $("sort-note").hidden = $("feed-order").value !== "top";
+  $("sort-note").textContent = zapState.error
+    ? "Zap checks unavailable · showing newest first."
+    : `Top zapped among loaded posts only · ${currentPosts.size} posts. Load more to compare earlier updates.`;
   $("feed").replaceChildren(
     ...sortPosts([...currentPosts.values()], totals, $("feed-order").value).map(
       (e) => post(e, currentIdentities.get(e.pubkey)),
@@ -116,7 +119,7 @@ function richText(text) {
 }
 function provenance(e, identity) {
   const details = el("details", "provenance");
-  details.append(el("summary", "", "Source & verified identity"));
+  details.append(el("summary", "", "Source"));
   const dl = el("dl");
   for (const [label, value] of [
     ["Community identity", identity.nip05],
@@ -227,36 +230,38 @@ function post(e, identity) {
     }
     article.append(media);
   }
-  const source = el("div", "post-source");
-  source.append(
-    el("span", "", "Community update"),
-    el("span", "", "Signed on Nostr"),
-  );
   const tipping = el("div", "post-zap");
   const confirmed = totals.get(e.id) ?? 0n;
   const amount = el(
     "span",
     "zap-total",
     zapState.error
-      ? "0 confirmed here · zap checks unavailable"
-      : `${confirmed / 1000n} verified sats to community`,
+      ? "—"
+      : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`,
   );
   amount.title = zapState.error
-    ? "Verification is unavailable, not proof that no payments exist."
+    ? "Zap checks unavailable — not proof that no payments exist."
     : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
-  const zap = el("button", "quiet-button", "Zap this post");
-  zap.type = "button";
-  zap.addEventListener("click", () => zapUI.open(e.id, zap));
-  tipping.append(
-    amount,
-    zap,
-    el(
-      "span",
-      "zap-beneficiary",
-      "All zaps go to the community group, not the author.",
-    ),
+  amount.setAttribute(
+    "aria-label",
+    zapState.error
+      ? "Zap total unavailable"
+      : `${amount.textContent} verified to community`,
   );
-  article.append(tipping, source, provenance(e, identity));
+  const zap = el("button", "zap-button");
+  zap.type = "button";
+  zap.setAttribute("aria-label", "Zap this post");
+  zap.title = "Zap this post · Tips support community";
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(icon.namespaceURI, "path");
+  path.setAttribute("d", "m13 2-9 12h7l-1 8 10-13h-7l0-7Z");
+  icon.append(path);
+  zap.append(icon);
+  zap.addEventListener("click", () => zapUI.open(e.id, zap));
+  tipping.append(zap, amount, provenance(e, identity));
+  article.append(tipping);
   return article;
 }
 function eventCard(e, identity, info) {
@@ -318,6 +323,7 @@ async function load(reset = false) {
   totals = new Map();
   zapState = { authority: null, error: "Zap checks unavailable." };
   $("refresh").disabled = true;
+  $("feed-order").disabled = true;
   $("load-more").disabled = true;
   $("feed").setAttribute("aria-busy", "true");
   status(
@@ -496,10 +502,10 @@ async function load(reset = false) {
       status(
         unavailable
           ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.`
-          : `Updated ${format(Math.floor(Date.now() / 1000), { hour: "numeric", minute: "2-digit" })} Pacific. Signed profiles and community identities checked.`,
+          : `Updated ${format(Math.floor(Date.now() / 1000), { hour: "numeric", minute: "2-digit" })} PT · identities checked.`,
         unavailable > 0,
       );
-    $("connection").textContent = "Relay snapshot loaded";
+    $("connection").textContent = "Connected";
     $("connection").dataset.state = "ready";
     $("page-note").textContent = ended
       ? "You’ve reached the end of this relay page. Refresh for new updates."
@@ -514,7 +520,7 @@ async function load(reset = false) {
       error: "Feed checks unavailable. No invoice can be created.",
     };
     // Fail closed rather than retaining a stale identity/deletion assertion after a failed refresh.
-    $("feed").replaceChildren();
+    renderFeed();
     $("empty").hidden = true;
     $("events").replaceChildren(
       el(
@@ -536,6 +542,7 @@ async function load(reset = false) {
     relay.close();
     busy = false;
     $("refresh").disabled = false;
+    $("feed-order").disabled = false;
     $("load-more").disabled = ended;
     $("feed").setAttribute("aria-busy", "false");
   }

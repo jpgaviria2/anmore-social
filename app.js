@@ -4655,6 +4655,39 @@ function calendarInfo(e, now = Math.floor(Date.now() / 1e3)) {
   };
 }
 
+// src/media.js
+function bodyURLs(text) {
+  return [...text.matchAll(/(?<!\S)https:\/\/[^\s<>"\u0000-\u001f]+/g)].map((m) => {
+    const raw = /[?#]/.test(m[0]) ? m[0] : m[0].replace(/[.,!;:)]+$/, "");
+    return { raw, index: m.index };
+  });
+}
+var directVideo = (url) => /\.(mp4|webm|mov)$/i.test(new URL(url).pathname);
+var mediaURL = (raw) => typeof raw === "string" && /^https:\/\//.test(raw) && !/[\s\\\u0000-\u001f\u007f]/.test(raw) && safeURL(raw) ? raw : null;
+function postVideos(e) {
+  const videos = /* @__PURE__ */ new Map();
+  const add = (raw, label) => {
+    const url = mediaURL(raw);
+    if (url && directVideo(url) && !videos.has(url) && videos.size < 4)
+      videos.set(url, { url, label: label || "Video attached to this community update" });
+  };
+  for (const { raw } of bodyURLs(e.content)) add(raw);
+  for (const t of e.tags) {
+    if (t[0] !== "imeta") continue;
+    const urls = t.slice(1).filter((v) => v.startsWith("url "));
+    if (urls.length !== 1) continue;
+    const alt = t.slice(1).find((v) => v.startsWith("alt "))?.slice(4, 204);
+    add(urls[0].slice(4), alt);
+  }
+  return [...videos.values()];
+}
+function withoutVideos(text, videos) {
+  const urls = new Set(videos.map((v) => v.url));
+  for (const { raw, index } of bodyURLs(text).reverse())
+    if (urls.has(raw)) text = text.slice(0, index) + text.slice(index + raw.length);
+  return text.trim();
+}
+
 // src/relay.js
 function matches(e, f) {
   return (!f.kinds || f.kinds.includes(e.kind)) && (!f.authors || f.authors.includes(e.pubkey)) && (!f.ids || f.ids.includes(e.id)) && (f.until === void 0 || e.created_at <= f.until) && (f.since === void 0 || e.created_at >= f.since) && Object.entries(f).every(
@@ -5879,8 +5912,10 @@ function post(e, identity) {
   time.title = format(e.created_at, { dateStyle: "full", timeStyle: "short" }) + " Pacific";
   top.append(avatar, author, time);
   article.append(top);
-  const images = imageURLs(e);
-  let text = e.content;
+  const videos = postVideos(e);
+  const videoURLs = new Set(videos.map((v) => v.url));
+  const images = imageURLs(e).filter((url) => !videoURLs.has(url) && !/\.(mp4|webm|mov)$/i.test(new URL(url).pathname));
+  let text = withoutVideos(e.content, videos);
   for (const url of images)
     text = text.split("\n").filter((line) => line.trim() !== url).join("\n");
   text = text.trim();
@@ -5915,6 +5950,26 @@ function post(e, identity) {
       );
       media.append(img);
     }
+    article.append(media);
+  }
+  for (const { url, label } of videos) {
+    const media = el("div", "post-video");
+    const video = el("video");
+    video.controls = true;
+    video.setAttribute("playsinline", "");
+    video.preload = "none";
+    video.setAttribute("aria-label", label);
+    const failure = el("p", "video-error", "Video unavailable in this browser.");
+    failure.hidden = true;
+    video.addEventListener("error", () => {
+      failure.hidden = false;
+    });
+    video.addEventListener("play", () => {
+      for (const other of document.querySelectorAll("#feed video"))
+        if (other !== video) other.pause();
+    });
+    video.src = url;
+    media.append(video, failure, link("Open original video (new tab)", url));
     article.append(media);
   }
   const tipping = el("div", "post-zap");

@@ -1,3 +1,4 @@
+import { postVideos, withoutVideos } from "./media.js";
 import { Relay } from "./relay.js";
 import { sortPosts, resolveCommunity } from "./zaps.js";
 import { collectReceipts } from "./receipts.js";
@@ -201,8 +202,11 @@ function post(e, identity) {
     " Pacific";
   top.append(avatar, author, time);
   article.append(top);
-  const images = imageURLs(e);
-  let text = e.content;
+  const videos = postVideos(e);
+  const videoURLs = new Set(videos.map(v => v.url));
+  const images = imageURLs(e).filter(url =>
+    !videoURLs.has(url) && !/\.(mp4|webm|mov)$/i.test(new URL(url).pathname));
+  let text = withoutVideos(e.content, videos);
   // Only remove standalone image URL lines; prose and source links remain intact.
   for (const url of images)
     text = text
@@ -241,6 +245,24 @@ function post(e, identity) {
       );
       media.append(img);
     }
+    article.append(media);
+  }
+  for (const { url, label } of videos) {
+    const media = el("div", "post-video");
+    const video = el("video");
+    video.controls = true;
+    video.setAttribute("playsinline", "");
+    video.preload = "none";
+    video.setAttribute("aria-label", label);
+    const failure = el("p", "video-error", "Video unavailable in this browser.");
+    failure.hidden = true;
+    video.addEventListener("error", () => { failure.hidden = false; });
+    video.addEventListener("play", () => {
+      for (const other of document.querySelectorAll("#feed video"))
+        if (other !== video) other.pause();
+    });
+    video.src = url;
+    media.append(video, failure, link("Open original video (new tab)", url));
     article.append(media);
   }
   const tipping = el("div", "post-zap");

@@ -41,7 +41,7 @@ export class Relay {
       });
     });
   }
-  query(filters) {
+  query(filters, timeout = 12000, { rejectAtLimit = false } = {}) {
     if (this.socket?.readyState !== 1)
       return Promise.reject(Error("Relay is not connected."));
     const id = `anmore-${++this.counter}`,
@@ -54,7 +54,7 @@ export class Relay {
           finish(
             Error("Relay query timed out; no unverified results were added."),
           ),
-        12000,
+        timeout,
       );
       const finish = (err) => {
         clearTimeout(timer);
@@ -68,7 +68,10 @@ export class Relay {
         filters,
         events,
         accept: (e) => {
-          if (++count > cap + 20)
+          count++;
+          if (rejectAtLimit && count >= cap)
+            return finish(Error("Receipt snapshot truncated."));
+          if (count > cap + 20)
             return finish(Error("Relay response exceeded the safety limit."));
           if (validEvent(e) && filters.some((f) => matches(e, f)))
             events.set(e.id, e);

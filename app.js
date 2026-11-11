@@ -4689,7 +4689,7 @@ var Relay = class {
       });
     });
   }
-  query(filters) {
+  query(filters, timeout = 12e3, { rejectAtLimit = false } = {}) {
     if (this.socket?.readyState !== 1)
       return Promise.reject(Error("Relay is not connected."));
     const id = `anmore-${++this.counter}`, cap = filters.reduce((s, f) => s + (f.limit || 40), 0);
@@ -4700,7 +4700,7 @@ var Relay = class {
         () => finish(
           Error("Relay query timed out; no unverified results were added.")
         ),
-        12e3
+        timeout
       );
       const finish = (err) => {
         clearTimeout(timer);
@@ -4714,7 +4714,10 @@ var Relay = class {
         filters,
         events,
         accept: (e) => {
-          if (++count > cap + 20)
+          count++;
+          if (rejectAtLimit && count >= cap)
+            return finish(Error("Receipt snapshot truncated."));
+          if (count > cap + 20)
             return finish(Error("Relay response exceeded the safety limit."));
           if (validEvent(e) && filters.some((f) => matches(e, f)))
             events.set(e.id, e);
@@ -5394,7 +5397,7 @@ function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() 
       if (!post2 || one(receipt, "p") !== authority.recipient || receipt.tags.some((t) => t[0] === "a"))
         continue;
       const description = one(receipt, "description"), request = JSON.parse(description), parsed = readInvoice(one(receipt, "bolt11"));
-      if (request.kind !== 9734 || !validEvent(request, now) || one(request, "e") !== postId || one(request, "p") !== authority.recipient || one(request, "lnurl") !== COMMUNITY_LNURL || request.tags.some((t) => t[0] === "a"))
+      if (request.kind !== 9734 || !validEvent(request, now) || one(request, "e") !== postId || one(request, "p") !== authority.recipient || one(request, "lnurl", false) !== void 0 && one(request, "lnurl", false) !== COMMUNITY_LNURL || request.tags.some((t) => t[0] === "a"))
         continue;
       const amount = one(request, "amount", false), kind = one(request, "k", false), sender = one(receipt, "P", false);
       if (amount !== void 0 && (!/^[1-9][0-9]*$/.test(amount) || BigInt(amount) !== parsed.msats) || kind !== void 0 && kind !== String(post2.kind) || sender !== void 0 && sender !== request.pubkey)
@@ -5423,6 +5426,111 @@ function sortPosts(posts, totals2, mode = "newest") {
     const aa = totals2.get(a.id) ?? 0n, bb = totals2.get(b.id) ?? 0n;
     return (mode === "top" && aa !== bb ? aa > bb ? -1 : 1 : 0) || b.created_at - a.created_at || a.id.localeCompare(b.id);
   });
+}
+
+// src/receipts.js
+var RECEIPT_PEER = "wss://relay.primal.net";
+var DEADLINE = 4e3;
+var CAP = 1e3;
+function publicReceipts(filter, Socket) {
+  return new Promise((resolve, reject) => {
+    const socket = new Socket(RECEIPT_PEER), events = /* @__PURE__ */ new Map();
+    let count = 0, bytes3 = 0, finished = false;
+    const finish = (error) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (socket.readyState === 1)
+        socket.send(JSON.stringify(["CLOSE", "receipts"]));
+      socket.close();
+      error ? reject(error) : resolve([...events.values()]);
+    };
+    const timer = setTimeout(
+      () => finish(Error("Receipt peer deadline exceeded.")),
+      DEADLINE
+    );
+    socket.addEventListener("open", () => {
+      if (!finished) socket.send(JSON.stringify(["REQ", "receipts", filter]));
+    });
+    socket.addEventListener(
+      "error",
+      () => finish(Error("Receipt peer unavailable."))
+    );
+    socket.addEventListener(
+      "close",
+      () => finish(Error("Receipt peer disconnected."))
+    );
+    socket.addEventListener("message", ({ data }) => {
+      if (finished) return;
+      if (typeof data !== "string" || data.length > 12e5)
+        return finish(Error("Receipt peer response exceeded safety limit."));
+      bytes3 += new TextEncoder().encode(data).byteLength;
+      if (bytes3 > 8 * 1024 * 1024)
+        return finish(Error("Receipt peer snapshot byte limit exceeded."));
+      let m;
+      try {
+        m = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (!Array.isArray(m)) return;
+      if (m[0] === "NOTICE") return finish(Error("Receipt peer unavailable."));
+      if (m[1] !== "receipts") return;
+      if (m[0] === "EOSE") return finish();
+      if (m[0] === "CLOSED")
+        return finish(Error("Receipt peer declined query."));
+      if (m[0] !== "EVENT") return;
+      if (++count >= CAP)
+        return finish(Error("Receipt snapshot truncated."));
+      const e = m[2];
+      if (validEvent(e) && e.kind === 9735 && filter.authors.includes(e.pubkey) && e.tags.some((t) => t[0] === "p" && filter["#p"].includes(t[1])) && e.tags.some((t) => t[0] === "e" && filter["#e"].includes(t[1])))
+        events.set(e.id, e);
+    });
+  });
+}
+async function collectReceipts(posts, authority, relay, Socket = WebSocket, now = Math.floor(Date.now() / 1e3)) {
+  if (posts.length > 1200 || posts.some((e) => !validEvent(e, now) || ![1, 20].includes(e.kind)))
+    throw Error("Invalid receipt target snapshot.");
+  const receipts = /* @__PURE__ */ new Map(), provenance2 = /* @__PURE__ */ new Map();
+  if (!posts.length)
+    return {
+      receipts: [],
+      provenance: provenance2,
+      totals: /* @__PURE__ */ new Map(),
+      partial: false,
+      sources: []
+    };
+  const filter = {
+    kinds: [9735],
+    authors: [authority.issuer],
+    "#p": [authority.recipient],
+    "#e": [...new Set(posts.map((e) => e.id))],
+    limit: CAP
+  };
+  const results = await Promise.allSettled([
+    relay.query([filter], DEADLINE, { rejectAtLimit: true }),
+    publicReceipts(filter, Socket)
+  ]);
+  const sources = [];
+  results.forEach((result, i2) => {
+    if (result.status !== "fulfilled" || result.value.length >= CAP) return;
+    const source = [RELAY, RECEIPT_PEER][i2];
+    sources.push(source);
+    for (const e of result.value) {
+      if (e.kind !== 9735) continue;
+      receipts.set(e.id, e);
+      if (!provenance2.has(e.id)) provenance2.set(e.id, /* @__PURE__ */ new Set());
+      provenance2.get(e.id).add(source);
+    }
+  });
+  if (!sources.length) throw Error("Community receipt checks unavailable.");
+  return {
+    receipts: [...receipts.values()],
+    provenance: provenance2,
+    totals: verifiedTotals([...receipts.values()], posts, authority, now),
+    partial: sources.length !== 2,
+    sources
+  };
 }
 
 // src/zap-ui.js
@@ -5610,7 +5718,7 @@ var zapUI = setupZaps({
 });
 function renderFeed() {
   $2("sort-note").hidden = $2("feed-order").value !== "top";
-  $2("sort-note").textContent = zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts only \xB7 ${currentPosts.size} posts. Load more to compare earlier updates.`;
+  $2("sort-note").textContent = zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts only \xB7 ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 amounts are lower bounds. " : ""}Load more to compare earlier updates.`;
   $2("feed").replaceChildren(
     ...sortPosts([...currentPosts.values()], totals, $2("feed-order").value).map(
       (e) => post(e, currentIdentities.get(e.pubkey))
@@ -5800,12 +5908,12 @@ function post(e, identity) {
   const amount = el(
     "span",
     "zap-total",
-    zapState.error ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`
+    zapState.error || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${zapState.snapshot?.partial ? "\u2265" : ""}${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`
   );
-  amount.title = zapState.error ? "Zap checks unavailable \u2014 not proof that no payments exist." : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
+  amount.title = zapState.error ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check; amounts are lower bounds, missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
   amount.setAttribute(
     "aria-label",
-    zapState.error ? "Zap total unavailable" : `${amount.textContent} verified to community`
+    zapState.error ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; lower bound" : "verified to community"}`
   );
   const zap = el("button", "zap-button");
   zap.type = "button";
@@ -5973,26 +6081,14 @@ async function load(reset = false) {
       (e) => identities.has(e.pubkey)
     );
     const feed = visible.filter((e) => [1, 20].includes(e.kind));
+    currentPosts = new Map(feed.map((e) => [e.id, e]));
+    currentIdentities = identities;
+    renderFeed();
     try {
-      const authority = await resolveCommunity(relay), receipts = [];
-      for (let i2 = 0; i2 < feed.length; i2 += 20) {
-        const page2 = await relay.query([
-          {
-            kinds: [9735],
-            authors: [authority.issuer],
-            "#p": [authority.recipient],
-            "#e": feed.slice(i2, i2 + 20).map((e) => e.id),
-            limit: 500
-          }
-        ]);
-        if (page2.length >= 500 || receipts.length + page2.length > 1e3)
-          throw Error(
-            "Receipt history exceeds this reading session\u2019s safety limit."
-          );
-        receipts.push(...page2);
-      }
-      totals = verifiedTotals(receipts, feed, authority);
-      zapState = { authority, error: null };
+      const authority = await resolveCommunity(relay);
+      const snapshot = await collectReceipts(feed, authority, relay);
+      totals = snapshot.totals;
+      zapState = { authority, error: null, snapshot };
     } catch (error) {
       zapState = {
         authority: null,

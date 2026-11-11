@@ -1,5 +1,6 @@
 import { Relay } from "./relay.js";
-import { sortPosts, resolveCommunity, verifiedTotals } from "./zaps.js";
+import { sortPosts, resolveCommunity } from "./zaps.js";
+import { collectReceipts } from "./receipts.js";
 import { setupZaps } from "./zap-ui.js";
 import {
   RELAY,
@@ -28,7 +29,7 @@ function renderFeed() {
   $("sort-note").hidden = $("feed-order").value !== "top";
   $("sort-note").textContent = zapState.error
     ? "Zap checks unavailable · showing newest first."
-    : `Top zapped among loaded posts only · ${currentPosts.size} posts. Load more to compare earlier updates.`;
+    : `Top zapped among loaded posts only · ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check · amounts are lower bounds. " : ""}Load more to compare earlier updates.`;
   $("feed").replaceChildren(
     ...sortPosts([...currentPosts.values()], totals, $("feed-order").value).map(
       (e) => post(e, currentIdentities.get(e.pubkey)),
@@ -235,18 +236,18 @@ function post(e, identity) {
   const amount = el(
     "span",
     "zap-total",
-    zapState.error
+    zapState.error || (zapState.snapshot?.partial && confirmed === 0n)
       ? "—"
-      : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`,
+      : `${zapState.snapshot?.partial ? "≥" : ""}${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`,
   );
   amount.title = zapState.error
     ? "Zap checks unavailable — not proof that no payments exist."
-    : "Verified post-bound Lightning receipts in this loaded snapshot; provider-attested payments, not independent settlement proofs.";
+    : `${zapState.snapshot?.partial ? "Partial receipt check; amounts are lower bounds, missing receipts are not zero payments. " : ""}Verified community receipts · ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
   amount.setAttribute(
     "aria-label",
     zapState.error
       ? "Zap total unavailable"
-      : `${amount.textContent} verified to community`,
+      : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; lower bound" : "verified to community"}`,
   );
   const zap = el("button", "zap-button");
   zap.type = "button";
@@ -431,27 +432,16 @@ async function load(reset = false) {
       identities.has(e.pubkey),
     );
     const feed = visible.filter((e) => [1, 20].includes(e.kind));
+    // Content is already verified solely on Anmore. Receipt peers never delay its first render.
+    currentPosts = new Map(feed.map((e) => [e.id, e]));
+    currentIdentities = identities;
+    renderFeed();
     try {
-      const authority = await resolveCommunity(relay),
-        receipts = [];
-      for (let i = 0; i < feed.length; i += 20) {
-        const page = await relay.query([
-          {
-            kinds: [9735],
-            authors: [authority.issuer],
-            "#p": [authority.recipient],
-            "#e": feed.slice(i, i + 20).map((e) => e.id),
-            limit: 500,
-          },
-        ]);
-        if (page.length >= 500 || receipts.length + page.length > 1000)
-          throw Error(
-            "Receipt history exceeds this reading session’s safety limit.",
-          );
-        receipts.push(...page);
-      }
-      totals = verifiedTotals(receipts, feed, authority);
-      zapState = { authority, error: null };
+      const authority = await resolveCommunity(relay);
+      const snapshot = await collectReceipts(feed, authority, relay);
+      totals = snapshot.totals;
+      // Keep receipt-ID/source provenance in memory, never payment proof material in the DOM.
+      zapState = { authority, error: null, snapshot };
     } catch (error) {
       zapState = {
         authority: null,

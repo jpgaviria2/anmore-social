@@ -285,7 +285,8 @@ export function verifiedTotals(
         !validEvent(request, now) ||
         one(request, "e") !== postId ||
         one(request, "p") !== authority.recipient ||
-        one(request, "lnurl") !== COMMUNITY_LNURL ||
+        (one(request, "lnurl", false) !== undefined &&
+          one(request, "lnurl", false) !== COMMUNITY_LNURL) ||
         request.tags.some((t) => t[0] === "a")
       )
         continue;

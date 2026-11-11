@@ -219,6 +219,13 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
       return;
     }
     const filters = m.slice(2);
+    if (
+      (mode === "local-receipts-failure" || mode === "receipts-failure") &&
+      filters.some((f) => f.kinds?.includes(9735))
+    ) {
+      ws.send(JSON.stringify(["CLOSED", m[1], "fixture unavailable"]));
+      return;
+    }
     const candidates =
       mode === "empty"
         ? []
@@ -227,7 +234,7 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
             ...posts,
             calendar,
             ...(mode === "recipient-missing" ? [] : [communityProfile]),
-            ...receipts,
+            ...(mode === "public-only" ? [] : receipts),
             ...(mode === "deleted" ? [deletion] : []),
           ];
     const selected = new Map();
@@ -254,6 +261,33 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
     ws.send(JSON.stringify(["EOSE", m[1]]));
   }),
 );
+const publicRequests = [];
+await context.routeWebSocket("wss://relay.primal.net", (ws) =>
+  ws.onMessage((raw) => {
+    const m = JSON.parse(raw);
+    publicRequests.push(m);
+    assert.ok(["REQ", "CLOSE"].includes(m[0]));
+    if (m[0] !== "REQ") return;
+    const f = m[2];
+    assert.deepEqual(f.kinds, [9735]);
+    assert.ok(f["#e"].every((id) => posts.some((p) => p.id === id)));
+    assert.deepEqual(f.authors, [receipts[0].pubkey]);
+    assert.deepEqual(f["#p"], [communityProfile.pubkey]);
+    if (mode === "public-failure" || mode === "receipts-failure") {
+      ws.send(JSON.stringify(["CLOSED", m[1], "fixture unavailable"]));
+      return;
+    }
+    for (const e of receipts.filter((r) =>
+      r.tags.some((t) => t[0] === "e" && f["#e"].includes(t[1])),
+    ))
+      ws.send(JSON.stringify(["EVENT", m[1], e]));
+    if (mode === "deleted")
+      ws.send(JSON.stringify(["EVENT", m[1], receipts[1]]));
+    // Attempted content injection from receipt peer must never enter the feed.
+    ws.send(JSON.stringify(["EVENT", m[1], posts[0]]));
+    ws.send(JSON.stringify(["EOSE", m[1]]));
+  }),
+);
 const page = await context.newPage();
 page.on("pageerror", (e) => errors.push(e.message));
 try {
@@ -262,7 +296,14 @@ try {
     .getByRole("heading", { name: "The neighbourhood, in the moment." })
     .waitFor({ timeout: 5000 });
   await page.locator(".post").first().waitFor();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
   assert.equal(await page.locator(".post").count(), 12);
+  assert.ok(
+    publicRequests.length > 0,
+    "Production must query the receipt-only peer",
+  );
   assert.equal(
     await page.locator(".post script,.post img[onerror]").count(),
     0,
@@ -430,15 +471,13 @@ try {
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
   assert.equal(await page.locator(".post").count(), 15);
-  const assertSnapshot = async (expectedCount) => {
-    const cards = await page
-      .locator(".post")
-      .evaluateAll((els) =>
-        els.map((e) => ({
-          id: e.dataset.eventId,
-          amount: e.querySelector(".zap-total").textContent,
-        })),
-      );
+  const assertSnapshot = async (expectedCount, excluded = []) => {
+    const cards = await page.locator(".post").evaluateAll((els) =>
+      els.map((e) => ({
+        id: e.dataset.eventId,
+        amount: e.querySelector(".zap-total").textContent,
+      })),
+    );
     assert.equal(cards.length, expectedCount);
     const values = new Map([
       [posts[0].id, 7],
@@ -451,7 +490,8 @@ try {
         `${(values.get(card.id) || 0).toLocaleString("en-CA")} sats`,
       );
     const expected = posts
-      .slice(0, expectedCount)
+      .slice(0, expectedCount + excluded.length)
+      .filter((e) => !excluded.includes(e.id))
       .toSorted(
         (a, b) =>
           (values.get(b.id) || 0) - (values.get(a.id) || 0) ||
@@ -475,6 +515,38 @@ try {
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
   await assertSnapshot(15);
+  for (const state of [
+    "public-only",
+    "public-failure",
+    "local-receipts-failure",
+    "receipts-failure",
+  ]) {
+    mode = state;
+    await page.locator("#refresh").click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector("#feed").getAttribute("aria-busy") === "false",
+    );
+    const amounts = await page.locator(".zap-total").allTextContents();
+    if (state === "public-only") await assertSnapshot(12);
+    else if (state === "receipts-failure") {
+      assert.ok(amounts.every((a) => a === "—"));
+      assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
+    } else {
+      assert.equal(amounts[0], "≥21 sats");
+      assert.equal(amounts[1], "≥7 sats");
+      assert.ok(amounts.slice(2).every((a) => a === "—"));
+      assert.match(
+        await page.locator("#sort-note").innerText(),
+        /Partial.*lower bounds/,
+      );
+    }
+  }
+  mode = "normal";
+  await page.locator("#refresh").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
   // A fresh verified receipt snapshot must update both amount and order.
   const previousReceipt = receipts[1];
   receipts[1] = zapReceipt(posts[0], 50);
@@ -499,16 +571,21 @@ try {
   );
   await assertSnapshot(15);
   // A failed Top refresh/pagination must not retain a successful snapshot count.
-  const settleTop = () => page.waitForFunction(
-    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
-  );
+  const settleTop = () =>
+    page.waitForFunction(
+      () =>
+        document.querySelector("#feed").getAttribute("aria-busy") === "false",
+    );
   for (const trigger of ["#refresh", "#load-more"]) {
     mode = "relay-failure";
     await page.locator(trigger).click();
     await settleTop();
     assert.equal(await page.locator(".post").count(), 0);
     assert.match(await page.locator("#sort-note").innerText(), /unavailable/i);
-    assert.doesNotMatch(await page.locator("#sort-note").innerText(), /15 posts/);
+    assert.doesNotMatch(
+      await page.locator("#sort-note").innerText(),
+      /15 posts/,
+    );
     mode = "normal";
     await page.locator("#refresh").click();
     await settleTop();
@@ -691,6 +768,7 @@ try {
   assert.equal(callbacks, 2, "Deleted posts must not reach invoice callback");
   await page.keyboard.press("Escape");
   mode = "deleted";
+  receipts[1] = zapReceipt(posts[0], 2000); // Deleted highest tip must not resurrect/rank.
   await page.locator("#refresh").click();
   await settled();
   assert.equal(
@@ -704,12 +782,24 @@ try {
     0,
   );
   assert.equal(await page.locator(".post").count(), 14);
+  await page.locator("#feed-order").selectOption("top");
+  await assertSnapshot(14, [posts[0].id]);
+  assert.equal(
+    await page.locator(".post").first().getAttribute("data-event-id"),
+    posts[14].id,
+  );
   await page.reload();
   await settled();
   assert.equal(
     await page.locator(`[data-event-id="${posts[0].id}"]`).count(),
     0,
   );
+  await page.locator("#feed-order").selectOption("top");
+  await assertSnapshot(11, [posts[0].id]);
+  await page.locator("#load-more").click();
+  await settled();
+  await assertSnapshot(14, [posts[0].id]);
+  receipts[1] = previousReceipt;
   for (const state of [
     "mismatch",
     "identity-failure",
@@ -758,6 +848,10 @@ try {
           recipientUnavailableFailsClosed: true,
           invoiceHashMismatchRejected: true,
           deletedPostZeroCallbacks: true,
+          deletedHighestTipCompleteTopOrderAndAmounts: true,
+          receiptOnlyPublicPeerAndCrossRelayDeduplication: true,
+          publicOnlyAndEitherPeerFailure: true,
+          partialLowerBoundVersusUnavailable: true,
         },
         geometry,
         requests: requests.length,

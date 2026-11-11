@@ -2,23 +2,23 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, access } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
-test("public artifact is feed-first, non-personalized, default Newest with explicit Top zapped and only the pinned relay", async () => {
+test("content stays pinned to Anmore; only a hardcoded receipt-only Primal peer is allowlisted", async () => {
   const html = await readFile(new URL("index.html", root), "utf8");
   const source = (
     await Promise.all(
-      ["src/app.js", "src/core.js", "src/relay.js"].map((p) =>
-        readFile(new URL(p, root), "utf8"),
+      ["src/app.js", "src/core.js", "src/relay.js", "src/receipts.js"].map(
+        (p) => readFile(new URL(p, root), "utf8"),
       ),
     )
   ).join("\n");
   assert.ok(html.indexOf('id="community"') < html.indexOf('id="upcoming"'));
   assert.match(
     html,
-    /connect-src 'self' wss:\/\/relay\.anmore\.me https:\/\/trailscoffee\.com https:\/\/pay\.trailscoffee\.com;/,
+    /connect-src 'self' wss:\/\/relay\.anmore\.me wss:\/\/relay\.primal\.net https:\/\/trailscoffee\.com https:\/\/pay\.trailscoffee\.com;/,
   );
   assert.deepEqual(
     [...new Set(source.match(/wss:\/\/[^'"\s]+/g))],
-    ["wss://relay.anmore.me"],
+    ["wss://relay.anmore.me", "wss://relay.primal.net"],
   );
   assert.doesNotMatch(
     source,

@@ -11,7 +11,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss://relay.anmore.me https://trailscoffee.com https://pay.trailscoffee.com; img-src 'self' https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss://relay.anmore.me wss://relay.primal.net https://trailscoffee.com https://pay.trailscoffee.com; img-src 'self' https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>Anmore Social — A little closer to home</title>
     <meta
@@ -196,7 +196,9 @@
                 the accuracy of every post.
               </p>
               <p>
-                We read only <strong>relay.anmore.me</strong>. No account,
+                Posts, profiles and deletions come only from
+                <strong>relay.anmore.me</strong>. Post-linked receipts are also
+                checked on <strong>relay.primal.net</strong>. No account,
                 tracking, or secret keys are needed. Photos may load from
                 external hosts; opening a source link leaves this site.
               </p>
@@ -205,11 +207,12 @@
               <summary>Receipt verification</summary>
               <p>
                 All post zaps go to the community group, not the authors. Only
-                verified, post-bound Lightning receipts from the loaded relay
-                snapshot count. An unpaid invoice, claimed amount, or generic
-                transfer does not increase a post’s total. Receipt issuers
-                attest payment; these are not independent settlement proofs.
-                Cashu nutzaps are not supported here.
+                verified, post-bound community Lightning receipts from Anmore
+                and Primal count in this loaded snapshot. A partial check shows
+                lower bounds, not verified zero. An unpaid invoice, claimed
+                amount, or generic transfer does not increase a post’s total.
+                Receipt issuers attest payment; these are not independent
+                settlement proofs. Cashu nutzaps are not supported here.
               </p>
             </details>
           </section>

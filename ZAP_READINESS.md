@@ -1,5 +1,7 @@
 # Per-post community zap candidate — release gate
 
+> Historical invoice-candidate report retained below. The current compact + receipt-only Primal candidate and its current release gates are documented in `RECEIPT_READINESS.md`; its read-only acceptance supersedes the historical receipt-absence blocker here. Anmore remains the only content/profile/deletion source. Request LNURL is optional per NIP-57, but exact if present. No additional unpaid invoice was requested during receipt reconciliation.
+
 ## Status
 
 Local frontend implemented and fixture-tested; one actual **unpaid post-bound invoice and browser QR passed** after constructing producer-compatible request bytes. **NOT production-ready** until receipt delivery/admission and parent OpenCode review/release gates are accepted. No commit, push, merge, deployment, wallet creation, transfer, mint/swaps/redemption, relay admission change, or protected configuration change was performed by this workstream.

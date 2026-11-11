@@ -14,7 +14,9 @@ const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }),
 page.on("pageerror", (e) => errors.push(e.message));
 page.on("websocket", (s) => {
   sockets.push(s.url());
-  s.on("framesent", (f) => requests.push(JSON.parse(f.payload)));
+  s.on("framesent", (f) =>
+    requests.push({ relay: s.url(), message: JSON.parse(f.payload) }),
+  );
 });
 try {
   await page.goto(process.env.QA_URL || "http://127.0.0.1:4173");
@@ -32,8 +34,26 @@ try {
     errors,
     geometry: [],
   };
-  assert.ok(sockets.every((s) => s === "wss://relay.anmore.me/"));
-  assert.ok(requests.every((m) => ["REQ", "CLOSE"].includes(m[0])));
+  assert.ok(
+    sockets.every((s) =>
+      ["wss://relay.anmore.me/", "wss://relay.primal.net/"].includes(s),
+    ),
+  );
+  assert.ok(
+    requests.every(({ message: m }) => ["REQ", "CLOSE"].includes(m[0])),
+  );
+  for (const { relay, message: m } of requests)
+    if (relay === "wss://relay.primal.net/" && m[0] === "REQ")
+      assert.ok(
+        m
+          .slice(2)
+          .every(
+            (f) =>
+              f.kinds.length === 1 &&
+              f.kinds[0] === 9735 &&
+              f["#e"].every((id) => /^[0-9a-f]{64}$/.test(id)),
+          ),
+      );
   assert.deepEqual(errors, []);
   for (const width of [1440, 390, 320]) {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });

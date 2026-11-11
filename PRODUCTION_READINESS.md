@@ -1,5 +1,7 @@
 # Feed-first release candidate — local only
 
+> Historical feed-first release evidence. Current compact + receipt-only Primal scope, source boundary, test results and gates are in `RECEIPT_READINESS.md`. Historical “one relay” assertions below apply to content/profile/deletion events; the current candidate has one explicit hardcoded receipt-only Primal exception.
+
 ## Artifact and scope
 
 - Worktree: `/Users/trails/anmore-social-feed-first`

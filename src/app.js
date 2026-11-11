@@ -1,0 +1,432 @@
+import { Relay } from "./relay.js";
+import {
+  RELAY,
+  identify,
+  latestProfile,
+  visibleEvents,
+  tag,
+  address,
+  calendarInfo,
+  safeURL,
+} from "./core.js";
+const $ = (id) => document.getElementById(id);
+const el = (name, cls, text) => {
+  const n = document.createElement(name);
+  if (cls) n.className = cls;
+  if (text !== undefined) n.textContent = text;
+  return n;
+};
+const link = (text, url) => {
+  const a = el("a", "", text);
+  a.href = url;
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  return a;
+};
+const format = (ts, options) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Vancouver",
+    ...options,
+  }).format(new Date(ts * 1000));
+let stored = [],
+  cursor,
+  limit = 12,
+  busy = false,
+  ended = false;
+function richText(text) {
+  const p = el("p");
+  let last = 0;
+  for (const m of text.matchAll(/https:\/\/[^\s<>"\u0000-\u001f]+/g)) {
+    p.append(document.createTextNode(text.slice(last, m.index)));
+    const raw = m[0].replace(/[.,!;:)]+$/, "");
+    const url = safeURL(raw);
+    p.append(url ? link(raw, url) : document.createTextNode(raw));
+    p.append(document.createTextNode(m[0].slice(raw.length)));
+    last = m.index + m[0].length;
+  }
+  p.append(document.createTextNode(text.slice(last)));
+  return p;
+}
+function provenance(e, identity) {
+  const details = el("details", "provenance");
+  details.append(el("summary", "", "Source & verified identity"));
+  const dl = el("dl");
+  for (const [label, value] of [
+    ["Community identity", identity.nip05],
+    ["Relay", RELAY],
+    [
+      "Published",
+      format(e.created_at, { dateStyle: "medium", timeStyle: "short" }) +
+        " Pacific",
+    ],
+    ["Event ID", e.id],
+    ["Author public key", e.pubkey],
+    ["Event kind", String(e.kind)],
+    ["Signature", e.sig],
+  ]) {
+    dl.append(el("dt", "", label), el("dd", "", value));
+  }
+  details.append(
+    dl,
+    el(
+      "p",
+      "",
+      "Signature and domain association checked for this snapshot. This is not a guarantee of the post’s accuracy.",
+    ),
+  );
+  return details;
+}
+function imageURLs(e) {
+  const urls = [];
+  for (const t of e.tags) {
+    if (t[0] === "image") urls.push(t[1]);
+    if (t[0] === "imeta")
+      for (const v of t.slice(1))
+        if (v.startsWith("url ")) urls.push(v.slice(4));
+  }
+  for (const m of e.content.matchAll(/https:\/\/[^\s<>"\u0000-\u001f]+/g)) {
+    const u = safeURL(m[0]);
+    if (u && /\.(jpe?g|png|webp|gif|avif)$/i.test(new URL(u).pathname))
+      urls.push(u);
+  }
+  return [...new Set(urls.map(safeURL).filter(Boolean))].slice(0, 4);
+}
+function post(e, identity) {
+  const article = el("article", "post");
+  article.dataset.createdAt = e.created_at;
+  article.dataset.eventId = e.id;
+  const top = el("header", "post-top");
+  const avatar = el(
+    "span",
+    "avatar",
+    Array.from(identity.name)[0]?.toUpperCase() || "A",
+  );
+  avatar.setAttribute("aria-hidden", "true");
+  const author = el("div", "author");
+  author.append(
+    el("strong", "", identity.name),
+    el("span", "identity", identity.nip05),
+  );
+  const time = el(
+    "time",
+    "post-time",
+    format(e.created_at, { month: "short", day: "numeric" }),
+  );
+  time.dateTime = new Date(e.created_at * 1000).toISOString();
+  time.title =
+    format(e.created_at, { dateStyle: "full", timeStyle: "short" }) +
+    " Pacific";
+  top.append(avatar, author, time);
+  article.append(top);
+  const images = imageURLs(e);
+  let text = e.content;
+  // Only remove standalone image URL lines; prose and source links remain intact.
+  for (const url of images)
+    text = text
+      .split("\n")
+      .filter((line) => line.trim() !== url)
+      .join("\n");
+  text = text.trim();
+  const body = el("div", "post-body");
+  if (text.length > 700) {
+    body.append(richText(text.slice(0, 650)));
+    const more = el("details");
+    more.append(
+      el("summary", "", "Read the full update"),
+      richText(text.slice(650)),
+    );
+    body.append(more);
+  } else if (text) body.append(richText(text));
+  article.append(body);
+  if (images.length) {
+    const media = el("div", "post-media");
+    for (const url of images) {
+      const img = el("img");
+      img.src = url;
+      img.alt = tag(e, "alt") || "Photo attached to this community update";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener(
+        "error",
+        () => {
+          const p = el("p", "media-failure", "Photo unavailable. ");
+          p.append(link("Open original image (new tab)", url));
+          img.replaceWith(p);
+        },
+        { once: true },
+      );
+      media.append(img);
+    }
+    article.append(media);
+  }
+  const source = el("div", "post-source");
+  source.append(
+    el("span", "", "Community update"),
+    el("span", "", "Signed on Nostr"),
+  );
+  article.append(source, provenance(e, identity));
+  return article;
+}
+function eventCard(e, identity, info) {
+  const item = el("article", "event"),
+    date = el("div", "event-date"),
+    day = new Date(info.date + "T12:00:00Z");
+  date.append(
+    el("b", "", String(day.getUTCDate())),
+    el(
+      "span",
+      "",
+      new Intl.DateTimeFormat("en", { month: "short", timeZone: "UTC" }).format(
+        day,
+      ),
+    ),
+  );
+  const content = el("div");
+  content.append(
+    el("h3", "", info.title),
+    el(
+      "p",
+      "",
+      info.allDay
+        ? "All day"
+        : format(info.sort, {
+            weekday: "short",
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+    ),
+    el("p", "", info.location),
+  );
+  const details = el("details");
+  details.append(
+    el("summary", "", "Event details"),
+    richText(e.content),
+    el("p", "", identity.nip05),
+    provenance(e, identity),
+  );
+  item.append(date, content, details);
+  return item;
+}
+function status(text, error = false) {
+  $("status").textContent = text;
+  $("status").classList.toggle("error", error);
+}
+async function batches(items, size, fn) {
+  const result = [];
+  for (let i = 0; i < items.length; i += size)
+    result.push(...(await fn(items.slice(i, i + size))));
+  return result;
+}
+async function load(reset = false) {
+  if (busy) return;
+  busy = true;
+  $("refresh").disabled = true;
+  $("load-more").disabled = true;
+  $("feed").setAttribute("aria-busy", "true");
+  status(
+    reset
+      ? "Checking the latest stories and community identities…"
+      : "Checking earlier updates and refreshing identity associations…",
+  );
+  const relay = new Relay();
+  try {
+    if (!navigator.onLine)
+      throw Error(
+        "You’re offline. Community updates need an internet connection.",
+      );
+    await relay.open();
+    const until = reset
+      ? Math.floor(Date.now() / 1000)
+      : (cursor ?? Math.floor(Date.now() / 1000));
+    const requested = reset ? 12 : limit;
+    const page = await relay.query([
+      { kinds: [1, 20], until, limit: requested },
+    ]);
+    const calendar = reset
+      ? await relay.query([
+          {
+            kinds: [31922, 31923],
+            until: Math.floor(Date.now() / 1000),
+            limit: 60,
+          },
+        ])
+      : [];
+    let candidates = [...(reset ? [] : stored), ...page, ...calendar];
+    if (candidates.length > 1200)
+      throw Error(
+        "This reading session has reached its safety limit. Refresh to start again.",
+      );
+    // Refresh each address against its newest known revision before showing a calendar entry.
+    const coordinates = [
+      ...new Map(
+        candidates.filter((e) => e.kind >= 30000).map((e) => [address(e), e]),
+      ).values(),
+    ];
+    const revisions = await batches(coordinates, 20, (chunk) =>
+      relay.query(
+        chunk.map((e) => ({
+          authors: [e.pubkey],
+          kinds: [e.kind],
+          "#d": [tag(e, "d") ?? ""],
+          limit: 1,
+        })),
+      ),
+    );
+    candidates.push(...revisions);
+    const authors = [
+      ...new Set(candidates.filter((e) => e.kind !== 5).map((e) => e.pubkey)),
+    ];
+    const profiles = await batches(authors, 20, (chunk) =>
+      relay.query(
+        chunk.map((pubkey) => ({ kinds: [0], authors: [pubkey], limit: 1 })),
+      ),
+    );
+    const deletions = await batches(authors, 20, async (chunk) => {
+      const d = await relay.query([{ kinds: [5], authors: chunk, limit: 500 }]);
+      if (d.length >= 500)
+        throw Error(
+          "Deletion history is too large to verify safely. Please retry later.",
+        );
+      return d;
+    });
+    candidates = [
+      ...new Map([...candidates, ...deletions].map((e) => [e.id, e])).values(),
+    ];
+    let unavailable = 0;
+    const identities = new Map();
+    // Bounded HTTPS concurrency. No persistent identity cache or hardcoded names.
+    await batches(authors, 4, async (chunk) => {
+      await Promise.all(
+        chunk.map(async (pubkey) => {
+          const profile = latestProfile(profiles, pubkey);
+          if (
+            !profile ||
+            deletions.some(
+              (d) =>
+                d.pubkey === pubkey &&
+                d.tags.some(
+                  (t) =>
+                    (t[0] === "e" && t[1] === profile.id) ||
+                    (t[0] === "a" &&
+                      t[1] === `0:${pubkey}:` &&
+                      d.created_at >= profile.created_at),
+                ),
+            )
+          )
+            return;
+          try {
+            const identity = await identify(profile);
+            if (identity) identities.set(pubkey, identity);
+          } catch {
+            unavailable++;
+          }
+        }),
+      );
+      return [];
+    });
+    const visible = visibleEvents(candidates).filter((e) =>
+      identities.has(e.pubkey),
+    );
+    const feed = visible.filter((e) => [1, 20].includes(e.kind));
+    $("feed").replaceChildren(
+      ...feed.map((e) => post(e, identities.get(e.pubkey))),
+    );
+    $("empty").hidden = feed.length > 0;
+    const events = visible
+      .filter((e) => e.kind >= 30000)
+      .map((e) => ({ e, info: calendarInfo(e) }))
+      .filter((x) => x.info)
+      .sort((a, b) => a.info.sort - b.info.sort || a.e.id.localeCompare(b.e.id))
+      .slice(0, 4);
+    $("events").replaceChildren(
+      ...(events.length
+        ? events.map(({ e, info }) =>
+            eventCard(e, identities.get(e.pubkey), info),
+          )
+        : [
+            el(
+              "p",
+              "small muted",
+              "No upcoming events in the latest verified calendar updates. Check back soon.",
+            ),
+          ]),
+    );
+    stored = candidates;
+    const oldest = page.length
+      ? Math.min(...page.map((e) => e.created_at))
+      : until;
+    // Inclusive cursor preserves timestamp ties; grow the boundary window rather than skip a second.
+    limit =
+      oldest === until
+        ? requested + 12
+        : page.filter((e) => e.created_at === oldest).length + 12;
+    cursor = oldest;
+    ended = page.length < requested;
+    if (limit > 600) {
+      ended = true;
+      status(
+        "Many updates share one timestamp. The reading limit was reached; no older timestamps were skipped.",
+        true,
+      );
+    } else
+      status(
+        unavailable
+          ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.`
+          : `Updated ${format(Math.floor(Date.now() / 1000), { hour: "numeric", minute: "2-digit" })} Pacific. Signed profiles and community identities checked.`,
+        unavailable > 0,
+      );
+    $("connection").textContent = "Relay snapshot loaded";
+    $("connection").dataset.state = "ready";
+    $("page-note").textContent = ended
+      ? "You’ve reached the end of this relay page. Refresh for new updates."
+      : "No endless scroll. Take your time.";
+  } catch (error) {
+    // Fail closed rather than retaining a stale identity/deletion assertion after a failed refresh.
+    $("feed").replaceChildren();
+    $("empty").hidden = true;
+    $("events").replaceChildren(
+      el(
+        "p",
+        "small muted",
+        "Events could not be verified. Please refresh to retry.",
+      ),
+    );
+    status(
+      error.message || "Community updates could not be verified. Please retry.",
+      true,
+    );
+    $("connection").textContent = navigator.onLine
+      ? "Relay check unavailable"
+      : "Offline";
+    $("connection").dataset.state = "error";
+    ended = false;
+  } finally {
+    relay.close();
+    busy = false;
+    $("refresh").disabled = false;
+    $("load-more").disabled = ended;
+    $("feed").setAttribute("aria-busy", "false");
+  }
+}
+$("refresh").addEventListener("click", () => load(true));
+$("load-more").addEventListener("click", () => load(false));
+window.addEventListener("offline", () => {
+  status(
+    "You’re offline. These are the last checked updates, not a live feed. Refresh when you’re back online.",
+    true,
+  );
+  $("connection").textContent = "Offline · last snapshot";
+  $("connection").dataset.state = "error";
+});
+// Retire the former app-shell cache without creating a new offline content store.
+if ("serviceWorker" in navigator)
+  navigator.serviceWorker
+    .getRegistrations()
+    .then((registrations) => {
+      for (const r of registrations)
+        if (r.active?.scriptURL === new URL("./sw.js", location.href).href)
+          r.update().catch(() => {});
+    })
+    .catch(() => {});
+load(true);

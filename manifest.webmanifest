@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Anmore Social",
   "short_name": "Anmore",
-  "description": "Community calendar, local feed, fundraisers, and marketplace listings for Anmore.",
+  "description": "A quiet, read-only community bulletin for Anmore. Local moments and upcoming gatherings.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

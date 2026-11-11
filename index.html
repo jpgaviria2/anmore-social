@@ -25,7 +25,7 @@
     <meta property="og:type" content="website" />
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./feed.css?v=compact-zaps-2" />
+    <link rel="stylesheet" href="./feed.css?v=feed-buttons-simple-zap-1" />
   </head>
   <body>
     <a class="skip" href="#community">Skip to community updates</a>
@@ -103,20 +103,24 @@
             </button>
           </div>
           <div class="feed-meta">
-            <label class="feed-order"
-              ><span class="sr-only">Order</span>
-              <select
-                id="feed-order"
-                title="Top compares verified community receipts among loaded posts only. Load more to widen coverage."
+            <div class="feed-order" role="group" aria-label="Order updates">
+              <button id="order-newest" type="button" aria-pressed="true">
+                Newest
+              </button>
+              <button
+                id="order-top"
+                type="button"
+                aria-pressed="false"
+                aria-describedby="sort-note"
               >
-                <option value="newest" selected>Newest</option>
-                <option value="top">Top zapped · loaded</option>
-              </select></label
-            ><span class="connection" id="connection"
+                Top zapped
+              </button>
+            </div>
+            <span class="connection" id="connection"
               >Connecting to community relay</span
             >
           </div>
-          <p id="sort-note" class="sort-note" hidden>
+          <p id="sort-note" class="sort-note" role="status" hidden>
             Top zapped among loaded posts only. Verified community Lightning
             receipts, highest sats first; ties stay newest first. Load more to
             widen the comparison. Refresh rechecks counts.
@@ -232,18 +236,25 @@
         Close
       </button>
       <h2 id="zap-title">Zap this post</h2>
-      <p id="zap-purpose">
-        <strong>All sats go to the community group, not the author.</strong>
-        This invoice is linked only to the post below.
-      </p>
-      <blockquote id="zap-post"></blockquote>
-      <p class="zap-identity">
-        Post ID: <span id="zap-post-id"></span><br />Community destination:
-        <span id="zap-destination">coffeeloverc2c2cd@pay.trailscoffee.com</span>
-      </p>
+      <p id="zap-purpose">Tips support community, not the author.</p>
+      <details class="zap-details">
+        <summary>Post details</summary>
+        <blockquote id="zap-post"></blockquote>
+        <p class="zap-identity">
+          Post ID: <span id="zap-post-id"></span><br />Community destination:
+          <span id="zap-destination"
+            >coffeeloverc2c2cd@pay.trailscoffee.com</span
+          >
+        </p>
+        <p>
+          Creating an invoice does not send payment. Confirm payment in your
+          wallet. Reopen this post to reuse its invoice; refresh the feed to
+          check receipts.
+        </p>
+      </details>
       <p id="zap-message" class="status" role="status"></p>
-      <div class="zap-create">
-        <label for="zap-amount">Amount (whole sats)</label
+      <div class="zap-create" id="zap-create">
+        <label for="zap-amount">Sats</label
         ><input
           id="zap-amount"
           inputmode="numeric"
@@ -252,39 +263,37 @@
           maxlength="9"
           autocomplete="off"
         /><button id="create-zap" class="primary-button" type="button">
-          Create post-bound invoice
+          Get invoice
         </button>
       </div>
       <div id="zap-invoice" hidden>
-        <canvas
-          id="zap-qr"
-          role="img"
-          aria-label="Lightning invoice QR linked to this post and community recipient"
-        ></canvas>
+        <p id="zap-invoice-amount"></p>
+        <div class="zap-actions">
+          <button id="copy-zap" class="primary-button" type="button">
+            Copy invoice
+          </button>
+          <a id="zap-wallet" class="quiet-button">Open wallet</a>
+        </div>
         <p id="zap-expiry"></p>
-        <a id="zap-wallet" class="primary-button"
-          >Open invoice in Lightning wallet</a
-        >
-        <label for="zap-invoice-text">Exact post-bound invoice</label
-        ><textarea
-          id="zap-invoice-text"
-          readonly
-          rows="3"
-          spellcheck="false"
-        ></textarea>
-        <button id="copy-zap" class="quiet-button" type="button">
-          Copy Lightning invoice
-        </button>
+        <details id="zap-qr-details" class="zap-details">
+          <summary>Show QR</summary>
+          <canvas
+            id="zap-qr"
+            role="img"
+            aria-label="Lightning invoice QR linked to this post and community recipient"
+          ></canvas>
+        </details>
+        <details id="zap-copy-fallback" class="zap-details" hidden>
+          <summary>Copy manually</summary>
+          <label for="zap-invoice-text">Invoice</label>
+          <textarea
+            id="zap-invoice-text"
+            readonly
+            rows="3"
+            spellcheck="false"
+          ></textarea>
+        </details>
       </div>
-      <p class="zap-help">
-        Creating an invoice does not send payment. Choose whether to pay in your
-        own Lightning wallet; check its destination and amount. This site has no
-        wallet access and cannot confirm your payment here. Close and reopen
-        this post to reuse its invoice. Refresh the feed to check published
-        receipts. Missing receipts may mean relay or provider support is
-        unavailable, not that a payment failed. This is a Lightning zap, not a
-        Cashu nutzap.
-      </p>
     </dialog>
     <noscript
       ><p class="wrap status">
@@ -292,6 +301,6 @@
         required.
       </p></noscript
     >
-    <script type="module" src="./app.js?v=compact-zaps-2"></script>
+    <script type="module" src="./app.js?v=feed-buttons-simple-zap-1"></script>
   </body>
 </html>

@@ -28,10 +28,11 @@ test("content stays pinned to Anmore; only a hardcoded receipt-only Primal peer 
     html,
     /FullCalendar|data-create|identity-login|nostr-identity/,
   );
-  assert.match(html, /value="newest" selected/);
-  assert.match(html, /value="top">Top zapped/);
+  assert.match(html, /id="order-newest"[^>]*aria-pressed="true"/);
+  assert.match(html, /id="order-top"[^>]*aria-pressed="false"/);
+  assert.doesNotMatch(html, /<select/);
   assert.match(html, /Top zapped among loaded posts only/);
-  assert.match(html, /All sats go to the community group, not the author/);
+  assert.match(html, /Tips support community, not the author/);
   assert.doesNotMatch(html, /lightning:coffeelover|api\.qrserver|quickchart/);
   const zaps = await readFile(new URL("src/zaps.js", root), "utf8");
   const ui = await readFile(new URL("src/zap-ui.js", root), "utf8");

@@ -774,7 +774,7 @@ h2 {
   gap: 8px;
   font-size: 11px;
 }
-.feed-order select {
+.feed-order button {
   font: inherit;
   color: var(--ink);
   background: white;
@@ -783,6 +783,15 @@ h2 {
   padding: 8px;
   min-height: 44px;
   max-width: 180px;
+  min-width: 44px;
+}
+.feed-order button[aria-pressed="true"] {
+  background: var(--ink);
+  color: white;
+  border-color: var(--ink);
+}
+.feed-order button:disabled {
+  opacity: 0.65;
 }
 .sort-note {
   font-size: 11px;
@@ -808,12 +817,12 @@ h2 {
   color: var(--muted);
 }
 #zap-dialog {
-  width: min(520px, calc(100% - 24px));
+  width: min(400px, calc(100% - 24px));
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 22px;
+  padding: 18px;
   color: var(--ink);
   background: var(--paper);
 }
@@ -821,7 +830,7 @@ h2 {
   background: rgb(15 35 28 / 55%);
 }
 #zap-dialog h2 {
-  margin: 6px 75px 20px 0;
+  margin: 6px 75px 8px 0;
 }
 .dialog-close {
   float: right;
@@ -880,7 +889,35 @@ h2 {
 #zap-wallet {
   display: block;
   text-decoration: none;
-  margin: 10px 0 16px;
+  margin: 0;
+}
+.zap-actions {
+  display: grid;
+  gap: 8px;
+}
+.zap-actions > * {
+  min-height: 44px;
+}
+#zap-dialog #zap-invoice-amount {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 10px 0;
+}
+#zap-dialog #zap-expiry {
+  font-size: 11px;
+  margin: 8px 0;
+}
+#zap-message:empty {
+  display: none;
+}
+.zap-details summary {
+  min-height: 44px;
+  padding: 12px 0;
+  font-size: 12px;
+  cursor: pointer;
+}
+#zap-purpose {
+  margin-bottom: 4px;
 }
 #zap-invoice-text {
   display: block;

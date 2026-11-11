@@ -25,14 +25,26 @@ const zapUI = setupZaps({
   getState: () => zapState,
   recheck: recheckZap,
 });
+let feedOrder = "newest";
+// At most six sequential content queries and 600 admitted page entries per action.
+// Inclusive timestamp boundaries retain ties; reaching a budget is not global coverage.
+const TOP_PAGES = 6,
+  TOP_ENTRIES = 600;
 function renderFeed() {
-  $("sort-note").hidden = $("feed-order").value !== "top";
-  $("sort-note").textContent = zapState.error
-    ? "Zap checks unavailable · showing newest first."
-    : `Top zapped among loaded posts only · ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check · amounts are lower bounds. " : ""}Load more to compare earlier updates.`;
+  $("order-newest").setAttribute(
+    "aria-pressed",
+    String(feedOrder === "newest"),
+  );
+  $("order-top").setAttribute("aria-pressed", String(feedOrder === "top"));
+  $("sort-note").hidden = feedOrder !== "top";
+  $("sort-note").textContent = busy
+    ? "Checking earlier updates…"
+    : zapState.error
+      ? "Zap checks unavailable · showing newest first."
+      : `Top zapped among loaded posts · ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check · amounts are lower bounds. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
   $("feed").replaceChildren(
-    ...sortPosts([...currentPosts.values()], totals, $("feed-order").value).map(
-      (e) => post(e, currentIdentities.get(e.pubkey)),
+    ...sortPosts([...currentPosts.values()], totals, feedOrder).map((e) =>
+      post(e, currentIdentities.get(e.pubkey)),
     ),
   );
 }
@@ -324,7 +336,9 @@ async function load(reset = false) {
   totals = new Map();
   zapState = { authority: null, error: "Zap checks unavailable." };
   $("refresh").disabled = true;
-  $("feed-order").disabled = true;
+  $("order-newest").disabled = true;
+  $("order-top").disabled = true;
+  renderFeed();
   $("load-more").disabled = true;
   $("feed").setAttribute("aria-busy", "true");
   status(
@@ -339,13 +353,36 @@ async function load(reset = false) {
         "You’re offline. Community updates need an internet connection.",
       );
     await relay.open();
-    const until = reset
+    let until = reset
       ? Math.floor(Date.now() / 1000)
       : (cursor ?? Math.floor(Date.now() / 1000));
-    const requested = reset ? 12 : limit;
-    const page = await relay.query([
-      { kinds: [1, 20], until, limit: requested },
-    ]);
+    let requested = reset ? 12 : limit;
+    const page = [];
+    let nextCursor = until,
+      nextLimit = requested,
+      pageEnded = false;
+    for (let i = 0; i < (feedOrder === "top" ? TOP_PAGES : 1); i++) {
+      if (requested > 600 || page.length + requested > TOP_ENTRIES) break;
+      const chunk = await relay.query([
+        { kinds: [1, 20], until, limit: requested },
+      ]);
+      if (feedOrder === "top" &&
+          (chunk.length > requested || page.length + chunk.length > TOP_ENTRIES))
+        throw Error("Relay exceeded the Top reading limit. Please retry.");
+      page.push(...chunk);
+      const oldest = chunk.length
+        ? Math.min(...chunk.map((e) => e.created_at))
+        : until;
+      nextLimit =
+        oldest === until
+          ? requested + 12
+          : chunk.filter((e) => e.created_at === oldest).length + 12;
+      nextCursor = oldest;
+      pageEnded = chunk.length < requested;
+      if (pageEnded || nextLimit > 600) break;
+      until = nextCursor;
+      requested = nextLimit;
+    }
     const calendar = reset
       ? await relay.query([
           {
@@ -472,16 +509,10 @@ async function load(reset = false) {
           ]),
     );
     stored = candidates;
-    const oldest = page.length
-      ? Math.min(...page.map((e) => e.created_at))
-      : until;
-    // Inclusive cursor preserves timestamp ties; grow the boundary window rather than skip a second.
-    limit =
-      oldest === until
-        ? requested + 12
-        : page.filter((e) => e.created_at === oldest).length + 12;
-    cursor = oldest;
-    ended = page.length < requested;
+    // Pagination follows chronological relay pages, never the displayed amount sort.
+    limit = nextLimit;
+    cursor = nextCursor;
+    ended = pageEnded;
     if (limit > 600) {
       ended = true;
       status(
@@ -532,13 +563,25 @@ async function load(reset = false) {
     relay.close();
     busy = false;
     $("refresh").disabled = false;
-    $("feed-order").disabled = false;
+    $("order-newest").disabled = false;
+    $("order-top").disabled = false;
+    renderFeed();
     $("load-more").disabled = ended;
     $("feed").setAttribute("aria-busy", "false");
   }
 }
 $("refresh").addEventListener("click", () => load(true));
-$("feed-order").addEventListener("change", renderFeed);
+$("order-newest").addEventListener("click", () => {
+  if (busy) return;
+  feedOrder = "newest";
+  renderFeed();
+});
+$("order-top").addEventListener("click", () => {
+  if (busy || feedOrder === "top") return;
+  feedOrder = "top";
+  if (!ended) load(false);
+  else renderFeed();
+});
 $("load-more").addEventListener("click", () => load(false));
 window.addEventListener("offline", () => {
   status(

@@ -5547,6 +5547,9 @@ function setupZaps({ getPost, getState, recheck }) {
     $("zap-invoice").hidden = true;
     $("zap-wallet").removeAttribute("href");
     $("zap-invoice-text").value = "";
+    $("zap-qr-details").open = false;
+    $("zap-copy-fallback").open = false;
+    $("zap-copy-fallback").hidden = true;
     const c = $("zap-qr");
     c.getContext("2d").clearRect(0, 0, c.width, c.height);
   }
@@ -5569,12 +5572,13 @@ function setupZaps({ getPost, getState, recheck }) {
       return;
     }
     $("zap-wallet").href = result.uri;
-    $("zap-invoice-text").value = result.uri;
-    $("zap-expiry").textContent = `${result.msats / 1000n} sats to the community group. Expires ${new Date(result.expiresAt * 1e3).toLocaleTimeString()}.`;
+    $("zap-invoice-text").value = result.invoice;
+    $("zap-invoice-amount").textContent = `${result.msats / 1000n} sats`;
+    $("zap-expiry").textContent = `Expires ${new Date(result.expiresAt * 1e3).toLocaleTimeString()}`;
+    $("zap-create").hidden = true;
     $("zap-invoice").hidden = false;
-    message(
-      "Invoice checked against this exact post, community recipient and amount. No payment has been sent by this site."
-    );
+    message("");
+    $("copy-zap").focus();
     expiryTimer = setTimeout(
       () => {
         clearInvoice();
@@ -5601,7 +5605,7 @@ function setupZaps({ getPost, getState, recheck }) {
     if (!dialog.open || event.key !== "Tab") return;
     const controls = [
       ...dialog.querySelectorAll(
-        'button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),[tabindex="0"]'
+        'button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),summary,[tabindex="0"]'
       )
     ].filter((node) => node.getClientRects().length > 0);
     const first = controls[0], last = controls.at(-1), active = document.activeElement;
@@ -5623,7 +5627,9 @@ function setupZaps({ getPost, getState, recheck }) {
     try {
       zapAmount(sats, getState().authority);
     } catch (error) {
-      message(error.message);
+      message(
+        error.message.includes("whole-satoshi") ? "Use whole sats (1 or more)." : error.message
+      );
       return;
     }
     if (attempts.size >= 32) {
@@ -5635,9 +5641,7 @@ function setupZaps({ getPost, getState, recheck }) {
     attempts.set(id, { pending: true });
     $("create-zap").disabled = true;
     $("zap-amount").disabled = true;
-    message(
-      "Rechecking this post and the community recipient before requesting one invoice\u2026"
-    );
+    message("Checking post\u2026");
     try {
       const authority = await recheck(id);
       if (token !== epoch || !dialog.open || !getPost(id))
@@ -5662,13 +5666,13 @@ function setupZaps({ getPost, getState, recheck }) {
     if (!text || $("zap-invoice").hidden) return;
     try {
       await navigator.clipboard.writeText(text);
-      message("Lightning invoice copied. This does not send payment.");
+      message("Invoice copied. Paste in Trails Wallet.");
     } catch {
+      $("zap-copy-fallback").hidden = false;
+      $("zap-copy-fallback").open = true;
       $("zap-invoice-text").focus();
       $("zap-invoice-text").select();
-      message(
-        "Clipboard unavailable. Select and copy the exact invoice above."
-      );
+      message("Clipboard unavailable. Copy the invoice below.");
     }
   });
   return {
@@ -5680,6 +5684,8 @@ function setupZaps({ getPost, getState, recheck }) {
       opener = button;
       const token = ++epoch;
       clearInvoice();
+      $("zap-create").hidden = false;
+      dialog.querySelector(".zap-details").open = false;
       $("zap-post").textContent = post2.content.slice(0, 220) || "Photo community update";
       $("zap-post-id").textContent = id;
       $("zap-amount").value = "21";
@@ -5687,7 +5693,7 @@ function setupZaps({ getPost, getState, recheck }) {
       $("create-zap").disabled = !state.authority || !!attempt;
       $("zap-amount").disabled = !state.authority || !!attempt;
       message(
-        state.authority ? "Choose an amount, then request one post-bound invoice. The request uses a fresh anonymous signing key in memory only." : state.error || "Community zap verification is unavailable. No invoice can be created."
+        state.authority ? "" : state.error || "Community zap verification is unavailable. No invoice can be created."
       );
       dialog.showModal();
       if (attempt?.result && attempt.recipient === state.authority?.recipient && attempt.issuer === state.authority?.issuer)
@@ -5696,7 +5702,7 @@ function setupZaps({ getPost, getState, recheck }) {
         );
       else if (attempt)
         message(
-          "This post already has an invoice attempt in this session. Check your wallet; reload only when you are ready to start a separate request."
+          "Invoice already requested. Check your wallet before reloading."
         );
     }
   };
@@ -5716,11 +5722,19 @@ var zapUI = setupZaps({
   getState: () => zapState,
   recheck: recheckZap
 });
+var feedOrder = "newest";
+var TOP_PAGES = 6;
+var TOP_ENTRIES = 600;
 function renderFeed() {
-  $2("sort-note").hidden = $2("feed-order").value !== "top";
-  $2("sort-note").textContent = zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts only \xB7 ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 amounts are lower bounds. " : ""}Load more to compare earlier updates.`;
+  $2("order-newest").setAttribute(
+    "aria-pressed",
+    String(feedOrder === "newest")
+  );
+  $2("order-top").setAttribute("aria-pressed", String(feedOrder === "top"));
+  $2("sort-note").hidden = feedOrder !== "top";
+  $2("sort-note").textContent = busy ? "Checking earlier updates\u2026" : zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts \xB7 ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 amounts are lower bounds. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
   $2("feed").replaceChildren(
-    ...sortPosts([...currentPosts.values()], totals, $2("feed-order").value).map(
+    ...sortPosts([...currentPosts.values()], totals, feedOrder).map(
       (e) => post(e, currentIdentities.get(e.pubkey))
     )
   );
@@ -5986,7 +6000,9 @@ async function load(reset = false) {
   totals = /* @__PURE__ */ new Map();
   zapState = { authority: null, error: "Zap checks unavailable." };
   $2("refresh").disabled = true;
-  $2("feed-order").disabled = true;
+  $2("order-newest").disabled = true;
+  $2("order-top").disabled = true;
+  renderFeed();
   $2("load-more").disabled = true;
   $2("feed").setAttribute("aria-busy", "true");
   status(
@@ -5999,11 +6015,26 @@ async function load(reset = false) {
         "You\u2019re offline. Community updates need an internet connection."
       );
     await relay.open();
-    const until = reset ? Math.floor(Date.now() / 1e3) : cursor ?? Math.floor(Date.now() / 1e3);
-    const requested = reset ? 12 : limit;
-    const page = await relay.query([
-      { kinds: [1, 20], until, limit: requested }
-    ]);
+    let until = reset ? Math.floor(Date.now() / 1e3) : cursor ?? Math.floor(Date.now() / 1e3);
+    let requested = reset ? 12 : limit;
+    const page = [];
+    let nextCursor = until, nextLimit = requested, pageEnded = false;
+    for (let i2 = 0; i2 < (feedOrder === "top" ? TOP_PAGES : 1); i2++) {
+      if (requested > 600 || page.length + requested > TOP_ENTRIES) break;
+      const chunk = await relay.query([
+        { kinds: [1, 20], until, limit: requested }
+      ]);
+      if (feedOrder === "top" && (chunk.length > requested || page.length + chunk.length > TOP_ENTRIES))
+        throw Error("Relay exceeded the Top reading limit. Please retry.");
+      page.push(...chunk);
+      const oldest = chunk.length ? Math.min(...chunk.map((e) => e.created_at)) : until;
+      nextLimit = oldest === until ? requested + 12 : chunk.filter((e) => e.created_at === oldest).length + 12;
+      nextCursor = oldest;
+      pageEnded = chunk.length < requested;
+      if (pageEnded || nextLimit > 600) break;
+      until = nextCursor;
+      requested = nextLimit;
+    }
     const calendar = reset ? await relay.query([
       {
         kinds: [31922, 31923],
@@ -6112,10 +6143,9 @@ async function load(reset = false) {
       ]
     );
     stored = candidates;
-    const oldest = page.length ? Math.min(...page.map((e) => e.created_at)) : until;
-    limit = oldest === until ? requested + 12 : page.filter((e) => e.created_at === oldest).length + 12;
-    cursor = oldest;
-    ended = page.length < requested;
+    limit = nextLimit;
+    cursor = nextCursor;
+    ended = pageEnded;
     if (limit > 600) {
       ended = true;
       status(
@@ -6159,13 +6189,25 @@ async function load(reset = false) {
     relay.close();
     busy = false;
     $2("refresh").disabled = false;
-    $2("feed-order").disabled = false;
+    $2("order-newest").disabled = false;
+    $2("order-top").disabled = false;
+    renderFeed();
     $2("load-more").disabled = ended;
     $2("feed").setAttribute("aria-busy", "false");
   }
 }
 $2("refresh").addEventListener("click", () => load(true));
-$2("feed-order").addEventListener("change", renderFeed);
+$2("order-newest").addEventListener("click", () => {
+  if (busy) return;
+  feedOrder = "newest";
+  renderFeed();
+});
+$2("order-top").addEventListener("click", () => {
+  if (busy || feedOrder === "top") return;
+  feedOrder = "top";
+  if (!ended) load(false);
+  else renderFeed();
+});
 $2("load-more").addEventListener("click", () => load(false));
 window.addEventListener("offline", () => {
   status(

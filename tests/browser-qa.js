@@ -289,6 +289,12 @@ await context.routeWebSocket("wss://relay.primal.net", (ws) =>
   }),
 );
 const page = await context.newPage();
+const chooseOrder = async (order) => {
+  await page.locator(`#order-${order}`).click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
+};
 page.on("pageerror", (e) => errors.push(e.message));
 try {
   await page.goto(process.env.QA_URL || "http://127.0.0.1:4173");
@@ -325,7 +331,10 @@ try {
       .evaluateAll((els) => els.map((e) => Number(e.dataset.createdAt))),
     posts.slice(0, 12).map((e) => e.created_at),
   );
-  assert.equal(await page.locator("#feed-order").inputValue(), "newest");
+  assert.equal(
+    await page.locator("#order-newest").getAttribute("aria-pressed"),
+    "true",
+  );
   assert.equal(callbacks, 0, "Reading and sorting must not create invoices");
   const firstTip = page
     .locator(".post")
@@ -343,28 +352,29 @@ try {
   );
   assert.equal(await page.locator(".zap-total").first().innerText(), "7 sats");
   assert.equal(await page.locator(".zap-total").nth(1).innerText(), "0 sats");
-  await page.locator("#feed-order").selectOption("top");
+  await chooseOrder("top");
   assert.equal(
     await page.locator(".post").first().getAttribute("data-event-id"),
-    posts[2].id,
+    posts[14].id,
   );
-  assert.match(await page.locator(".post").first().innerText(), /21 sats/);
+  assert.match(await page.locator(".post").first().innerText(), /1,250 sats/);
   assert.match(await page.locator("#sort-note").innerText(), /loaded posts/);
   await page
-    .locator(".post")
-    .first()
+    .locator(`[data-event-id="${posts[2].id}"]`)
     .getByRole("button", { name: "Zap this post" })
     .click();
   const dialog = page.getByRole("dialog");
   await dialog.waitFor();
-  assert.match(await dialog.innerText(), /community group, not the author/i);
-  assert.match(await dialog.innerText(), new RegExp(posts[2].id));
+  assert.match(
+    await dialog.innerText(),
+    /Tips support community, not the author/i,
+  );
+  assert.equal(await page.locator("#zap-post-id").textContent(), posts[2].id);
+  assert.equal(await page.locator("#zap-post-id").isVisible(), false);
   await page.locator("#zap-amount").fill("1.5");
   await page.locator("#create-zap").click();
   await page.waitForFunction(() =>
-    document
-      .querySelector("#zap-message")
-      .textContent.includes("whole-satoshi"),
+    document.querySelector("#zap-message").textContent.includes("whole sats"),
   );
   assert.equal(callbacks, 0);
   assert.equal(
@@ -374,6 +384,85 @@ try {
   );
   await page.locator("#zap-amount").fill("21");
   await page.locator("#create-zap").click();
+  await page.locator("#zap-invoice").waitFor({ state: "visible" });
+  assert.equal(
+    await page.locator("#zap-qr").isVisible(),
+    false,
+    "QR is optional, not the default dialog",
+  );
+  assert.equal(
+    await page.locator("#zap-invoice-text").isVisible(),
+    false,
+    "Raw invoice is hidden by default",
+  );
+  assert.equal(
+    await page.locator(".zap-create").isVisible(),
+    false,
+    "Hide the amount form after invoice validation",
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Copy invoice", exact: true })
+      .count(),
+    1,
+  );
+  assert.equal(
+    await page.locator("#copy-zap").getAttribute("class"),
+    "primary-button",
+  );
+  assert.equal(await page.locator("#zap-wallet").innerText(), "Open wallet");
+  assert.equal(
+    await page
+      .locator(".zap-actions")
+      .locator(":scope > *")
+      .first()
+      .getAttribute("id"),
+    "copy-zap",
+  );
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: 480 });
+    const compact = await dialog.evaluate((e) => {
+      const r = e.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, height: r.height };
+    });
+    assert.ok(
+      compact.top >= 0 && compact.bottom <= 480,
+      JSON.stringify(compact),
+    );
+    for (const selector of ["#copy-zap", "#zap-wallet", "#close-zap"]) {
+      assert.equal(
+        await page.locator(selector).evaluate((e) => {
+          const r = e.getBoundingClientRect();
+          return (
+            r.height >= 44 &&
+            document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) ===
+              e
+          );
+        }),
+        true,
+        selector,
+      );
+    }
+    const compactAxe = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    assert.deepEqual(compactAxe.violations, []);
+    await page.screenshot({
+      path: new URL(`zap-simple-${width}-480.png`, dir).pathname,
+    });
+  }
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = async (text) => {
+      window.__copiedInvoice = text;
+    };
+  });
+  await page.locator("#copy-zap").click();
+  assert.equal(
+    await page.evaluate(() => window.__copiedInvoice),
+    lastInvoice,
+    "Copy the exact validated raw BOLT11",
+  );
+  await page.getByText("Show QR", { exact: true }).click();
   await page.locator("#zap-qr").waitFor({ state: "visible" });
   assert.equal(callbacks, 1);
   assert.equal(
@@ -428,17 +517,18 @@ try {
   assert.equal(await dialog.isVisible(), false);
   assert.equal(
     await page
-      .locator(".post")
-      .first()
+      .locator(`[data-event-id="${posts[2].id}"]`)
       .getByRole("button", { name: "Zap this post" })
       .evaluate((e) => e === document.activeElement),
     true,
   );
   await page
-    .locator(".post")
-    .first()
+    .locator(`[data-event-id="${posts[2].id}"]`)
     .getByRole("button", { name: "Zap this post" })
     .click();
+  await page.locator("#zap-invoice").waitFor({ state: "visible" });
+  assert.equal(await page.locator("#zap-qr").isVisible(), false);
+  await page.getByText("Show QR", { exact: true }).click();
   await page.locator("#zap-qr").waitFor({ state: "visible" });
   assert.equal(
     callbacks,
@@ -456,12 +546,33 @@ try {
       .querySelector("#zap-message")
       .textContent.includes("Clipboard unavailable"),
   );
+  assert.equal(
+    await page.locator("#zap-copy-fallback").getAttribute("open"),
+    "",
+  );
+  assert.equal(
+    await page.locator("#zap-invoice-text").inputValue(),
+    lastInvoice,
+  );
+  assert.equal(
+    await page
+      .locator("#zap-invoice-text")
+      .evaluate(
+        (e) => e.selectionStart === 0 && e.selectionEnd === e.value.length,
+      ),
+    true,
+  );
   await page.keyboard.press("Escape");
-  // The chronological cursor must not follow the visual Top order.
+  // Newest pagination retains the independent chronological cursor.
+  await chooseOrder("newest");
+  await page.locator("#refresh").click();
+  await page.waitForFunction(
+    () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
+  );
   holdNextFeed = true;
   await page.getByRole("button", { name: "Load more updates" }).click();
   assert.equal(
-    await page.locator("#feed-order").isDisabled(),
+    await page.locator("#order-top").isDisabled(),
     true,
     "Sorting cannot render an emptied in-flight snapshot",
   );
@@ -503,14 +614,15 @@ try {
       expected.map((e) => e.id),
     );
   };
+  await chooseOrder("top");
   await assertSnapshot(15);
   assert.match(await page.locator("#sort-note").innerText(), /15 posts/);
   await page.locator("#refresh").click();
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
-  await assertSnapshot(12);
-  await page.locator("#load-more").click();
+  await assertSnapshot(15);
+  await page.locator("#refresh").click();
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
@@ -528,14 +640,15 @@ try {
         document.querySelector("#feed").getAttribute("aria-busy") === "false",
     );
     const amounts = await page.locator(".zap-total").allTextContents();
-    if (state === "public-only") await assertSnapshot(12);
+    if (state === "public-only") await assertSnapshot(15);
     else if (state === "receipts-failure") {
       assert.ok(amounts.every((a) => a === "—"));
       assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
     } else {
-      assert.equal(amounts[0], "≥21 sats");
-      assert.equal(amounts[1], "≥7 sats");
-      assert.ok(amounts.slice(2).every((a) => a === "—"));
+      assert.equal(amounts[0], "≥1,250 sats");
+      assert.equal(amounts[1], "≥21 sats");
+      assert.equal(amounts[2], "≥7 sats");
+      assert.ok(amounts.slice(3).every((a) => a === "—"));
       assert.match(
         await page.locator("#sort-note").innerText(),
         /Partial.*lower bounds/,
@@ -549,7 +662,7 @@ try {
   );
   // A fresh verified receipt snapshot must update both amount and order.
   const previousReceipt = receipts[1];
-  receipts[1] = zapReceipt(posts[0], 50);
+  receipts[1] = zapReceipt(posts[0], 2000);
   await page.locator("#refresh").click();
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
@@ -558,14 +671,17 @@ try {
     await page.locator(".post").first().getAttribute("data-event-id"),
     posts[0].id,
   );
-  assert.equal(await page.locator(".zap-total").first().innerText(), "50 sats");
+  assert.equal(
+    await page.locator(".zap-total").first().innerText(),
+    "2,000 sats",
+  );
   receipts[1] = previousReceipt;
   await page.locator("#refresh").click();
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
-  await assertSnapshot(12);
-  await page.locator("#load-more").click();
+  await assertSnapshot(15);
+  await page.locator("#refresh").click();
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
@@ -576,7 +692,8 @@ try {
       () =>
         document.querySelector("#feed").getAttribute("aria-busy") === "false",
     );
-  for (const trigger of ["#refresh", "#load-more"]) {
+  // Top pagination failure with unexhausted history is covered in top-buttons-qa.
+  for (const trigger of ["#refresh"]) {
     mode = "relay-failure";
     await page.locator(trigger).click();
     await settleTop();
@@ -589,13 +706,13 @@ try {
     mode = "normal";
     await page.locator("#refresh").click();
     await settleTop();
-    await assertSnapshot(12);
-    assert.match(await page.locator("#sort-note").innerText(), /12 posts/);
+    await assertSnapshot(15);
+    assert.match(await page.locator("#sort-note").innerText(), /15 posts/);
   }
-  await page.locator("#load-more").click();
+  await page.locator("#refresh").click();
   await settleTop();
   await assertSnapshot(15);
-  await page.locator("#feed-order").selectOption("newest");
+  await chooseOrder("newest");
   assert.ok(requests.every((m) => ["REQ", "CLOSE"].includes(m[0])));
   const geometry = [];
   for (const width of [1440, 768, 390, 320]) {
@@ -653,13 +770,13 @@ try {
       path: new URL(`fixture-viewport-${width}.png`, dir).pathname,
     });
   }
-  await page.locator("#feed-order").selectOption("top");
+  await chooseOrder("top");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
     path: new URL("top-390.png", dir).pathname,
     fullPage: true,
   });
-  await page.locator("#feed-order").selectOption("newest");
+  await chooseOrder("newest");
   await page.locator(".provenance summary").first().click();
   assert.ok(
     (await page.locator(".provenance").first().innerText()).includes(
@@ -703,7 +820,7 @@ try {
   mode = "recipient-missing";
   await page.locator("#refresh").click();
   await settled();
-  await page.locator("#feed-order").selectOption("top");
+  await chooseOrder("top");
   assert.equal(
     await page.locator(".post").first().getAttribute("data-event-id"),
     posts[0].id,
@@ -734,10 +851,9 @@ try {
   mode = "invoice-mismatch";
   await page.reload();
   await settled();
-  await page.locator("#feed-order").selectOption("top");
+  await chooseOrder("top");
   await page
-    .locator(".post")
-    .first()
+    .locator(`[data-event-id="${posts[2].id}"]`)
     .getByRole("button", { name: "Zap this post" })
     .click();
   await page.locator("#create-zap").click();
@@ -782,7 +898,7 @@ try {
     0,
   );
   assert.equal(await page.locator(".post").count(), 14);
-  await page.locator("#feed-order").selectOption("top");
+  await chooseOrder("top");
   await assertSnapshot(14, [posts[0].id]);
   assert.equal(
     await page.locator(".post").first().getAttribute("data-event-id"),
@@ -794,9 +910,9 @@ try {
     await page.locator(`[data-event-id="${posts[0].id}"]`).count(),
     0,
   );
-  await page.locator("#feed-order").selectOption("top");
-  await assertSnapshot(11, [posts[0].id]);
-  await page.locator("#load-more").click();
+  await chooseOrder("top");
+  await assertSnapshot(14, [posts[0].id]);
+  await page.locator("#refresh").click();
   await settled();
   await assertSnapshot(14, [posts[0].id]);
   receipts[1] = previousReceipt;

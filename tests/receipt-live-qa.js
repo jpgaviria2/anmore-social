@@ -1,5 +1,8 @@
 // Actual network reads only. Invoice callbacks are fenced off.
 import { chromium } from "playwright";
+import AxeBuilder from "@axe-core/playwright";
+import { Relay } from "../src/relay.js";
+import { visibleEvents, latestProfile, identify } from "../src/core.js";
 import assert from "node:assert/strict";
 import { writeFile } from "node:fs/promises";
 import { PAY_CALLBACK } from "../src/zaps.js";
@@ -9,7 +12,8 @@ const browser = await chromium.launch({
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
   headless: true,
 });
-const page = await browser.newPage();
+const context = await browser.newContext();
+const page = await context.newPage();
 const errors = [],
   frames = [],
   sockets = [];
@@ -42,21 +46,19 @@ const settle = () =>
     { timeout: 90000 },
   );
 const cards = () =>
-  page
-    .locator(".post")
-    .evaluateAll((es) =>
-      es.map((e) => ({
-        id: e.dataset.eventId,
-        amount: e.querySelector(".zap-total").textContent,
-      })),
-    );
+  page.locator(".post").evaluateAll((es) =>
+    es.map((e) => ({
+      id: e.dataset.eventId,
+      amount: e.querySelector(".zap-total").textContent,
+      createdAt: Number(e.dataset.createdAt),
+    })),
+  );
 try {
   await page.goto(process.env.QA_URL || "http://127.0.0.1:4187");
   await settle();
   const initial = await cards();
-  await page.locator("#load-more").click();
+  await page.getByRole("button", { name: "Top zapped", exact: true }).click();
   await settle();
-  await page.locator("#feed-order").selectOption("top");
   const loaded = await cards();
   const expected = [
     [
@@ -72,10 +74,76 @@ try {
       "21 sats",
     ],
   ];
-  assert.deepEqual(
-    loaded.slice(0, 3).map((c) => [c.id, c.amount]),
-    expected,
+  // Recheck authority directly on Anmore: a stale receipt cannot revive a removed post.
+  const relay = new Relay();
+  let fiftyAuthority;
+  try {
+    await relay.open();
+    const exact = await relay.query([
+      { ids: [expected[0][0]], kinds: [1, 20], limit: 1 },
+    ]);
+    const target = exact[0];
+    const deletions = target
+      ? await relay.query([
+          { kinds: [5], authors: [target.pubkey], limit: 500 },
+        ])
+      : [];
+    const profiles = target
+      ? await relay.query([{ kinds: [0], authors: [target.pubkey], limit: 1 }])
+      : [];
+    const profile = target ? latestProfile(profiles, target.pubkey) : null;
+    const profileDeleted =
+      profile &&
+      deletions.some((d) =>
+        d.tags.some(
+          (t) =>
+            (t[0] === "e" && t[1] === profile.id) ||
+            (t[0] === "a" &&
+              t[1] === `0:${target.pubkey}:` &&
+              d.created_at >= profile.created_at),
+        ),
+      );
+    const identity =
+      profile && !profileDeleted ? await identify(profile) : null;
+    fiftyAuthority =
+      !!target &&
+      deletions.length < 500 &&
+      !!identity &&
+      visibleEvents([...exact, ...deletions]).some((e) => e.id === target.id);
+  } finally {
+    relay.close();
+  }
+  if (fiftyAuthority) {
+    const older = loaded.find((c) => c.id === expected[0][0]);
+    assert.ok(
+      older,
+      "A still-authorized older post must be found with one Top click",
+    );
+    assert.equal(older.amount, "50 sats");
+  } else
+    assert.equal(
+      loaded.some((c) => c.id === expected[0][0]),
+      false,
+    );
+  // Receipt state can change during acceptance. Compare the entire current snapshot,
+  // including newly tipped posts and chronological ties, rather than stale fixed positions.
+  const sats = (c) => BigInt(c.amount.replace(/[^0-9]/g, ""));
+  assert.ok(
+    loaded.every((c) => /^[0-9,]+ sats$/.test(c.amount)),
+    "Complete live receipt check",
   );
+  const ordered = loaded.toSorted((a, b) =>
+    sats(a) > sats(b)
+      ? -1
+      : sats(a) < sats(b)
+        ? 1
+        : b.createdAt - a.createdAt || a.id.localeCompare(b.id),
+  );
+  assert.deepEqual(
+    loaded.map((c) => c.id),
+    ordered.map((c) => c.id),
+  );
+  assert.equal(await page.locator("select").count(), 0);
   const geometry = [];
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
@@ -84,6 +152,19 @@ try {
       scroll: document.documentElement.scrollWidth,
     }));
     assert.equal(g.width, g.scroll);
+    g.buttons = await page.locator(".feed-order button").evaluateAll((es) =>
+      es.map((e) => {
+        const r = e.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      }),
+    );
+    assert.equal(g.buttons[0].y, g.buttons[1].y);
+    assert.ok(g.buttons.every((b) => b.width >= 44 && b.height >= 44));
+    const axe = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+      .analyze();
+    assert.deepEqual(axe.violations, []);
+    g.accessibilityViolations = axe.violations.length;
     geometry.push(g);
     await page.screenshot({ path: `qa/receipt-live-${width}.png` });
   }
@@ -92,6 +173,8 @@ try {
   const result = {
     initial,
     loaded,
+    fiftyAuthority,
+    manualLoadMoreClicks: 0,
     geometry,
     callbacks,
     sockets,

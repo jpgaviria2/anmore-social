@@ -16,6 +16,9 @@ export function setupZaps({ getPost, getState, recheck }) {
     $("zap-invoice").hidden = true;
     $("zap-wallet").removeAttribute("href");
     $("zap-invoice-text").value = "";
+    $("zap-qr-details").open = false;
+    $("zap-copy-fallback").open = false;
+    $("zap-copy-fallback").hidden = true;
     const c = $("zap-qr");
     c.getContext("2d").clearRect(0, 0, c.width, c.height);
   }
@@ -38,13 +41,14 @@ export function setupZaps({ getPost, getState, recheck }) {
       return;
     }
     $("zap-wallet").href = result.uri;
-    $("zap-invoice-text").value = result.uri;
+    $("zap-invoice-text").value = result.invoice;
+    $("zap-invoice-amount").textContent = `${result.msats / 1000n} sats`;
     $("zap-expiry").textContent =
-      `${result.msats / 1000n} sats to the community group. Expires ${new Date(result.expiresAt * 1000).toLocaleTimeString()}.`;
+      `Expires ${new Date(result.expiresAt * 1000).toLocaleTimeString()}`;
+    $("zap-create").hidden = true;
     $("zap-invoice").hidden = false;
-    message(
-      "Invoice checked against this exact post, community recipient and amount. No payment has been sent by this site.",
-    );
+    message("");
+    $("copy-zap").focus();
     expiryTimer = setTimeout(
       () => {
         clearInvoice();
@@ -71,7 +75,7 @@ export function setupZaps({ getPost, getState, recheck }) {
     if (!dialog.open || event.key !== "Tab") return;
     const controls = [
       ...dialog.querySelectorAll(
-        'button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),[tabindex="0"]',
+        'button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),summary,[tabindex="0"]',
       ),
     ].filter((node) => node.getClientRects().length > 0);
     const first = controls[0],
@@ -100,7 +104,11 @@ export function setupZaps({ getPost, getState, recheck }) {
     try {
       zapAmount(sats, getState().authority);
     } catch (error) {
-      message(error.message);
+      message(
+        error.message.includes("whole-satoshi")
+          ? "Use whole sats (1 or more)."
+          : error.message,
+      );
       return;
     }
     if (attempts.size >= 32) {
@@ -113,9 +121,7 @@ export function setupZaps({ getPost, getState, recheck }) {
     attempts.set(id, { pending: true });
     $("create-zap").disabled = true;
     $("zap-amount").disabled = true;
-    message(
-      "Rechecking this post and the community recipient before requesting one invoice…",
-    );
+    message("Checking post…");
     try {
       const authority = await recheck(id);
       if (token !== epoch || !dialog.open || !getPost(id))
@@ -141,13 +147,13 @@ export function setupZaps({ getPost, getState, recheck }) {
     if (!text || $("zap-invoice").hidden) return;
     try {
       await navigator.clipboard.writeText(text);
-      message("Lightning invoice copied. This does not send payment.");
+      message("Invoice copied. Paste in Trails Wallet.");
     } catch {
+      $("zap-copy-fallback").hidden = false;
+      $("zap-copy-fallback").open = true;
       $("zap-invoice-text").focus();
       $("zap-invoice-text").select();
-      message(
-        "Clipboard unavailable. Select and copy the exact invoice above.",
-      );
+      message("Clipboard unavailable. Copy the invoice below.");
     }
   });
   return {
@@ -159,6 +165,8 @@ export function setupZaps({ getPost, getState, recheck }) {
       opener = button;
       const token = ++epoch;
       clearInvoice();
+      $("zap-create").hidden = false;
+      dialog.querySelector(".zap-details").open = false;
       $("zap-post").textContent =
         post.content.slice(0, 220) || "Photo community update";
       $("zap-post-id").textContent = id;
@@ -169,7 +177,7 @@ export function setupZaps({ getPost, getState, recheck }) {
       $("zap-amount").disabled = !state.authority || !!attempt;
       message(
         state.authority
-          ? "Choose an amount, then request one post-bound invoice. The request uses a fresh anonymous signing key in memory only."
+          ? ""
           : state.error ||
               "Community zap verification is unavailable. No invoice can be created.",
       );
@@ -184,7 +192,7 @@ export function setupZaps({ getPost, getState, recheck }) {
         );
       else if (attempt)
         message(
-          "This post already has an invoice attempt in this session. Check your wallet; reload only when you are ready to start a separate request.",
+          "Invoice already requested. Check your wallet before reloading.",
         );
     },
   };

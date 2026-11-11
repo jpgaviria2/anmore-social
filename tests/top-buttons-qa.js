@@ -21,7 +21,7 @@ const browser = await chromium.launch({
   headless: true,
 });
 const key = new Uint8Array(32).fill(3),
-  now = Math.floor(Date.now() / 1000);
+  now = Date.parse("2026-11-11T20:00:00Z") / 1000;
 const sign = (x) =>
   finalizeEvent(
     { kind: 1, created_at: now - 10, tags: [], content: "", ...x },
@@ -66,6 +66,8 @@ const calendar = sign({
   content: "Everyone is welcome. Bring a warm layer.",
 });
 let mode = "normal";
+let peerOnlyReceipts = [];
+const missingSourceIds = new Set(), missingOnExactRead = new Set();
 let holdNextFeed = false,
   resumeFeed;
 const communityProfile = finalizeEvent(
@@ -80,11 +82,11 @@ const communityProfile = finalizeEvent(
   },
   keys.recipient,
 );
-const zapReceipt = (post, sats) => {
+const zapReceipt = (post, sats, receivedAt = now - 1, paymentHash = post.id) => {
   const request = finalizeEvent(
     {
       kind: 9734,
-      created_at: now - 10,
+      created_at: receivedAt - 10,
       content: "",
       tags: [
         ["p", communityProfile.pubkey],
@@ -100,7 +102,7 @@ const zapReceipt = (post, sats) => {
   return finalizeEvent(
     {
       kind: 9735,
-      created_at: now - 1,
+      created_at: receivedAt,
       content: "",
       tags: [
         ["p", communityProfile.pubkey],
@@ -110,8 +112,8 @@ const zapReceipt = (post, sats) => {
           "bolt11",
           invoice(description, {
             msats: BigInt(sats) * 1000n,
-            time: now - 5,
-            paymentHash: post.id,
+            time: receivedAt - 5,
+            paymentHash,
           }),
         ],
       ],
@@ -219,6 +221,12 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
       return;
     }
     const filters = m.slice(2);
+    if (filters.some(f => f.ids && !f.kinds)) {
+      assert.ok(filters.every(f => f.ids.length <= 100 && f.limit === f.ids.length));
+      if (mode === "presence-failure") {
+        ws.send(JSON.stringify(["CLOSED", m[1], "exact source check unavailable"])); return;
+      }
+    }
     if (
       (mode === "local-receipts-failure" || mode === "receipts-failure") &&
       filters.some((f) => f.kinds?.includes(9735))
@@ -242,6 +250,7 @@ await context.routeWebSocket("wss://relay.anmore.me", (ws) =>
       for (const e of candidates
         .filter(
           (e) =>
+            !missingSourceIds.has(e.id) && !(f.ids && missingOnExactRead.has(e.id)) &&
             (!f.kinds || f.kinds.includes(e.kind)) &&
             (!f.authors || f.authors.includes(e.pubkey)) &&
             (!f.ids || f.ids.includes(e.id)) &&
@@ -277,7 +286,7 @@ await context.routeWebSocket("wss://relay.primal.net", (ws) =>
       ws.send(JSON.stringify(["CLOSED", m[1], "fixture unavailable"]));
       return;
     }
-    for (const e of receipts.filter((r) =>
+    for (const e of [...receipts, ...peerOnlyReceipts].filter((r) =>
       r.tags.some((t) => t[0] === "e" && f["#e"].includes(t[1])),
     ))
       ws.send(JSON.stringify(["EVENT", m[1], e]));
@@ -289,11 +298,16 @@ await context.routeWebSocket("wss://relay.primal.net", (ws) =>
   }),
 );
 const page = await context.newPage();
+await page.clock.install({ time: new Date(now * 1000) });
 page.on("pageerror", (e) => errors.push(e.message));
 const settle = () =>
   page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
+const expectedCards = winners => [
+  ...winners.map(([index, amount]) => ({ id: posts[index].id, amount })),
+  ...posts.filter((_, index) => !winners.some(([i]) => i === index)).map(p => ({ id:p.id, amount:"0 sats" })),
+];
 const cards = () =>
   page
     .locator(".post")
@@ -323,6 +337,7 @@ try {
   );
   assert.equal(await newest.isDisabled(), true);
   assert.equal(await top.isDisabled(), true);
+  for (const id of ["week", "month", "all"]) assert.equal(await page.locator("#period-" + id).isDisabled(), true);
   assert.match(
     await page.locator("#sort-note").innerText(),
     /Checking earlier/,
@@ -340,7 +355,124 @@ try {
     "Top automatically includes older high tip",
   );
   assert.equal(callbacks, 0);
+  const periods = page.getByRole("group", { name: "Zap timeframe" });
+  assert.equal(await periods.isVisible(), true);
+  const week = periods.getByRole("button", { name: "This week", exact: true });
+  const month = periods.getByRole("button", { name: "This month", exact: true });
+  const all = periods.getByRole("button", { name: "All time", exact: true });
+  assert.equal(await all.getAttribute("aria-pressed"), "true");
+  // Receipt windows oppose chronology and all-time totals; an old post gets a new tip.
+  const baseline = [...receipts];
+  const { zapPeriodWindow } = await import("../src/zaps.js");
+  const weekStart = zapPeriodWindow("week", now).start;
+  const monthStart = zapPeriodWindow("month", now).start;
+  // Port both independent missing-peer adversaries through the actual bundle.
+  // Reuse exact serialized request/invoice for earliest-time duplicates.
+  const adversaryRequests = new Map();
+  const adversaryReceipt = (target, time, hash = "ab".repeat(32), sats = 21) => {
+    const rk = target.id + ":" + sats;
+    if (!adversaryRequests.has(rk)) adversaryRequests.set(rk, finalizeEvent({
+      kind: 9734, created_at: weekStart - 100, content: "",
+      tags: [["e", target.id], ["p", communityProfile.pubkey], ["amount", String(sats * 1000)]],
+    }, keys.sender));
+    const description = JSON.stringify(adversaryRequests.get(rk));
+    return finalizeEvent({ kind: 9735, created_at: time, content: "",
+      tags: [["e", target.id], ["p", communityProfile.pubkey], ["description", description],
+        ["bolt11", invoice(description, { time: weekStart - 50, expiry: 1e7,
+          paymentHash: hash, msats: BigInt(sats) * 1000n })]],
+    }, keys.issuer);
+  };
+  const partialFailures = [];
+  for (const scenario of ["earliest", "conflict"]) {
+    receipts.splice(0, receipts.length,
+      adversaryReceipt(posts[14], weekStart + 1),
+      adversaryReceipt(posts[0], weekStart + 3, "cd".repeat(32), 7));
+    peerOnlyReceipts = [scenario === "earliest"
+      ? adversaryReceipt(posts[14], weekStart - 1)
+      : adversaryReceipt(posts[2], weekStart + 2)];
+    mode = "public-failure";
+    await page.locator("#refresh").click(); await settle();
+    await (scenario === "earliest" ? week : all).click();
+    const observed = await cards();
+    try {
+      assert.deepEqual(observed, expectedCards([[14, "21 sats · provisional"], [0, "7 sats · provisional"]])
+        .map(c => ({ ...c, amount: c.amount === "0 sats" ? "—" : c.amount })));
+      assert.match(await page.locator("#sort-note").innerText(),
+        /Partial receipt check · totals\/order may change as receipts become available\./);
+      const presentation = await page.locator("#sort-note, .zap-total").evaluateAll(es =>
+        es.map(e => [e.textContent, e.title, e.getAttribute("aria-label")].join(" ")).join("\n"));
+      assert.doesNotMatch(presentation, /≥|lower[- ]bounds?/i);
+      assert.ok((await page.locator(".zap-total").evaluateAll(es =>
+        es.map(e => e.getAttribute("aria-label")))).every(s => /provisional|unavailable/.test(s)));
+      for (const width of [320, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+        assert.deepEqual((await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze()).violations, []);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.screenshot({ path: `qa/partial-${scenario}-${width}.png` });
+      }
+    } catch (error) {
+      partialFailures.push(`${scenario}: ${error.message}`);
+    }
+    mode = "normal";
+    await page.locator("#refresh").click(); await settle();
+    assert.deepEqual(await cards(), expectedCards([[0, "7 sats"]]),
+      `${scenario}: recovery must reduce 21 to zero and reorder every current card`);
+    assert.doesNotMatch(await page.locator("#sort-note").innerText(), /Partial|provisional|lower[- ]bounds?|≥/i);
+    const target = page.locator(`.post[data-event-id="${posts[14].id}"] .zap-total`);
+    assert.equal(await target.innerText(), "0 sats");
+    assert.doesNotMatch(await target.getAttribute("aria-label"), /provisional|partial/i);
+    if (scenario === "earliest") {
+      await all.click();
+      assert.deepEqual(await cards(), expectedCards([[14, "21 sats"], [0, "7 sats"]]));
+      await week.click();
+      assert.deepEqual(await cards(), expectedCards([[0, "7 sats"]]));
+    }
+    assert.equal(callbacks, 0);
+    console.log(`Partial adversary exercised: ${scenario}, observed 21 sats -> recovered 0 sats; full card order checked.`);
+  }
+  assert.deepEqual(partialFailures, [], "Both adversaries require provisional, never guaranteed-minimum presentation");
+  peerOnlyReceipts = [];
+  await all.click();
+  receipts.splice(0, receipts.length,
+    zapReceipt(posts[0], 900, monthStart - 1, "91".repeat(32)),
+    zapReceipt(posts[2], 500, weekStart - 1, "92".repeat(32)),
+    zapReceipt(posts[14], 50, now - 1, "93".repeat(32)));
+  await page.locator("#refresh").click(); await settle();
+  assert.deepEqual((await cards())[0], { id: posts[0].id, amount: "900 sats" });
+  await week.focus(); await page.keyboard.press("Enter");
+  assert.equal(await week.getAttribute("aria-pressed"), "true");
+  assert.deepEqual((await cards())[0], { id: posts[14].id, amount: "50 sats" });
+  assert.deepEqual(await cards(), expectedCards([[14, "50 sats"]]));
+  assert.match(await page.locator("#sort-note").innerText(), /Monday|Mon/);
+  await month.click();
+  assert.deepEqual(await cards(), expectedCards([[2, "500 sats"], [14, "50 sats"]]));
+  await all.click();
+  assert.deepEqual((await cards())[0], { id: posts[0].id, amount: "900 sats" });
+  assert.deepEqual(await cards(), expectedCards([[0, "900 sats"], [2, "500 sats"], [14, "50 sats"]]));
+  assert.equal(callbacks, 0);
+  receipts.splice(0, receipts.length, zapReceipt(posts[0], 900, monthStart - 1, "94".repeat(32)));
+  await page.locator("#refresh").click(); await settle();
+  await week.click();
+  assert.ok((await cards()).every(c => c.amount === "0 sats"));
+  assert.deepEqual((await cards()).map(c => c.id), posts.map(p => p.id));
+  await month.click(); assert.ok((await cards()).every(c => c.amount === "0 sats"));
+  receipts.splice(0, receipts.length, ...baseline);
+  mode = "public-failure";
+  await page.locator("#refresh").click(); await settle();
+  await week.click();
+  assert.deepEqual((await cards())[0], { id:posts[14].id, amount:"1,250 sats · provisional" });
+  assert.match(await page.locator("#sort-note").innerText(), /Partial receipt check · totals\/order may change/);
+  assert.equal((await cards()).find(c => c.id === posts[1].id).amount, "—");
+  mode = "receipts-failure";
+  await page.locator("#refresh").click(); await settle();
+  assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
+  assert.deepEqual((await cards()).map(c => c.id), posts.map(p => p.id));
+  mode = "normal";
+  await all.click();
+  await page.locator("#refresh").click(); await settle();
   await newest.click();
+  assert.equal(await periods.isVisible(), false);
   assert.deepEqual(
     (await cards()).map((c) => c.id),
     posts.map((p) => p.id),
@@ -364,12 +496,43 @@ try {
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
+    await top.click(); await settle();
+    const periodGeometry = await periods.locator("button").evaluateAll(es => es.map(e => {
+      const r = e.getBoundingClientRect(); return { w:r.width, h:r.height, y:r.y };
+    }));
+    assert.equal(periodGeometry.length, 3);
+    assert.ok(periodGeometry.every(r => r.w >= 44 && r.h >= 44));
+    assert.ok(periodGeometry.every(r => r.y === periodGeometry[0].y));
+    assert.ok(await page.locator(".post").first().evaluate(e => e.getBoundingClientRect().top < 650));
     const axe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
     assert.deepEqual(axe.violations, []);
     await page.screenshot({ path: `qa/buttons-${width}.png` });
   }
+  // Administrative source removal has no author-signed kind-5 event.
+  await page.reload(); await settle();
+  assert.ok((await cards()).some(c => c.id === posts[0].id));
+  missingSourceIds.add(posts[0].id);
+  missingOnExactRead.add(posts[11].id);
+  await top.click(); await settle();
+  assert.equal((await cards()).some(c => c.id === posts[0].id), false,
+    "Top discovery must evict retained posts absent on Anmore, even with Primal receipts");
+  assert.equal((await cards()).some(c => c.id === posts[11].id), false, "A stale overlapping page must not re-add a target missing from the later exact read");
+  missingOnExactRead.clear();
+  missingSourceIds.clear();
+  await newest.click();
+  missingSourceIds.add(posts[2].id);
+  await top.click(); await settle();
+  assert.equal((await cards()).some(c => c.id === posts[2].id), false,
+    "Reentering Top at end of history must still revalidate source presence");
+  missingSourceIds.clear();
+  mode = "presence-failure";
+  await newest.click(); await top.click(); await settle();
+  assert.deepEqual(await cards(), [], "Failed exact-ID read is not an authoritative empty response");
+  assert.match(await page.locator("#status").innerText(), /declined the read request/);
+  assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
+  mode = "normal";
   // Same-author signed deletion wins over a stale highest receipt on either peer.
   const highestDeletion = sign({
     kind: 5,
@@ -424,6 +587,17 @@ try {
   assert.match(await page.locator("#sort-note").innerText(), /loaded posts/);
   assert.match(await page.locator("#sort-note").innerText(), /Load more/);
   assert.equal(await page.locator("#load-more").isEnabled(), true);
+  missingSourceIds.add(posts[14].id);
+  await page.locator("#load-more").click(); await settle();
+  assert.equal((await cards()).some(c => c.id === posts[14].id), false,
+    "Load more must evict a source-pruned retained winner despite surviving receipts");
+  assert.equal((await cards()).length, posts.length - 1);
+  const presenceBefore = requests.length;
+  await newest.click(); await top.click(); await settle();
+  const presenceReads = requests.slice(presenceBefore).filter(m => m[0] === "REQ" && m[2].ids && !m[2].kinds);
+  assert.deepEqual(presenceReads.map(m => m[2].ids.length), [100, 14]);
+  missingSourceIds.clear();
+  await page.reload(); await settle(); await top.click(); await settle();
   // Top pagination failure clears the entire snapshot, recovery re-verifies it.
   mode = "relay-failure";
   await page.locator("#load-more").click();

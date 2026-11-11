@@ -251,12 +251,50 @@ export async function createZap(
     ...parsed,
   };
 }
+// Calendar boundaries use Vancouver civil dates, never rolling 7/30-day windows.
+export function zapPeriodWindow(period, now = Math.floor(Date.now() / 1000)) {
+  if (period === "all") return null;
+  if (!["week", "month"].includes(period)) throw Error("Unknown zap period");
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Vancouver", year: "numeric", month: "2-digit",
+    day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hourCycle: "h23",
+  });
+  // BC adopted permanent UTC−7 on March 8, 2026. Older ICU databases still
+  // fall back in November; pin the enacted rule so browsers and Node agree.
+  // https://news.gov.bc.ca/releases/2026AG0013-000209
+  const permanent = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Etc/GMT+7", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  });
+  const parts = ms => Object.fromEntries((ms >= Date.UTC(2026, 2, 8, 10) ? permanent : formatter).formatToParts(new Date(ms))
+    .filter(p => p.type !== "literal").map(p => [p.type, Number(p.value)]));
+  const local = parts(now * 1000);
+  const date = new Date(Date.UTC(local.year, local.month - 1, local.day));
+  if (period === "week") date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
+  else date.setUTCDate(1);
+  const midnight = date => {
+    const civil = date.getTime();
+    let utc = civil;
+    for (let i = 0; i < 3; i++) {
+      const p = parts(utc);
+      utc += civil - Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    }
+    return utc / 1000;
+  };
+  const start = midnight(date);
+  if (period === "week") date.setUTCDate(date.getUTCDate() + 7);
+  else date.setUTCMonth(date.getUTCMonth() + 1);
+  return { start, end: midnight(date) };
+}
 export function verifiedTotals(
   receipts,
   posts,
   authority,
   now = Math.floor(Date.now() / 1000),
+  period = "all",
 ) {
+  const window = zapPeriodWindow(period, now);
   const targets = new Map(posts.map((e) => [e.id, e])),
     payments = new Map(),
     totals = new Map();
@@ -308,6 +346,7 @@ export function verifiedTotals(
       )
         continue;
       const payment = {
+        receivedAt: receipt.created_at,
         postId,
         msats: parsed.msats,
         descriptionHash: parsed.descriptionHash,
@@ -321,12 +360,13 @@ export function verifiedTotals(
       )
         payments.set(parsed.paymentHash, { conflict: true });
       else if (!previous) payments.set(parsed.paymentHash, payment);
+      else if (!previous.conflict) previous.receivedAt = Math.min(previous.receivedAt, payment.receivedAt);
     } catch {
       /* Unverifiable claims never contribute to a monetary total. */
     }
   }
   for (const p of payments.values())
-    if (!p.conflict)
+    if (!p.conflict && (!window || (p.receivedAt >= window.start && p.receivedAt < window.end)))
       totals.set(p.postId, (totals.get(p.postId) ?? 0n) + p.msats);
   return totals;
 }

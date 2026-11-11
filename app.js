@@ -5419,7 +5419,50 @@ async function createZap(post2, authority, sats, fetcher = fetch, now = Math.flo
     ...parsed
   };
 }
-function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() / 1e3)) {
+function zapPeriodWindow(period, now = Math.floor(Date.now() / 1e3)) {
+  if (period === "all") return null;
+  if (!["week", "month"].includes(period)) throw Error("Unknown zap period");
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Vancouver",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+  const permanent = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Etc/GMT+7",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  });
+  const parts = (ms) => Object.fromEntries((ms >= Date.UTC(2026, 2, 8, 10) ? permanent : formatter).formatToParts(new Date(ms)).filter((p) => p.type !== "literal").map((p) => [p.type, Number(p.value)]));
+  const local = parts(now * 1e3);
+  const date = new Date(Date.UTC(local.year, local.month - 1, local.day));
+  if (period === "week") date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 6) % 7);
+  else date.setUTCDate(1);
+  const midnight = (date2) => {
+    const civil = date2.getTime();
+    let utc = civil;
+    for (let i2 = 0; i2 < 3; i2++) {
+      const p = parts(utc);
+      utc += civil - Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+    }
+    return utc / 1e3;
+  };
+  const start = midnight(date);
+  if (period === "week") date.setUTCDate(date.getUTCDate() + 7);
+  else date.setUTCMonth(date.getUTCMonth() + 1);
+  return { start, end: midnight(date) };
+}
+function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() / 1e3), period = "all") {
+  const window2 = zapPeriodWindow(period, now);
   const targets = new Map(posts.map((e) => [e.id, e])), payments = /* @__PURE__ */ new Map(), totals2 = /* @__PURE__ */ new Map();
   if (!authority) return totals2;
   for (const receipt of receipts) {
@@ -5438,6 +5481,7 @@ function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() 
       if (parsed.descriptionHash !== hashText(description) || request.created_at > receipt.created_at || parsed.timestamp > receipt.created_at || parsed.expiresAt < receipt.created_at)
         continue;
       const payment = {
+        receivedAt: receipt.created_at,
         postId,
         msats: parsed.msats,
         descriptionHash: parsed.descriptionHash
@@ -5446,11 +5490,12 @@ function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() 
       if (previous && (previous.postId !== postId || previous.msats !== payment.msats || previous.descriptionHash !== payment.descriptionHash))
         payments.set(parsed.paymentHash, { conflict: true });
       else if (!previous) payments.set(parsed.paymentHash, payment);
+      else if (!previous.conflict) previous.receivedAt = Math.min(previous.receivedAt, payment.receivedAt);
     } catch {
     }
   }
   for (const p of payments.values())
-    if (!p.conflict)
+    if (!p.conflict && (!window2 || p.receivedAt >= window2.start && p.receivedAt < window2.end))
       totals2.set(p.postId, (totals2.get(p.postId) ?? 0n) + p.msats);
   return totals2;
 }
@@ -5756,16 +5801,31 @@ var zapUI = setupZaps({
   recheck: recheckZap
 });
 var feedOrder = "newest";
+var zapPeriod = "all";
+var periodLabels = { week: "This week \xB7 since Monday 00:00", month: "This month \xB7 since the 1st 00:00", all: "All time" };
 var TOP_PAGES = 6;
 var TOP_ENTRIES = 600;
 function renderFeed() {
+  $2("zap-periods").hidden = feedOrder !== "top";
+  for (const period of ["week", "month", "all"]) {
+    $2("period-" + period).setAttribute("aria-pressed", String(zapPeriod === period));
+    $2("period-" + period).disabled = busy;
+  }
+  if (zapState.snapshot && zapState.authority)
+    totals = feedOrder !== "top" || zapPeriod === "all" ? zapState.snapshot.totals : verifiedTotals(
+      zapState.snapshot.receipts,
+      [...currentPosts.values()],
+      zapState.authority,
+      Math.floor(Date.now() / 1e3),
+      zapPeriod
+    );
   $2("order-newest").setAttribute(
     "aria-pressed",
     String(feedOrder === "newest")
   );
   $2("order-top").setAttribute("aria-pressed", String(feedOrder === "top"));
   $2("sort-note").hidden = feedOrder !== "top";
-  $2("sort-note").textContent = busy ? "Checking earlier updates\u2026" : zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts \xB7 ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 amounts are lower bounds. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
+  $2("sort-note").textContent = busy ? "Checking earlier updates\u2026" : zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts \xB7 ${currentPosts.size} posts. ${periodLabels[zapPeriod]}${zapPeriod === "all" ? "" : " America/Vancouver"} \xB7 verified receipts received in this period. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
   $2("feed").replaceChildren(
     ...sortPosts([...currentPosts.values()], totals, feedOrder).map(
       (e) => post(e, currentIdentities.get(e.pubkey))
@@ -5977,12 +6037,12 @@ function post(e, identity) {
   const amount = el(
     "span",
     "zap-total",
-    zapState.error || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${zapState.snapshot?.partial ? "\u2265" : ""}${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`
+    zapState.error || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " \xB7 provisional" : ""}`
   );
-  amount.title = zapState.error ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check; amounts are lower bounds, missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
+  amount.title = zapState.error ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
   amount.setAttribute(
     "aria-label",
-    zapState.error ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; lower bound" : "verified to community"}`
+    zapState.error || zapState.snapshot?.partial && confirmed === 0n ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`
   );
   const zap = el("button", "zap-button");
   zap.type = "button";
@@ -6097,7 +6157,18 @@ async function load(reset = false) {
         limit: 60
       }
     ]) : [];
-    let candidates = [...reset ? [] : stored, ...page, ...calendar];
+    const retained = reset ? [] : stored;
+    const retainedPosts = retained.filter((e) => [1, 20].includes(e.kind));
+    const present = new Set((await batches(retainedPosts, 100, async (chunk) => {
+      const ids = chunk.map((e) => e.id);
+      const found = await relay.query([{ ids, limit: ids.length }]);
+      if (found.length > ids.length || found.some((e) => !ids.includes(e.id)))
+        throw Error("Source presence check exceeded its exact-ID boundary.");
+      return found;
+    })).map((e) => e.id));
+    const retainedIds = new Set(retainedPosts.map((e) => e.id));
+    const available = (e) => !retainedIds.has(e.id) || present.has(e.id);
+    let candidates = [...retained.filter(available), ...page.filter(available), ...calendar];
     if (candidates.length > 1200)
       throw Error(
         "This reading session has reached its safety limit. Refresh to start again."
@@ -6260,9 +6331,14 @@ $2("order-newest").addEventListener("click", () => {
 $2("order-top").addEventListener("click", () => {
   if (busy || feedOrder === "top") return;
   feedOrder = "top";
-  if (!ended) load(false);
-  else renderFeed();
+  load(false);
 });
+for (const period of ["week", "month", "all"])
+  $2("period-" + period).addEventListener("click", () => {
+    if (busy || feedOrder !== "top") return;
+    zapPeriod = period;
+    renderFeed();
+  });
 $2("load-more").addEventListener("click", () => load(false));
 window.addEventListener("offline", () => {
   status(

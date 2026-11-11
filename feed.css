@@ -793,13 +793,15 @@ h2 {
     padding: 14px 0;
   }
 }
-.feed-order {
+.feed-order,
+.zap-periods {
   display: flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
 }
-.feed-order button {
+.feed-order button,
+.zap-periods button {
   font: inherit;
   color: var(--ink);
   background: white;
@@ -810,7 +812,8 @@ h2 {
   max-width: 180px;
   min-width: 44px;
 }
-.feed-order button[aria-pressed="true"] {
+.feed-order button[aria-pressed="true"],
+.zap-periods button[aria-pressed="true"] {
   background: var(--ink);
   color: white;
   border-color: var(--ink);
@@ -818,6 +821,7 @@ h2 {
 .feed-order button:disabled {
   opacity: 0.65;
 }
+.zap-periods { margin: 0 0 8px; }
 .sort-note {
   font-size: 11px;
   line-height: 1.65;

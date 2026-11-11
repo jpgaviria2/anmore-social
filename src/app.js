@@ -1,6 +1,6 @@
 import { postVideos, withoutVideos } from "./media.js";
 import { Relay } from "./relay.js";
-import { sortPosts, resolveCommunity } from "./zaps.js";
+import { sortPosts, resolveCommunity, verifiedTotals } from "./zaps.js";
 import { collectReceipts } from "./receipts.js";
 import { setupZaps } from "./zap-ui.js";
 import {
@@ -26,12 +26,23 @@ const zapUI = setupZaps({
   getState: () => zapState,
   recheck: recheckZap,
 });
-let feedOrder = "newest";
+let feedOrder = "newest", zapPeriod = "all";
+const periodLabels = { week: "This week · since Monday 00:00", month: "This month · since the 1st 00:00", all: "All time" };
 // At most six sequential content queries and 600 admitted page entries per action.
 // Inclusive timestamp boundaries retain ties; reaching a budget is not global coverage.
 const TOP_PAGES = 6,
   TOP_ENTRIES = 600;
 function renderFeed() {
+  $("zap-periods").hidden = feedOrder !== "top";
+  for (const period of ["week", "month", "all"]) {
+    $("period-" + period).setAttribute("aria-pressed", String(zapPeriod === period));
+    $("period-" + period).disabled = busy;
+  }
+  if (zapState.snapshot && zapState.authority)
+    totals = feedOrder !== "top" || zapPeriod === "all"
+      ? zapState.snapshot.totals
+      : verifiedTotals(zapState.snapshot.receipts, [...currentPosts.values()],
+          zapState.authority, Math.floor(Date.now() / 1000), zapPeriod);
   $("order-newest").setAttribute(
     "aria-pressed",
     String(feedOrder === "newest"),
@@ -42,7 +53,7 @@ function renderFeed() {
     ? "Checking earlier updates…"
     : zapState.error
       ? "Zap checks unavailable · showing newest first."
-      : `Top zapped among loaded posts · ${currentPosts.size} posts. ${zapState.snapshot?.partial ? "Partial receipt check · amounts are lower bounds. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
+      : `Top zapped among loaded posts · ${currentPosts.size} posts. ${periodLabels[zapPeriod]}${zapPeriod === "all" ? "" : " America/Vancouver"} · verified receipts received in this period. ${zapState.snapshot?.partial ? "Partial receipt check · totals/order may change as receipts become available. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
   $("feed").replaceChildren(
     ...sortPosts([...currentPosts.values()], totals, feedOrder).map((e) =>
       post(e, currentIdentities.get(e.pubkey)),
@@ -272,16 +283,16 @@ function post(e, identity) {
     "zap-total",
     zapState.error || (zapState.snapshot?.partial && confirmed === 0n)
       ? "—"
-      : `${zapState.snapshot?.partial ? "≥" : ""}${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats`,
+      : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " · provisional" : ""}`,
   );
   amount.title = zapState.error
     ? "Zap checks unavailable — not proof that no payments exist."
-    : `${zapState.snapshot?.partial ? "Partial receipt check; amounts are lower bounds, missing receipts are not zero payments. " : ""}Verified community receipts · ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
+    : `${zapState.snapshot?.partial ? "Partial receipt check · totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts · ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
   amount.setAttribute(
     "aria-label",
-    zapState.error
+    zapState.error || (zapState.snapshot?.partial && confirmed === 0n)
       ? "Zap total unavailable"
-      : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; lower bound" : "verified to community"}`,
+      : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`,
   );
   const zap = el("button", "zap-button");
   zap.type = "button";
@@ -414,7 +425,22 @@ async function load(reset = false) {
           },
         ])
       : [];
-    let candidates = [...(reset ? [] : stored), ...page, ...calendar];
+    // Relay retention can remove content without an author-signed deletion.
+    // Only completed exact-ID reads from Anmore establish continued presence.
+    // At most 12 sequential queries of 100 IDs for the 1,200-entry session.
+    const retained = reset ? [] : stored;
+    const retainedPosts = retained.filter(e => [1, 20].includes(e.kind));
+    const present = new Set((await batches(retainedPosts, 100, async chunk => {
+      const ids = chunk.map(e => e.id);
+      const found = await relay.query([{ ids, limit: ids.length }]);
+      if (found.length > ids.length || found.some(e => !ids.includes(e.id)))
+        throw Error("Source presence check exceeded its exact-ID boundary.");
+      return found;
+    })).map(e => e.id));
+    const retainedIds = new Set(retainedPosts.map(e => e.id));
+    // A later exact-ID absence also overrides an overlapping earlier page read.
+    const available = e => !retainedIds.has(e.id) || present.has(e.id);
+    let candidates = [...retained.filter(available), ...page.filter(available), ...calendar];
     if (candidates.length > 1200)
       throw Error(
         "This reading session has reached its safety limit. Refresh to start again.",
@@ -601,9 +627,14 @@ $("order-newest").addEventListener("click", () => {
 $("order-top").addEventListener("click", () => {
   if (busy || feedOrder === "top") return;
   feedOrder = "top";
-  if (!ended) load(false);
-  else renderFeed();
+  load(false);
 });
+for (const period of ["week", "month", "all"])
+  $("period-" + period).addEventListener("click", () => {
+    if (busy || feedOrder !== "top") return;
+    zapPeriod = period;
+    renderFeed();
+  });
 $("load-more").addEventListener("click", () => load(false));
 window.addEventListener("offline", () => {
   status(

@@ -645,13 +645,13 @@ try {
       assert.ok(amounts.every((a) => a === "—"));
       assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
     } else {
-      assert.equal(amounts[0], "≥1,250 sats");
-      assert.equal(amounts[1], "≥21 sats");
-      assert.equal(amounts[2], "≥7 sats");
+      assert.equal(amounts[0], "1,250 sats · provisional");
+      assert.equal(amounts[1], "21 sats · provisional");
+      assert.equal(amounts[2], "7 sats · provisional");
       assert.ok(amounts.slice(3).every((a) => a === "—"));
       assert.match(
         await page.locator("#sort-note").innerText(),
-        /Partial.*lower bounds/,
+        /Partial receipt check · totals\/order may change/,
       );
     }
   }

@@ -23,10 +23,42 @@
       content="Local moments. Good company. Your community, in the moment."
     />
     <meta property="og:type" content="website" />
+    <link rel="canonical" href="https://anmore.social/" />
+    <meta property="og:url" content="https://anmore.social/" />
+    <meta property="og:site_name" content="Anmore Social" />
+    <meta
+      property="og:image"
+      content="https://anmore.social/icons/icon-512.png"
+    />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:image:type" content="image/png" />
+    <meta
+      property="og:image:alt"
+      content="Anmore Social — cream mountain outline on forest green"
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta
+      name="twitter:title"
+      content="Anmore Social — A little closer to home"
+    />
+    <meta
+      name="twitter:description"
+      content="Local moments. Good company. Your community, in the moment."
+    />
+    <meta
+      name="twitter:image"
+      content="https://anmore.social/icons/icon-512.png"
+    />
+    <meta
+      name="twitter:image:alt"
+      content="Anmore Social — cream mountain outline on forest green"
+    />
+    <meta name="apple-mobile-web-app-title" content="Anmore Social" />
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./feed.css?v=pwa-landing-1" />
+    <link rel="stylesheet" href="./feed.css?v=top-install-2" />
   </head>
   <body>
     <a class="skip" href="#community">Skip to community updates</a>
@@ -65,6 +97,64 @@
         <button id="update-reload" class="quiet-button" type="button" disabled>
           Update and reload
         </button>
+      </section>
+      <section
+        id="install-area"
+        class="install-area"
+        aria-label="Anmore Social app"
+      >
+        <div id="install-invitation" class="install-banner" hidden>
+          <img
+            class="install-icon"
+            src="./icons/icon-192.png"
+            width="40"
+            height="40"
+            alt=""
+          />
+          <p class="install-copy">
+            <strong>Keep Anmore close</strong
+            ><span>Add to your home screen.</span>
+          </p>
+          <div class="install-actions">
+            <button id="install-show-help" class="quiet-button" type="button">
+              How to install
+            </button>
+            <button
+              id="install-dismiss"
+              class="quiet-button"
+              type="button"
+              aria-label="Not now — dismiss install invitation"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+        <details id="install-help">
+          <summary>Install help</summary>
+          <button
+            id="install-native"
+            class="primary-button"
+            type="button"
+            hidden
+          >
+            Install app
+          </button>
+
+          <p id="install-instructions">
+            Use your browser’s install or add-to-home-screen menu, if available.
+            On iPhone or iPad, open this site in Safari, tap Share, then Add to
+            Home Screen. Turn on Open as Web App if offered, then tap Add. On
+            Android, use the browser menu’s Install app or Add to Home screen
+            option. On desktop, look for Install in the address bar or browser
+            menu. If unavailable, bookmark this page.
+          </p>
+          <p>
+            Installation is optional. Community updates and tips need an
+            internet connection. No saved feed, calendar, profiles or payments
+            are available offline.
+          </p>
+        </details>
+        <p id="install-status" role="status"></p>
       </section>
       <section class="welcome" aria-labelledby="welcome-title">
         <div class="welcome-copy">
@@ -254,49 +344,8 @@
           </section>
         </aside>
       </div>
-      <section
-        id="install-invitation"
-        class="pwa-card"
-        aria-label="Install Anmore Social"
-        hidden
-      >
-        <p>A little closer to home. Keep Anmore on your home screen.</p>
-        <button id="install-show-help" class="quiet-button" type="button">
-          How to install
-        </button>
-        <button id="install-dismiss" class="quiet-button" type="button">
-          Not now
-        </button>
-      </section>
     </main>
     <footer class="site-footer wrap">
-      <div id="install-area">
-        <details id="install-help">
-          <summary>Keep Anmore close · Install help</summary>
-          <p id="install-instructions">
-            Use your browser’s install or add-to-home-screen menu, if available.
-            On iPhone or iPad, open this site in Safari, tap Share, then Add to
-            Home Screen. Turn on Open as Web App if offered, then tap Add. On
-            Android, use the browser menu’s Install app or Add to Home screen
-            option. On desktop, look for Install in the address bar or browser
-            menu. If unavailable, bookmark this page.
-          </p>
-          <button
-            id="install-native"
-            class="primary-button"
-            type="button"
-            hidden
-          >
-            Install app
-          </button>
-          <p id="install-status" role="status"></p>
-          <p>
-            Installation is optional. Community updates and tips need an
-            internet connection. No saved feed, calendar, profiles or payments
-            are available offline.
-          </p>
-        </details>
-      </div>
       <p>Made for the moments between neighbours.</p>
       <span>Anmore Social · A community bulletin</span>
     </footer>
@@ -374,6 +423,6 @@
         required.
       </p></noscript
     >
-    <script type="module" src="./app.js?v=pwa-landing-1"></script>
+    <script type="module" src="./app.js?v=top-install-2"></script>
   </body>
 </html>

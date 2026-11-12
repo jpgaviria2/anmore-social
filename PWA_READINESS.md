@@ -1,4 +1,6 @@
-# Scoped PWA readiness — local implementation, not deployment
+# Scoped PWA readiness — historical original implementation
+
+> The original footer/engagement placement below is superseded by the owner-requested initial top install banner. See `TOP_INSTALL_READINESS.md` for the current correction and gates. Historical RED/GREEN and release evidence below describes the original candidate, not the new UX contract. Worker/payment/privacy invariants remain unchanged.
 
 ## Scope and authorization
 

@@ -29,7 +29,7 @@ test("install instructions distinguish iOS Safari, iPad desktop UA, Android and 
   );
 });
 
-test("compact invitation needs engagement, obeys seven-day dismissal cooldown and survives denied/corrupt storage", async () => {
+test("top invitation is initially eligible, obeys seven-day dismissal cooldown and survives denied/corrupt storage", async () => {
   const { createInstallState, INSTALL_PREFERENCE } = await pwa();
   assert.equal(typeof createInstallState, "function");
   let time = 1000000000;
@@ -39,21 +39,19 @@ test("compact invitation needs engagement, obeys seven-day dismissal cooldown an
     setItem: (k, v) => values.set(k, v),
   };
   let state = createInstallState(storage, () => time);
-  assert.equal(state.eligible(), false);
-  state.engage();
   assert.equal(state.eligible(), true);
   state.dismiss();
   assert.deepEqual([...values.keys()], [INSTALL_PREFERENCE]);
   assert.equal(state.eligible(), false);
   state = createInstallState(storage, () => time);
-  state.engage();
+
   assert.equal(state.eligible(), false);
   time += 7 * 86400000 + 1;
   assert.equal(state.eligible(), true);
   for (const value of ["bad", "-5", "Infinity", String(time + 86400000)]) {
     values.set(INSTALL_PREFERENCE, value);
     const recovered = createInstallState(storage, () => time);
-    recovered.engage();
+
     assert.equal(recovered.eligible(), true);
   }
   const denied = createInstallState(
@@ -67,7 +65,7 @@ test("compact invitation needs engagement, obeys seven-day dismissal cooldown an
     },
     () => time,
   );
-  denied.engage();
+
   denied.dismiss();
   assert.equal(
     denied.eligible(),

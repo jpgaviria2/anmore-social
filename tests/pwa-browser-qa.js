@@ -44,22 +44,60 @@ try {
   await context.routeWebSocket(/wss:\/\/.*/, (ws) => ws.close());
   const page = await context.newPage();
   await page.goto(origin);
-  await page.locator("#install-help").waitFor({ timeout: 3000 });
+  await page
+    .locator("#install-help")
+    .waitFor({ state: "attached", timeout: 3000 });
   assert.equal(
     await page.locator("#install-invitation").isVisible(),
-    false,
-    "No first-load interruption",
+    true,
+    "Compact invitation visible on initial visit",
   );
-  await page.locator("#install-help summary").click();
+  for (const width of [320, 360, 390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.evaluate(() => scrollTo(0, 0));
+    const box = await page.locator("#install-invitation").boundingBox();
+    assert.ok(
+      box.y >= 0 && box.y + box.height < 300,
+      "Initial top banner visible",
+    );
+    assert.ok(box.height <= 130, "Compact initial banner");
+    assert.ok(
+      await page
+        .locator("#feed")
+        .evaluate((e) => e.getBoundingClientRect().top < innerHeight - 100),
+      "First-post region visible",
+    );
+    await page.waitForTimeout(800); // Capture final finite-animation geometry.
+    await page.screenshot({
+      path: new URL(`qa/pwa-top-${width}.png`, root).pathname,
+    });
+  }
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const selector of [".install-banner", ".install-icon"])
+    assert.equal(
+      await page
+        .locator(selector)
+        .evaluate((e) => getComputedStyle(e).animationName),
+      "none",
+    );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  for (const selector of [".install-banner", ".install-icon"])
+    assert.equal(
+      await page
+        .locator(selector)
+        .evaluate((e) => getComputedStyle(e).animationIterationCount),
+      "1",
+    );
+  await page.locator("#install-show-help").click();
   assert.match(
     await page.locator("#install-instructions").innerText(),
     /browser.*install|install.*browser/i,
   );
-  // Real production entry point must wire engagement and explicit native prompt.
+  // Real production entry point exposes top install without requiring engagement.
   await page.locator('a[href="#upcoming"]').click();
   assert.equal(await page.locator("#install-invitation").isVisible(), true);
   assert.equal(
-    await page.locator("main > #install-invitation").count(),
+    await page.locator("main #install-area > #install-invitation").count(),
     1,
     "Compact invitation stays in reading flow, not an overlay",
   );
@@ -89,11 +127,9 @@ try {
         .evaluate((e) => e.getBoundingClientRect().height < 210),
       "Compact invitation",
     );
-    await page
-      .locator("#install-invitation")
-      .screenshot({
-        path: new URL(`qa/pwa-invitation-${width}.png`, root).pathname,
-      });
+    await page.locator("#install-invitation").screenshot({
+      path: new URL(`qa/pwa-invitation-${width}.png`, root).pathname,
+    });
     const invitationAxe = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
@@ -293,7 +329,7 @@ try {
         scenario.name,
       );
     } else {
-      await tab.locator("#install-help summary").click();
+      await tab.locator("#install-show-help").click();
       assert.match(
         await tab.locator("#install-instructions").innerText(),
         scenario.text,
@@ -332,8 +368,7 @@ try {
         widths: [320, 390, 768, 1440],
         keyboard: true,
         axeViolations: 0,
-        noFirstLoadInvitation: true,
-        trustedEngagement: true,
+        initialTopInvitation: true,
         dismissCooldownReload: true,
         noAutomaticPrompt: true,
         nativeEventSingleUse: true,

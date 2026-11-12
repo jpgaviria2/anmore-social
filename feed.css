@@ -1186,3 +1186,120 @@ h2 {
     scroll-behavior: auto;
   }
 }
+
+/* Optional top onboarding: in-flow, never an overlay or sticky obstruction. */
+.install-area {
+  margin: 8px 0 0;
+}
+.install-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #c8d2c6;
+  border-radius: 10px;
+  background: var(--sage);
+  animation: install-enter 450ms ease-out 1;
+}
+.install-icon {
+  border-radius: 9px;
+  flex: 0 0 40px;
+  animation: install-icon 700ms ease-out 1;
+}
+.install-copy {
+  margin: 0;
+  flex: 1;
+  font: 12px/1.5 var(--sans);
+}
+.install-copy strong,
+.install-copy span {
+  display: block;
+}
+.install-copy strong {
+  font-size: 14px;
+}
+.install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.install-actions button {
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 12px;
+}
+.install-area #install-help {
+  max-width: 100%;
+}
+.install-area #install-help summary {
+  font-size: 12px;
+  padding: 12px 0;
+}
+#install-status:empty {
+  display: none;
+}
+#install-status {
+  font-size: 12px;
+  margin: 6px 0;
+}
+@keyframes install-enter {
+  from {
+    transform: translateY(-6px);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes install-icon {
+  from {
+    transform: rotate(-8deg) scale(0.94);
+  }
+  to {
+    transform: rotate(0) scale(1);
+  }
+}
+@media (max-width: 600px) {
+  .install-banner {
+    gap: 8px;
+    padding: 8px 10px;
+    flex-wrap: wrap;
+  }
+  .install-actions {
+    flex-basis: 100%;
+  }
+  .install-actions button {
+    flex: 1;
+    padding: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .install-banner,
+  .install-icon {
+    animation: none;
+  }
+}
+
+/* The banner button opens the same help; retain its summary after dismissal. */
+.install-area:has(#install-invitation:not([hidden]))
+  #install-help:not([open])
+  > summary {
+  display: none;
+}
+.install-area + .welcome {
+  padding: 6px 0;
+}
+.install-area + .welcome .landscape svg {
+  max-height: 60px;
+}
+@media (max-width: 700px) {
+  .install-area + .welcome .landscape,
+  .install-area + .welcome .intro {
+    display: none;
+  }
+  .install-area ~ .community-layout {
+    padding-top: 14px;
+  }
+  .install-area ~ .community-layout .section-head {
+    margin-bottom: 8px;
+  }
+}

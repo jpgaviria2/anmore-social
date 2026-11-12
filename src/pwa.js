@@ -1,8 +1,7 @@
 export const INSTALL_PREFERENCE = "anmore-install-dismissed-at";
 const COOLDOWN = 7 * 86400000;
 export function createInstallState(storage, now = Date.now) {
-  let engaged = false,
-    dismissed = 0;
+  let dismissed = 0;
   try {
     const value = Number(storage?.getItem(INSTALL_PREFERENCE));
     if (Number.isFinite(value) && value > 0 && value <= now())
@@ -11,11 +10,8 @@ export function createInstallState(storage, now = Date.now) {
     /* Optional preference only; no storage is required. */
   }
   return {
-    engage() {
-      engaged = true;
-    },
     eligible() {
-      return engaged && (!dismissed || now() - dismissed >= COOLDOWN);
+      return !dismissed || now() - dismissed >= COOLDOWN;
     },
     dismiss() {
       dismissed = now();
@@ -92,18 +88,6 @@ export function setupInstall(win = window, doc = document) {
     $("install-native").disabled = pending;
   };
   $("install-instructions").textContent = installInstructions(win.navigator);
-  const engage = (event) => {
-    if (
-      !event.isTrusted ||
-      !event.target.closest(
-        '#feed summary, #feed a, #events summary, #events a, #load-more, #order-top, #order-newest, a[href="#upcoming"]',
-      )
-    )
-      return;
-    state.engage();
-    render();
-  };
-  doc.addEventListener("click", engage);
   $("install-dismiss").addEventListener("click", () => {
     state.dismiss();
     render();
@@ -169,6 +153,6 @@ export function installInstructions({
   )
     return "Open this site in Safari. Tap Share (you may need More), then Add to Home Screen. Turn on Open as Web App if offered, then tap Add. If you are in another app’s browser, open Safari first.";
   if (/Android/.test(userAgent))
-    return "Use Install app below when available, or your browser menu’s Install app or Add to Home screen option. In an in-app browser, open this page in Chrome or another supporting browser first. If unavailable, bookmark this page.";
+    return "Use Install app above when available, or your browser menu’s Install app or Add to Home screen option. In an in-app browser, open this page in Chrome or another supporting browser first. If unavailable, bookmark this page.";
   return "Look for your browser’s install icon in the address bar, or Install app / Install page as app in its menu. Availability varies by browser; if unavailable, bookmark this page. Safari on Mac may offer File → Add to Dock.";
 }

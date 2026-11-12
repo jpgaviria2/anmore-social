@@ -1,3 +1,5 @@
+import { setupInstall, setupWorker } from "./pwa.js";
+setupInstall();
 import { postVideos, withoutVideos } from "./media.js";
 import { Relay } from "./relay.js";
 import { sortPosts, resolveCommunity, verifiedTotals } from "./zaps.js";
@@ -644,14 +646,6 @@ window.addEventListener("offline", () => {
   $("connection").textContent = "Offline · last snapshot";
   $("connection").dataset.state = "error";
 });
-// Retire the former app-shell cache without creating a new offline content store.
-if ("serviceWorker" in navigator)
-  navigator.serviceWorker
-    .getRegistrations()
-    .then((registrations) => {
-      for (const r of registrations)
-        if (r.active?.scriptURL === new URL("./sw.js", location.href).href)
-          r.update().catch(() => {});
-    })
-    .catch(() => {});
+// No community content is persisted; worker handles only the offline landing.
+setupWorker();
 load(true);

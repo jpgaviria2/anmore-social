@@ -1,5 +1,7 @@
 # Feed-first release candidate — local only
 
+> **PWA policy supersession (owner authorized):** The historical worker-retirement assertions/results below are retained as history, not current requirements. The installable successor now preserves the no-community-content-caching invariant while registering a minimal dedicated offline landing worker. `PWA_READINESS.md` is the current PWA implementation/test record, and `tests/worker.test.js` / `tests/sw-browser-qa.js` now assert installation, privacy, controlled updates and both legacy migration paths instead of unregistration.
+>
 > Historical feed-first release evidence. Current compact + receipt-only Primal scope, source boundary, test results and gates are in `RECEIPT_READINESS.md`. Historical “one relay” assertions below apply to content/profile/deletion events; the current candidate has one explicit hardcoded receipt-only Primal exception.
 
 ## Artifact and scope

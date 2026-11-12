@@ -525,7 +525,59 @@ h2 {
   font-size: 32px;
   color: #8ba18a;
 }
+.pwa-card {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--sage);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.pwa-card p {
+  margin-bottom: 10px;
+}
+.pwa-card button {
+  margin: 4px 8px 0 0;
+}
+.update-consent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.update-consent input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+#install-area {
+  flex: 0 0 100%;
+}
+#install-help {
+  max-width: 46rem;
+  color: var(--ink);
+  font-size: 13px;
+}
+#install-help summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+#install-help p {
+  margin: 10px 0;
+  font: 13px/1.65 var(--sans);
+}
+@media (display-mode: standalone) {
+  #install-area,
+  #install-invitation {
+    display: none !important;
+  }
+}
 .site-footer {
+  flex-wrap: wrap;
   border-top: 1px solid var(--line);
   padding-top: 26px;
   padding-bottom: 32px;
@@ -821,7 +873,9 @@ h2 {
 .feed-order button:disabled {
   opacity: 0.65;
 }
-.zap-periods { margin: 0 0 8px; }
+.zap-periods {
+  margin: 0 0 8px;
+}
 .sort-note {
   font-size: 11px;
   line-height: 1.65;

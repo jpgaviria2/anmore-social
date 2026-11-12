@@ -17,7 +17,10 @@ const posts = actual ? [actual.event] : [
   sign({created_at:now-7,content:'<video src="https://media.example/injected.mp4" autoplay> https://localhost/private.mp4 https://user:pass@media.example/private.mp4 https://media.example:444/private.mp4 https://media.example./private.mp4 javascript:alert(1)'}),
 ];
 const browser = process.argv.includes("--webkit") ? await webkit.launch() : await chromium.launch({executablePath:process.env.CHROME_PATH || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",headless:true});
-const context = await browser.newContext();
+// WebKit's worker-controlled media requests bypass Playwright route mocking.
+// Keep fixture playback deterministic as documented by Playwright; actual worker
+// install/offline/update/migration is exercised separately in sw-browser-qa.js.
+const context = await browser.newContext(process.argv.includes("--webkit") ? {serviceWorkers:"block"} : {});
 const requests=[], errors=[], violations=[];
 await context.route("**/*", async route => {
   const url = route.request().url(); requests.push({url,type:route.request().resourceType()});
@@ -59,7 +62,10 @@ try {
   }
   // Explicit user action followed by the real HTMLMediaElement playback pipeline.
   await video.evaluate(e=>e.load());
-  await page.waitForFunction(()=>document.querySelector("video").readyState>=1,{},{timeout:45000});
+  await page.waitForFunction(()=>document.querySelector("video").readyState>=1,{},{timeout:45000}).catch(async error => {
+    console.log('MEDIA_DIAGNOSTIC', {engine:browser.version(), requests:requests.filter(r=>r.type==='media'), errors, csp:await page.evaluate(()=>window.__csp||[]), state:await video.evaluate(e=>({error:e.error?.code,message:e.error?.message,network:e.networkState,ready:e.readyState,canPlay:e.canPlayType('video/mp4; codecs="avc1.42E01E"'),controlled:!!navigator.serviceWorker?.controller}))});
+    throw error;
+  });
   const metadata=await video.evaluate(e=>({width:e.videoWidth,height:e.videoHeight,duration:e.duration}));
   assert.ok(metadata.width>0&&metadata.height>0&&metadata.duration>0);
   await video.evaluate(e=>e.play());

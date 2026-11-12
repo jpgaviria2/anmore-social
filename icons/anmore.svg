@@ -1,0 +1,19 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="512"
+  height="512"
+  viewBox="0 0 512 512"
+>
+  <title>Anmore Social mountains</title>
+  <path fill="#244e42" d="M0 0h512v512H0z" />
+  <g
+    fill="none"
+    stroke="#faf9f5"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="m116 316 89-151 70 101 42-66 79 116H116Z" />
+    <path d="m182 205 23 26 25-26m67 28 20 20 20-20M116 351h280" />
+  </g>
+</svg>

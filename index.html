@@ -11,7 +11,7 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss://relay.anmore.me wss://relay.primal.net https://trailscoffee.com https://pay.trailscoffee.com; img-src 'self' https:; media-src https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+      content="default-src 'self'; worker-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' wss://relay.anmore.me wss://relay.primal.net https://trailscoffee.com https://pay.trailscoffee.com; img-src 'self' https:; media-src https:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
     <title>Anmore Social — A little closer to home</title>
     <meta
@@ -24,8 +24,9 @@
     />
     <meta property="og:type" content="website" />
     <link rel="icon" href="./icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./feed.css?v=inline-video-1" />
+    <link rel="stylesheet" href="./feed.css?v=pwa-landing-1" />
   </head>
   <body>
     <a class="skip" href="#community">Skip to community updates</a>
@@ -51,6 +52,20 @@
       </nav>
     </header>
     <main class="wrap">
+      <section id="app-update" class="pwa-card" aria-label="App update" hidden>
+        <p>
+          A fresh version is ready. Reload only when you’re finished with any
+          tips. This clears this page’s invoice session; check your wallet and
+          save any invoice you need first. Other open tabs will not reload.
+        </p>
+        <label class="update-consent"
+          ><input id="update-confirm" type="checkbox" /> I’m finished with tips
+          and have saved any invoice I need.</label
+        >
+        <button id="update-reload" class="quiet-button" type="button" disabled>
+          Update and reload
+        </button>
+      </section>
       <section class="welcome" aria-labelledby="welcome-title">
         <div class="welcome-copy">
           <p class="eyebrow">Anmore, British Columbia</p>
@@ -120,10 +135,22 @@
               >Connecting to community relay</span
             >
           </div>
-          <div id="zap-periods" class="zap-periods" role="group" aria-label="Zap timeframe" hidden>
-            <button id="period-week" type="button" aria-pressed="false">This week</button>
-            <button id="period-month" type="button" aria-pressed="false">This month</button>
-            <button id="period-all" type="button" aria-pressed="true">All time</button>
+          <div
+            id="zap-periods"
+            class="zap-periods"
+            role="group"
+            aria-label="Zap timeframe"
+            hidden
+          >
+            <button id="period-week" type="button" aria-pressed="false">
+              This week
+            </button>
+            <button id="period-month" type="button" aria-pressed="false">
+              This month
+            </button>
+            <button id="period-all" type="button" aria-pressed="true">
+              All time
+            </button>
           </div>
           <p id="sort-note" class="sort-note" role="status" hidden>
             Top zapped among loaded posts only. Verified community Lightning
@@ -227,8 +254,49 @@
           </section>
         </aside>
       </div>
+      <section
+        id="install-invitation"
+        class="pwa-card"
+        aria-label="Install Anmore Social"
+        hidden
+      >
+        <p>A little closer to home. Keep Anmore on your home screen.</p>
+        <button id="install-show-help" class="quiet-button" type="button">
+          How to install
+        </button>
+        <button id="install-dismiss" class="quiet-button" type="button">
+          Not now
+        </button>
+      </section>
     </main>
     <footer class="site-footer wrap">
+      <div id="install-area">
+        <details id="install-help">
+          <summary>Keep Anmore close · Install help</summary>
+          <p id="install-instructions">
+            Use your browser’s install or add-to-home-screen menu, if available.
+            On iPhone or iPad, open this site in Safari, tap Share, then Add to
+            Home Screen. Turn on Open as Web App if offered, then tap Add. On
+            Android, use the browser menu’s Install app or Add to Home screen
+            option. On desktop, look for Install in the address bar or browser
+            menu. If unavailable, bookmark this page.
+          </p>
+          <button
+            id="install-native"
+            class="primary-button"
+            type="button"
+            hidden
+          >
+            Install app
+          </button>
+          <p id="install-status" role="status"></p>
+          <p>
+            Installation is optional. Community updates and tips need an
+            internet connection. No saved feed, calendar, profiles or payments
+            are available offline.
+          </p>
+        </details>
+      </div>
       <p>Made for the moments between neighbours.</p>
       <span>Anmore Social · A community bulletin</span>
     </footer>
@@ -306,6 +374,6 @@
         required.
       </p></noscript
     >
-    <script type="module" src="./app.js?v=inline-video-1"></script>
+    <script type="module" src="./app.js?v=pwa-landing-1"></script>
   </body>
 </html>

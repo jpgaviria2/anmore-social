@@ -1,8 +1,10 @@
+import { FeedStore } from "./feed-store.js";
+import { FeedSync } from "./feed-sync.js";
 import { setupInstall, setupWorker } from "./pwa.js";
 setupInstall();
 import { postVideos, withoutVideos } from "./media.js";
 import { Relay } from "./relay.js";
-import { sortPosts, resolveCommunity, verifiedTotals } from "./zaps.js";
+import { sortPosts, resolveCommunity } from "./zaps.js";
 import { collectReceipts } from "./receipts.js";
 import { setupZaps } from "./zap-ui.js";
 import {
@@ -11,7 +13,6 @@ import {
   latestProfile,
   visibleEvents,
   tag,
-  address,
   calendarInfo,
   safeURL,
 } from "./core.js";
@@ -28,23 +29,15 @@ const zapUI = setupZaps({
   getState: () => zapState,
   recheck: recheckZap,
 });
-let feedOrder = "newest", zapPeriod = "all";
+let feedOrder = "newest", zapPeriod = "all", feedProjectionKey;
 const periodLabels = { week: "This week · since Monday 00:00", month: "This month · since the 1st 00:00", all: "All time" };
-// At most six sequential content queries and 600 admitted page entries per action.
-// Inclusive timestamp boundaries retain ties; reaching a budget is not global coverage.
-const TOP_PAGES = 6,
-  TOP_ENTRIES = 600;
 function renderFeed() {
   $("zap-periods").hidden = feedOrder !== "top";
   for (const period of ["week", "month", "all"]) {
     $("period-" + period).setAttribute("aria-pressed", String(zapPeriod === period));
     $("period-" + period).disabled = busy;
   }
-  if (zapState.snapshot && zapState.authority)
-    totals = feedOrder !== "top" || zapPeriod === "all"
-      ? zapState.snapshot.totals
-      : verifiedTotals(zapState.snapshot.receipts, [...currentPosts.values()],
-          zapState.authority, Math.floor(Date.now() / 1000), zapPeriod);
+  totals = feedStore.receiptTotals(feedOrder === "top" ? zapPeriod : "all");
   $("order-newest").setAttribute(
     "aria-pressed",
     String(feedOrder === "newest"),
@@ -53,14 +46,22 @@ function renderFeed() {
   $("sort-note").hidden = feedOrder !== "top";
   $("sort-note").textContent = busy
     ? "Checking earlier updates…"
-    : zapState.error
+    : zapState.error && !feedStore.state.receipts.length
       ? "Zap checks unavailable · showing newest first."
       : `Top zapped among loaded posts · ${currentPosts.size} posts. ${periodLabels[zapPeriod]}${zapPeriod === "all" ? "" : " America/Vancouver"} · verified receipts received in this period. ${zapState.snapshot?.partial ? "Partial receipt check · totals/order may change as receipts become available. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
-  $("feed").replaceChildren(
-    ...sortPosts([...currentPosts.values()], totals, feedOrder).map((e) =>
-      post(e, currentIdentities.get(e.pubkey)),
-    ),
-  );
+  const ordered = sortPosts([...currentPosts.values()], totals, feedOrder);
+  // Busy/throttle/status-only changes must not reset details, focus or video.
+  // Signed event IDs identify immutable content; identities and receipt labels
+  // can change independently, so include their actual projected values too.
+  const projectionKey = JSON.stringify([
+    ordered.map(e => [e.id, currentIdentities.get(e.pubkey), String(totals.get(e.id) ?? 0n)]),
+    !!(zapState.error && !feedStore.state.receipts.length),
+    !!zapState.snapshot?.partial, zapState.snapshot?.sources,
+  ]);
+  if (projectionKey !== feedProjectionKey) {
+    $("feed").replaceChildren(...ordered.map(e => post(e, currentIdentities.get(e.pubkey))));
+    feedProjectionKey = projectionKey;
+  }
 }
 async function recheckZap(id) {
   const target = currentPosts.get(id);
@@ -125,11 +126,7 @@ const format = (ts, options) =>
     timeZone: "America/Vancouver",
     ...options,
   }).format(new Date(ts * 1000));
-let stored = [],
-  cursor,
-  limit = 12,
-  busy = false,
-  ended = false;
+let busy = false, ended = false;
 function richText(text) {
   const p = el("p");
   let last = 0;
@@ -280,19 +277,20 @@ function post(e, identity) {
   }
   const tipping = el("div", "post-zap");
   const confirmed = totals.get(e.id) ?? 0n;
+  const unavailable = zapState.error && !feedStore.state.receipts.length;
   const amount = el(
     "span",
     "zap-total",
-    zapState.error || (zapState.snapshot?.partial && confirmed === 0n)
+    unavailable || (zapState.snapshot?.partial && confirmed === 0n)
       ? "—"
       : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " · provisional" : ""}`,
   );
-  amount.title = zapState.error
+  amount.title = unavailable
     ? "Zap checks unavailable — not proof that no payments exist."
     : `${zapState.snapshot?.partial ? "Partial receipt check · totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts · ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
   amount.setAttribute(
     "aria-label",
-    zapState.error || (zapState.snapshot?.partial && confirmed === 0n)
+    unavailable || (zapState.snapshot?.partial && confirmed === 0n)
       ? "Zap total unavailable"
       : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`,
   );
@@ -356,268 +354,68 @@ function status(text, error = false) {
   $("status").textContent = text;
   $("status").classList.toggle("error", error);
 }
-async function batches(items, size, fn) {
-  const result = [];
-  for (let i = 0; i < items.length; i += size)
-    result.push(...(await fn(items.slice(i, i + size))));
-  return result;
-}
-async function load(reset = false) {
-  if (busy) return;
-  busy = true;
-  zapUI.invalidate();
-  currentPosts = new Map();
-  currentIdentities = new Map();
-  totals = new Map();
-  zapState = { authority: null, error: "Zap checks unavailable." };
-  $("refresh").disabled = true;
-  $("order-newest").disabled = true;
-  $("order-top").disabled = true;
+const feedStore = new FeedStore();
+const feedSync = new FeedSync(feedStore);
+let lastAttempt = 0, retryAfter = 0, failures = 0;
+function projectSaved() {
+  const visible = feedStore.events();
+  currentPosts = new Map(visible.filter(e => [1,20].includes(e.kind)).map(e=>[e.id,e]));
+  currentIdentities = feedStore.identities();
   renderFeed();
-  $("load-more").disabled = true;
-  $("feed").setAttribute("aria-busy", "true");
-  status(
-    reset
-      ? "Checking the latest stories and community identities…"
-      : "Checking earlier updates and refreshing identity associations…",
-  );
-  const relay = new Relay();
+  $("empty").hidden = currentPosts.size > 0;
+  const events = visible.filter(e=>e.kind>=30000).map(e=>({e,info:calendarInfo(e)}))
+    .filter(x=>x.info).sort((a,b)=>a.info.sort-b.info.sort||a.e.id.localeCompare(b.e.id)).slice(0,4);
+  $("events").replaceChildren(...(events.length ? events.map(({e,info})=>eventCard(e,currentIdentities.get(e.pubkey),info)) : [el("p","small muted","No upcoming events in the loaded verified calendar history.")]));
+}
+function checkedLabel() {
+  return feedStore.state.lastChecked
+    ? `Last checked ${format(feedStore.state.lastChecked,{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})} PT`
+    : "No completed relay check yet";
+}
+async function load(reset = false, automatic = false) {
+  if (busy || (automatic && ($("zap-dialog").open || document.visibilityState !== "visible" || !navigator.onLine || Date.now() < retryAfter || Date.now()-lastAttempt < 15000))) return;
+  busy = true; lastAttempt = Date.now();
+  zapUI.invalidate();
+  for (const id of ["refresh","order-newest","order-top","load-more"]) $(id).disabled=true;
+  $("feed").setAttribute("aria-busy","true");
+  renderFeed();
+  status(`${checkedLabel()} · checking relay; retained history remains visible.`);
   try {
-    if (!navigator.onLine)
-      throw Error(
-        "You’re offline. Community updates need an internet connection.",
-      );
-    await relay.open();
-    let until = reset
-      ? Math.floor(Date.now() / 1000)
-      : (cursor ?? Math.floor(Date.now() / 1000));
-    let requested = reset ? 12 : limit;
-    const page = [];
-    let nextCursor = until,
-      nextLimit = requested,
-      pageEnded = false;
-    for (let i = 0; i < (feedOrder === "top" ? TOP_PAGES : 1); i++) {
-      if (requested > 600 || page.length + requested > TOP_ENTRIES) break;
-      const chunk = await relay.query([
-        { kinds: [1, 20], until, limit: requested },
-      ]);
-      if (feedOrder === "top" &&
-          (chunk.length > requested || page.length + chunk.length > TOP_ENTRIES))
-        throw Error("Relay exceeded the Top reading limit. Please retry.");
-      page.push(...chunk);
-      const oldest = chunk.length
-        ? Math.min(...chunk.map((e) => e.created_at))
-        : until;
-      nextLimit =
-        oldest === until
-          ? requested + 12
-          : chunk.filter((e) => e.created_at === oldest).length + 12;
-      nextCursor = oldest;
-      pageEnded = chunk.length < requested;
-      if (pageEnded || nextLimit > 600) break;
-      until = nextCursor;
-      requested = nextLimit;
-    }
-    const calendar = reset
-      ? await relay.query([
-          {
-            kinds: [31922, 31923],
-            until: Math.floor(Date.now() / 1000),
-            limit: 60,
-          },
-        ])
-      : [];
-    // Relay retention can remove content without an author-signed deletion.
-    // Only completed exact-ID reads from Anmore establish continued presence.
-    // At most 12 sequential queries of 100 IDs for the 1,200-entry session.
-    const retained = reset ? [] : stored;
-    const retainedPosts = retained.filter(e => [1, 20].includes(e.kind));
-    const present = new Set((await batches(retainedPosts, 100, async chunk => {
-      const ids = chunk.map(e => e.id);
-      const found = await relay.query([{ ids, limit: ids.length }]);
-      if (found.length > ids.length || found.some(e => !ids.includes(e.id)))
-        throw Error("Source presence check exceeded its exact-ID boundary.");
-      return found;
-    })).map(e => e.id));
-    const retainedIds = new Set(retainedPosts.map(e => e.id));
-    // A later exact-ID absence also overrides an overlapping earlier page read.
-    const available = e => !retainedIds.has(e.id) || present.has(e.id);
-    let candidates = [...retained.filter(available), ...page.filter(available), ...calendar];
-    if (candidates.length > 1200)
-      throw Error(
-        "This reading session has reached its safety limit. Refresh to start again.",
-      );
-    // Refresh each address against its newest known revision before showing a calendar entry.
-    const coordinates = [
-      ...new Map(
-        candidates.filter((e) => e.kind >= 30000).map((e) => [address(e), e]),
-      ).values(),
-    ];
-    const revisions = await batches(coordinates, 20, (chunk) =>
-      relay.query(
-        chunk.map((e) => ({
-          authors: [e.pubkey],
-          kinds: [e.kind],
-          "#d": [tag(e, "d") ?? ""],
-          limit: 1,
-        })),
-      ),
-    );
-    candidates.push(...revisions);
-    const authors = [
-      ...new Set(candidates.filter((e) => e.kind !== 5).map((e) => e.pubkey)),
-    ];
-    const profiles = await batches(authors, 20, (chunk) =>
-      relay.query(
-        chunk.map((pubkey) => ({ kinds: [0], authors: [pubkey], limit: 1 })),
-      ),
-    );
-    const deletions = await batches(authors, 20, async (chunk) => {
-      const d = await relay.query([{ kinds: [5], authors: chunk, limit: 500 }]);
-      if (d.length >= 500)
-        throw Error(
-          "Deletion history is too large to verify safely. Please retry later.",
-        );
-      return d;
-    });
-    candidates = [
-      ...new Map([...candidates, ...deletions].map((e) => [e.id, e])).values(),
-    ];
-    let unavailable = 0;
-    const identities = new Map();
-    // Bounded HTTPS concurrency. No persistent identity cache or hardcoded names.
-    await batches(authors, 4, async (chunk) => {
-      await Promise.all(
-        chunk.map(async (pubkey) => {
-          const profile = latestProfile(profiles, pubkey);
-          if (
-            !profile ||
-            deletions.some(
-              (d) =>
-                d.pubkey === pubkey &&
-                d.tags.some(
-                  (t) =>
-                    (t[0] === "e" && t[1] === profile.id) ||
-                    (t[0] === "a" &&
-                      t[1] === `0:${pubkey}:` &&
-                      d.created_at >= profile.created_at),
-                ),
-            )
-          )
-            return;
-          try {
-            const identity = await identify(profile);
-            if (identity) identities.set(pubkey, identity);
-          } catch {
-            unavailable++;
-          }
-        }),
-      );
-      return [];
-    });
-    const visible = visibleEvents(candidates).filter((e) =>
-      identities.has(e.pubkey),
-    );
-    const feed = visible.filter((e) => [1, 20].includes(e.kind));
-    // Content is already verified solely on Anmore. Receipt peers never delay its first render.
-    currentPosts = new Map(feed.map((e) => [e.id, e]));
-    currentIdentities = identities;
-    renderFeed();
+    if(feedStore.blocked){await feedStore.recover();projectSaved();}
+    if (!navigator.onLine) throw Error("You’re offline");
+    const result = await feedSync.run({older:!reset,top:feedOrder==="top"});
+    projectSaved();
+    // Cached history never supplies fresh payment authority. The invoice flow
+    // still performs its own exact post/profile/deletion/HTTPS recheck.
+    const relay = new Relay(),receiptEpoch=feedSync.epoch;
     try {
-      const authority = await resolveCommunity(relay);
-      const snapshot = await collectReceipts(feed, authority, relay);
-      totals = snapshot.totals;
-      // Keep receipt-ID/source provenance in memory, never payment proof material in the DOM.
-      zapState = { authority, error: null, snapshot };
-    } catch (error) {
-      zapState = {
-        authority: null,
-        error: error.message || "Community zap verification is unavailable.",
-      };
-    }
-    currentPosts = new Map(feed.map((e) => [e.id, e]));
-    currentIdentities = identities;
-    renderFeed();
-    $("empty").hidden = feed.length > 0;
-    const events = visible
-      .filter((e) => e.kind >= 30000)
-      .map((e) => ({ e, info: calendarInfo(e) }))
-      .filter((x) => x.info)
-      .sort((a, b) => a.info.sort - b.info.sort || a.e.id.localeCompare(b.e.id))
-      .slice(0, 4);
-    $("events").replaceChildren(
-      ...(events.length
-        ? events.map(({ e, info }) =>
-            eventCard(e, identities.get(e.pubkey), info),
-          )
-        : [
-            el(
-              "p",
-              "small muted",
-              "No upcoming events in the latest verified calendar updates. Check back soon.",
-            ),
-          ]),
-    );
-    stored = candidates;
-    // Pagination follows chronological relay pages, never the displayed amount sort.
-    limit = nextLimit;
-    cursor = nextCursor;
-    ended = pageEnded;
-    if (limit > 600) {
-      ended = true;
-      status(
-        "Many updates share one timestamp. The reading limit was reached; no older timestamps were skipped.",
-        true,
-      );
-    } else
-      status(
-        unavailable
-          ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.`
-          : `Updated ${format(Math.floor(Date.now() / 1000), { hour: "numeric", minute: "2-digit" })} PT · identities checked.`,
-        unavailable > 0,
-      );
-    $("connection").textContent = "Connected";
-    $("connection").dataset.state = "ready";
-    $("page-note").textContent = ended
-      ? "You’ve reached the end of this relay page. Refresh for new updates."
-      : "No endless scroll. Take your time.";
-  } catch (error) {
+      await relay.open();
+      const authority=await resolveCommunity(relay);
+      const targets=feedSync.receiptTargets([...currentPosts.values()]);
+      const snapshot=await collectReceipts(targets.posts,authority,relay);
+      snapshot.nextTargetOffset=targets.nextTargetOffset;
+      snapshot.partial ||= targets.partial;
+      await feedSync.commitReceipts(snapshot,authority,relay,receiptEpoch);
+      zapState={authority,error:null,snapshot};totals=feedStore.receiptTotals();
+    } catch(error) {
+      zapState={authority:null,error:error.message||"Community zap verification unavailable.",snapshot:zapState.snapshot?{...zapState.snapshot,partial:true}:undefined};
+    } finally { relay.close(); }
+    failures=0;retryAfter=Date.now()+60000;
+    ended=!!feedStore.state.coverage.olderEnded;
+    status(`${checkedLabel()} · ${result.unavailable ? "Some current identity checks unavailable; accepted history retained. " : ""}${!result.completed ? "Bounded sync. " : ""}${feedStore.warning??""}`,!!feedStore.warning||result.unavailable>0);
+    $("connection").textContent="Last checked · not live";$("connection").dataset.state="ready";
+    $("page-note").textContent="Retained on this browser · Load more widens history; no global coverage guarantee.";
+  } catch(error) {
+    zapState={authority:null,error:error.message||"Community zap verification unavailable.",snapshot:zapState.snapshot?{...zapState.snapshot,partial:true}:undefined};
     zapUI.invalidate();
-    currentPosts = new Map();
-    currentIdentities = new Map();
-    totals = new Map();
-    zapState = {
-      authority: null,
-      error: "Feed checks unavailable. No invoice can be created.",
-    };
-    // Fail closed rather than retaining a stale identity/deletion assertion after a failed refresh.
-    renderFeed();
-    $("empty").hidden = true;
-    $("events").replaceChildren(
-      el(
-        "p",
-        "small muted",
-        "Events could not be verified. Please refresh to retry.",
-      ),
-    );
-    status(
-      error.message || "Community updates could not be verified. Please retry.",
-      true,
-    );
-    $("connection").textContent = navigator.onLine
-      ? "Relay check unavailable"
-      : "Offline";
-    $("connection").dataset.state = "error";
-    ended = false;
+    failures++;retryAfter=Date.now()+Math.min(300000,15000*2**Math.min(failures,5));
+    status(`${checkedLabel()} · stale retained history. ${error.message}. ${feedStore.warning??""}`,true);
+    $("connection").textContent=navigator.onLine?"Relay check unavailable":"Offline · last checked";
+    $("connection").dataset.state="error";
   } finally {
-    relay.close();
-    busy = false;
-    $("refresh").disabled = false;
-    $("order-newest").disabled = false;
-    $("order-top").disabled = false;
-    renderFeed();
-    $("load-more").disabled = ended;
-    $("feed").setAttribute("aria-busy", "false");
+    busy=false;
+    for (const id of ["refresh","order-newest","order-top"]) $(id).disabled=false;
+    projectSaved();$("load-more").disabled=ended;$("feed").setAttribute("aria-busy","false");
   }
 }
 $("refresh").addEventListener("click", () => load(true));
@@ -646,6 +444,21 @@ window.addEventListener("offline", () => {
   $("connection").textContent = "Offline · last snapshot";
   $("connection").dataset.state = "error";
 });
-// No community content is persisted; worker handles only the offline landing.
 setupWorker();
-load(true);
+async function startFeed() {
+  await feedStore.restore();
+  if(feedStore.state.receipts.length)zapState={authority:null,error:null,snapshot:{partial:true,sources:[...new Set(feedStore.state.receipts.flatMap(c=>c.sources))]}};
+  projectSaved();
+  // Restore is complete even when offline/hidden startup defers relay work.
+  $("feed").setAttribute("aria-busy", "false");
+  status(`${checkedLabel()} · stale saved history. ${feedStore.warning??""}`,!!feedStore.warning);
+  load(true,true);
+}
+const resume=()=>load(true,true);
+window.addEventListener("focus",resume);
+window.addEventListener("online",resume);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")resume();});
+window.addEventListener("pagehide",()=>{feedSync.cancel();zapUI.invalidate();});
+// No closed-tab/server polling. Visible, runnable tab only; shared single flight.
+setInterval(()=>{if(document.visibilityState==="visible"&&!$("zap-dialog").open){renderFeed();resume();}},60000);
+startFeed();

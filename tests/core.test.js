@@ -35,16 +35,12 @@ test("identity admission is dynamic, exact, signed and bound to HTTPS names mapp
   const fetcher = async (u, o) => {
     url = u;
     options = o;
-    return {
-      ok: true,
-      json: async () => ({
-        names: { "new.name-7": profile.pubkey },
-        relays: { [profile.pubkey]: ["wss://evil.example"] },
-      }),
-    };
+    return new Response(JSON.stringify({names:{'new.name-7':profile.pubkey},relays:{[profile.pubkey]:['wss://evil.example']}}));
   };
+  const admitted = await core.identify(profile, fetcher, 200);
+  assert.deepEqual(admitted.proof, {profile: JSON.parse(JSON.stringify(profile)), mapping: {names:{'new.name-7':profile.pubkey},relays:{[profile.pubkey]:['wss://evil.example']}}, mappingJSON:JSON.stringify({names:{'new.name-7':profile.pubkey},relays:{[profile.pubkey]:['wss://evil.example']}}), checkedAt:200});
   assert.equal(
-    (await core.identify(profile, fetcher, 200)).nip05,
+    admitted.nip05,
     "new.name-7@trailscoffee.com",
   );
   assert.equal(
@@ -75,10 +71,7 @@ test("identity admission is dynamic, exact, signed and bound to HTTPS names mapp
   assert.equal(
     await core.identify(
       profile,
-      async () => ({
-        ok: true,
-        json: async () => ({ names: { "new.name-7": "f".repeat(64) } }),
-      }),
+      async () => new Response(JSON.stringify({names:{'new.name-7':'f'.repeat(64)}})),
       200,
     ),
     null,
@@ -100,6 +93,57 @@ test("identity admission is dynamic, exact, signed and bound to HTTPS names mapp
   );
 });
 
+test('community recipient uses shared case-preserving bounded HTTP identity contract without fixed names',async()=>{
+ const {resolveCommunity,COMMUNITY_ADDRESS,PAY_CALLBACK}=await import('../src/zaps.js');
+ const name='Arbitrary.UPPER',p=signed({kind:0,content:JSON.stringify({nip05:name+'@trailscoffee.com',lud16:COMMUNITY_ADDRESS})});
+ const mapping={names:{[name]:p.pubkey,unused:'not-a-pubkey'},relays:{keep:['evidence']}};
+ const endpoint={tag:'payRequest',allowsNostr:true,nostrPubkey:p.pubkey,callback:PAY_CALLBACK,minSendable:1000,maxSendable:100000};
+ const relay={query:async fs=>fs[0].kinds.includes(0)?[p]:[]};
+ const authority=await resolveCommunity(relay,async url=>new Response(JSON.stringify(url.includes('nostr.json')?mapping:endpoint)),200);
+ assert.equal(authority.recipient,p.pubkey);assert.deepEqual(authority.evidence.mapping,mapping);assert.equal(authority.evidence.mappingJSON,JSON.stringify(mapping));
+ await assert.rejects(()=>resolveCommunity(relay,async()=>new Response(JSON.stringify(mapping),{status:206}),200));
+ await assert.rejects(()=>resolveCommunity(relay,async()=>new Response(JSON.stringify({names:{[name]:p.pubkey,invalid:4}})),200));
+});
+test('identity deadline spans stalled fetch and streamed body with exact byte ceiling',async()=>{
+ const url='https://trailscoffee.com/.well-known/nostr.json?name=x';
+ for(const stage of ['fetch','body']){
+  let signal,cancelled=false;
+  const fetcher=async(u,o)=>{signal=o.signal;if(stage==='fetch')return new Promise(()=>{});return new Response(new ReadableStream({pull:()=>new Promise(()=>{}),cancel(){cancelled=true;}}));};
+  await assert.rejects(()=>core.fetchIdentityMapping(url,fetcher,25),/timeout/);assert.equal(signal.aborted,true);if(stage==='body')assert.equal(cancelled,true);
+ }
+ const base=JSON.stringify({names:{x:'key'},padding:''}),text=base.slice(0,-2)+'a'.repeat(65536-new TextEncoder().encode(base).length)+'"}';
+ assert.equal(new TextEncoder().encode(text).length,65536);
+ assert.equal((await core.fetchIdentityMapping(url,async()=>new Response(text))).mappingJSON,text);
+ let cancelled=false;const chunks=[new Uint8Array(40000),new Uint8Array(25537)];
+ await assert.rejects(()=>core.fetchIdentityMapping(url,async()=>new Response(new ReadableStream({pull(c){if(chunks.length)c.enqueue(chunks.shift());else return new Promise(()=>{});},cancel(){cancelled=true;}}),{headers:{'content-length':'1'}})),/safety limit/);
+ assert.equal(cancelled,true);
+ await assert.rejects(()=>core.fetchIdentityMapping(url,async()=>new Response('{"names":{}}',{headers:{'content-length':'65537'}})),/safety limit/);
+});
+test('typed identity outcomes distinguish unavailable placeholders from signed withdrawal and mapping contradiction',async()=>{
+ const decide=async content=>core.identifyDecision(signed({kind:0,content}),async()=>new Response('{"names":{}}'),200);
+ for(const content of ['{','null','[]','{"name":" deleted "}','{"display_name":"DELETED","nip05":"a@trailscoffee.com"}'])assert.equal((await decide(content)).status,'unavailable');
+ for(const content of ['{}','{"name":"real person"}','{"nip05":"x@elsewhere.test"}'])assert.equal((await decide(content)).status,'withdrawn');
+ assert.equal((await decide('{"nip05":"a@trailscoffee.com"}')).status,'contradiction');
+ assert.equal((await core.identifyDecision(signed({kind:0,content:'{"nip05":"a@trailscoffee.com"}'}),async()=>new Response('{"names":{"a":3}}'),200)).status,'unavailable');
+});
+test('identity HTTP contract requires exact 200 and bounded complete string-map evidence',async()=>{
+ const p=signed({kind:0,content:JSON.stringify({nip05:'Case@trailscoffee.com'})});
+ const text=' {"names": '+JSON.stringify({Case:p.pubkey,Other:'other-string'})+', "relays": {"extra": []}, "padding": "'+'x'.repeat(17000)+'"} ';
+ let options;
+ const good=await core.identify(p,async(u,o)=>{options=o;return new Response(text);},200);
+ assert.equal(good.proof.mappingJSON,text);assert.deepEqual(good.proof.mapping,JSON.parse(text));
+ assert.equal(options.credentials,'omit');assert.equal(options.redirect,'error');assert.equal(options.headers.Accept,'application/json');assert.equal(options.referrerPolicy,'no-referrer');
+ for(const status of [201,204,206,404,429,500])await assert.rejects(()=>core.identify(p,async()=>new Response(status===204?null:text,{status}),200));
+ for(const names of [null,[],{'Case':p.pubkey,other:1},'invalid'])await assert.rejects(()=>core.identify(p,async()=>new Response(JSON.stringify({names})),200));
+ for(const data of ['not-json',JSON.stringify({names:{Case:p.pubkey},padding:'x'.repeat(65536)})])await assert.rejects(()=>core.identify(p,async()=>new Response(data),200));
+ for(const names of [{},{case:p.pubkey},{Case:'wrong'}])assert.equal(await core.identify(p,async()=>new Response(JSON.stringify({names})),200),null);
+ await assert.rejects(()=>core.identify(p,async()=>({status:200,redirected:true,url:'https://other.test',body:new Response(text).body}),200));
+});
+test('identity response is byte bounded before JSON decoding',async()=>{
+ const profile=signed({kind:0,content:JSON.stringify({nip05:'new.name-7@trailscoffee.com'})});let cancelled=false;
+ const fetcher=async()=>({status:200,body:{getReader:()=>({read:async()=>({done:false,value:new Uint8Array(65537)}),cancel:async()=>{cancelled=true;}})},json:async()=>({names:{'new.name-7':profile.pubkey}})});
+ await assert.rejects(()=>core.identify(profile,fetcher,200),/safety limit/);assert.equal(cancelled,true);
+});
 test("chronology deduplicates, rejects invalid input, applies author deletions and addressable updates", () => {
   assert.equal(typeof core.visibleEvents, "function");
   const a = signed({ created_at: 90 }),
@@ -247,22 +291,14 @@ test("e deletion removes an exact same-author ID regardless of its timestamp, wh
   );
 });
 
-test("empty tag arrays are malformed and uppercase NIP-05 local names are not normalized", async () => {
-  const e = signed({ tags: [[]] });
-  assert.equal(core.validEvent(e, 200), false);
-  assert.equal(
-    await core.identify(
-      signed({
-        kind: 0,
-        content: JSON.stringify({ nip05: "New@trailscoffee.com" }),
-      }),
-      () => {
-        throw Error("must not fetch");
-      },
-      200,
-    ),
-    null,
-  );
+test('NIP05 handles preserve case with the native ASCII 1..64 bound',async()=>{
+ assert.equal(core.validEvent(signed({tags:[[]]}),200),false);
+ for(const name of ['New','A'.repeat(64),'constructor','__proto__']){
+  const p=signed({kind:0,content:JSON.stringify({nip05:name+'@trailscoffee.com'})});let requested;
+  const identity=await core.identify(p,async url=>{requested=url;return new Response(JSON.stringify({names:{[name]:p.pubkey}}));},200);
+  assert.equal(identity?.nip05,name+'@trailscoffee.com');assert.ok(requested.endsWith('?name='+name));
+ }
+ for(const name of ['', 'a'.repeat(65),'é','a+b'])assert.equal(await core.identify(signed({kind:0,content:JSON.stringify({nip05:name+'@trailscoffee.com'})}),()=>{throw Error('must not fetch');},200),null);
 });
 test("forged deletion signatures cannot hide real posts; latest profile tie is deterministic", () => {
   const note = signed();

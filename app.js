@@ -2106,143 +2106,6 @@ var require_browser = __commonJS({
   }
 });
 
-// src/pwa.js
-var INSTALL_PREFERENCE = "anmore-install-dismissed-at";
-var COOLDOWN = 7 * 864e5;
-function createInstallState(storage, now = Date.now) {
-  let dismissed = 0;
-  try {
-    const value = Number(storage?.getItem(INSTALL_PREFERENCE));
-    if (Number.isFinite(value) && value > 0 && value <= now())
-      dismissed = value;
-  } catch {
-  }
-  return {
-    eligible() {
-      return !dismissed || now() - dismissed >= COOLDOWN;
-    },
-    dismiss() {
-      dismissed = now();
-      try {
-        storage?.setItem(INSTALL_PREFERENCE, String(dismissed));
-      } catch {
-      }
-    }
-  };
-}
-function setupWorker(win = window, doc = document) {
-  if (!("serviceWorker" in win.navigator)) return;
-  const sw = win.navigator.serviceWorker;
-  const $3 = (id) => doc.getElementById(id);
-  let registration, armed = false;
-  const pending = () => {
-    $3("app-update").hidden = !(registration?.waiting && sw.controller);
-  };
-  $3("update-confirm").addEventListener("change", () => {
-    $3("update-reload").disabled = !$3("update-confirm").checked;
-  });
-  $3("update-reload").addEventListener("click", () => {
-    if (!$3("update-confirm").checked || $3("zap-dialog").open) return;
-    if (!registration?.waiting) return;
-    armed = true;
-    $3("update-reload").disabled = true;
-    registration.waiting.postMessage({ type: "ACTIVATE_OFFLINE_UPDATE" });
-  });
-  sw.addEventListener("controllerchange", () => {
-    pending();
-    if (armed && !$3("zap-dialog").open) {
-      armed = false;
-      win.location.reload();
-    }
-  });
-  sw.register("./sw.js", { scope: "./", updateViaCache: "none" }).then((r) => {
-    registration = r;
-    pending();
-    r.addEventListener("updatefound", () => {
-      r.installing?.addEventListener("statechange", pending);
-    });
-  }).catch(() => {
-    $3("install-status").textContent = "Offline landing is unavailable in this browser session. You can still read online and use install help.";
-  });
-}
-function setupInstall(win = window, doc = document) {
-  const $3 = (id) => doc.getElementById(id);
-  let storage;
-  try {
-    storage = win.localStorage;
-  } catch {
-  }
-  const state = createInstallState(storage);
-  let deferred = null, pending = false, completed = false;
-  const standalone = () => win.matchMedia("(display-mode: standalone)").matches || win.navigator.standalone === true;
-  const render = () => {
-    const hidden = standalone() || completed;
-    $3("install-area").hidden = hidden;
-    $3("install-invitation").hidden = hidden || !state.eligible();
-    $3("install-native").hidden = hidden || !deferred;
-    $3("install-native").disabled = pending;
-  };
-  $3("install-instructions").textContent = installInstructions(win.navigator);
-  $3("install-dismiss").addEventListener("click", () => {
-    state.dismiss();
-    render();
-    $3("install-help").querySelector("summary").focus({ preventScroll: true });
-  });
-  $3("install-show-help").addEventListener("click", () => {
-    $3("install-help").open = true;
-    $3("install-help").scrollIntoView({ block: "center" });
-    $3("install-help").querySelector("summary").focus();
-  });
-  win.addEventListener("beforeinstallprompt", (event) => {
-    event.preventDefault();
-    if (!standalone() && !completed && !pending) deferred = event;
-    render();
-  });
-  $3("install-native").addEventListener("click", async () => {
-    if (!deferred || pending || standalone() || completed) return;
-    const event = deferred;
-    deferred = null;
-    pending = true;
-    render();
-    try {
-      const result = await event.prompt();
-      const choice = event.userChoice ? await event.userChoice : result;
-      if (completed) return;
-      if (choice?.outcome === "accepted") {
-        state.dismiss();
-        $3("install-status").textContent = "Installation requested. Your browser will finish adding the app.";
-      } else {
-        state.dismiss();
-        $3("install-status").textContent = "Not installed. You can try again from your browser menu, or follow the instructions above.";
-      }
-    } catch {
-      if (!completed)
-        $3("install-status").textContent = "The install prompt could not open. Use your browser menu or the instructions above.";
-    } finally {
-      pending = false;
-      render();
-    }
-  });
-  win.addEventListener("appinstalled", () => {
-    completed = true;
-    deferred = null;
-    state.dismiss();
-    render();
-  });
-  win.matchMedia("(display-mode: standalone)").addEventListener?.("change", render);
-  render();
-}
-function installInstructions({
-  userAgent = "",
-  maxTouchPoints = 0
-} = {}) {
-  if (/iPhone|iPad|iPod/.test(userAgent) || /Macintosh/.test(userAgent) && maxTouchPoints > 1)
-    return "Open this site in Safari. Tap Share (you may need More), then Add to Home Screen. Turn on Open as Web App if offered, then tap Add. If you are in another app\u2019s browser, open Safari first.";
-  if (/Android/.test(userAgent))
-    return "Use Install app above when available, or your browser menu\u2019s Install app or Add to Home screen option. In an in-app browser, open this page in Chrome or another supporting browser first. If unavailable, bookmark this page.";
-  return "Look for your browser\u2019s install icon in the address bar, or Install app / Install page as app in its menu. Availability varies by browser; if unavailable, bookmark this page. Safari on Mac may offer File \u2192 Add to Dock.";
-}
-
 // node_modules/@noble/curves/node_modules/@noble/hashes/esm/_assert.js
 function number(n) {
   if (!Number.isSafeInteger(n) || n < 0)
@@ -4668,6 +4531,9 @@ var verifyEvent = i.verifyEvent;
 
 // src/core.js
 var RELAY = "wss://relay.anmore.me";
+function canonicalEvent(e) {
+  return { id: e.id, pubkey: e.pubkey, sig: e.sig, created_at: e.created_at, kind: e.kind, tags: e.tags.map((t) => [...t]), content: e.content };
+}
 function validEvent(input, now = Math.floor(Date.now() / 1e3)) {
   try {
     if (!input || !/^[0-9a-f]{64}$/.test(input.id) || !/^[0-9a-f]{64}$/.test(input.pubkey) || !/^[0-9a-f]{128}$/.test(input.sig) || !Number.isSafeInteger(input.created_at) || input.created_at < 0 || input.created_at > now || !Number.isSafeInteger(input.kind) || input.kind < 0 || input.kind > 65535 || typeof input.content !== "string" || input.content.length > 1e5 || !Array.isArray(input.tags) || input.tags.length > 2e3 || input.tags.some(
@@ -4687,32 +4553,100 @@ function validEvent(input, now = Math.floor(Date.now() / 1e3)) {
     return false;
   }
 }
+var approvedIdentifier = (value) => typeof value === "string" && /^[A-Za-z0-9_.-]{1,64}@trailscoffee\.com$/.test(value);
+var validNamesMap = (mapping) => !!mapping && typeof mapping === "object" && !Array.isArray(mapping) && !!mapping.names && typeof mapping.names === "object" && !Array.isArray(mapping.names) && Object.values(mapping.names).every((v) => typeof v === "string");
+function validMappingEvidence(proof) {
+  try {
+    const text = proof.mappingJSON ?? JSON.stringify(proof.mapping);
+    return typeof text === "string" && new TextEncoder().encode(text).byteLength <= 65536 && validNamesMap(proof.mapping) && JSON.stringify(JSON.parse(text)) === JSON.stringify(proof.mapping);
+  } catch {
+    return false;
+  }
+}
+async function fetchIdentityMapping(url, fetcher = fetch, timeoutMs = 8e3) {
+  const controller = new AbortController();
+  let reader, timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(Error("Identity endpoint timeout"));
+    }, timeoutMs);
+  });
+  const work = (async () => {
+    const response = await fetcher(url, { redirect: "error", credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer", headers: { Accept: "application/json" }, signal: controller.signal });
+    if (response.status !== 200 || response.redirected || response.url && response.url !== url) throw Error("Identity endpoint unavailable");
+    const length = response.headers?.get("content-length");
+    if (length !== null && length !== void 0 && (!/^\d+$/.test(length) || Number(length) > 65536)) throw Error("Identity response exceeded safety limit");
+    reader = response.body?.getReader();
+    if (!reader) throw Error("Identity response body unavailable");
+    let size = 0;
+    const chunks = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 65536) throw Error("Identity response exceeded safety limit");
+      chunks.push(value);
+    }
+    const bytes3 = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes3.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const mappingJSON = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes3), mapping = JSON.parse(mappingJSON);
+    if (!validNamesMap(mapping)) throw Error("Identity endpoint returned malformed mapping");
+    return { mapping, mappingJSON };
+  })();
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    clearTimeout(timer);
+    controller.abort();
+    if (reader) Promise.resolve(reader.cancel()).catch(() => {
+    });
+  }
+}
+function profileIdentityStatus(profile, now) {
+  if (!validEvent(profile, now) || profile.kind !== 0) return "unavailable";
+  try {
+    const m = JSON.parse(profile.content);
+    if (!m || typeof m !== "object" || Array.isArray(m)) return "unavailable";
+    if ([m.name, m.display_name].some((v) => typeof v === "string" && v.trim().toLowerCase() === "deleted")) return "unavailable";
+    return approvedIdentifier(m.nip05) ? "eligible" : "withdrawn";
+  } catch {
+    return "unavailable";
+  }
+}
+async function identifyDecision(profile, fetcher = fetch, now) {
+  const status2 = profileIdentityStatus(profile, now);
+  if (status2 !== "eligible") return { status: status2, profile };
+  try {
+    const identity = await identify(profile, fetcher, now);
+    return identity ? { status: "verified", identity, profile } : { status: "contradiction", profile };
+  } catch (error) {
+    return { status: "unavailable", profile, error };
+  }
+}
 async function identify(profile, fetcher = fetch, now) {
-  if (!validEvent(profile, now) || profile.kind !== 0) return null;
+  if (profileIdentityStatus(profile, now) !== "eligible") return null;
   let metadata;
   try {
     metadata = JSON.parse(profile.content);
   } catch {
     return null;
   }
-  if (!metadata || typeof metadata.nip05 !== "string" || !/^[a-z0-9_.-]+@trailscoffee\.com$/.test(metadata.nip05))
+  if (!metadata || !approvedIdentifier(metadata.nip05))
     return null;
   const name = metadata.nip05.split("@")[0];
-  const response = await fetcher(
+  const { mapping, mappingJSON } = await fetchIdentityMapping(
     `https://trailscoffee.com/.well-known/nostr.json?name=${encodeURIComponent(name)}`,
-    {
-      redirect: "error",
-      credentials: "omit",
-      cache: "no-store",
-      signal: AbortSignal.timeout(8e3)
-    }
+    fetcher
   );
-  if (!response.ok) throw Error("Identity endpoint unavailable");
-  const mapping = await response.json();
-  if (!mapping?.names || !Object.hasOwn(mapping.names, name) || mapping.names[name] !== profile.pubkey)
-    return null;
+  if (!Object.hasOwn(mapping.names, name) || mapping.names[name] !== profile.pubkey) return null;
   return {
     pubkey: profile.pubkey,
+    proof: { profile: canonicalEvent(profile), mapping, mappingJSON, checkedAt: now ?? Math.floor(Date.now() / 1e3) },
     nip05: metadata.nip05,
     name: typeof metadata.display_name === "string" ? metadata.display_name.slice(0, 100) : typeof metadata.name === "string" ? metadata.name.slice(0, 100) : name,
     picture: typeof metadata.picture === "string" ? metadata.picture : null
@@ -4791,142 +4725,6 @@ function calendarInfo(e, now = Math.floor(Date.now() / 1e3)) {
     location: tag(e, "location") || "Location in event details"
   };
 }
-
-// src/media.js
-function bodyURLs(text) {
-  return [...text.matchAll(/(?<!\S)https:\/\/[^\s<>"\u0000-\u001f]+/g)].map((m) => {
-    const raw = /[?#]/.test(m[0]) ? m[0] : m[0].replace(/[.,!;:)]+$/, "");
-    return { raw, index: m.index };
-  });
-}
-var directVideo = (url) => /\.(mp4|webm|mov)$/i.test(new URL(url).pathname);
-var mediaURL = (raw) => typeof raw === "string" && /^https:\/\//.test(raw) && !/[\s\\\u0000-\u001f\u007f]/.test(raw) && safeURL(raw) ? raw : null;
-function postVideos(e) {
-  const videos = /* @__PURE__ */ new Map();
-  const add = (raw, label) => {
-    const url = mediaURL(raw);
-    if (url && directVideo(url) && !videos.has(url) && videos.size < 4)
-      videos.set(url, { url, label: label || "Video attached to this community update" });
-  };
-  for (const { raw } of bodyURLs(e.content)) add(raw);
-  for (const t of e.tags) {
-    if (t[0] !== "imeta") continue;
-    const urls = t.slice(1).filter((v) => v.startsWith("url "));
-    if (urls.length !== 1) continue;
-    const alt = t.slice(1).find((v) => v.startsWith("alt "))?.slice(4, 204);
-    add(urls[0].slice(4), alt);
-  }
-  return [...videos.values()];
-}
-function withoutVideos(text, videos) {
-  const urls = new Set(videos.map((v) => v.url));
-  for (const { raw, index } of bodyURLs(text).reverse())
-    if (urls.has(raw)) text = text.slice(0, index) + text.slice(index + raw.length);
-  return text.trim();
-}
-
-// src/relay.js
-function matches(e, f) {
-  return (!f.kinds || f.kinds.includes(e.kind)) && (!f.authors || f.authors.includes(e.pubkey)) && (!f.ids || f.ids.includes(e.id)) && (f.until === void 0 || e.created_at <= f.until) && (f.since === void 0 || e.created_at >= f.since) && Object.entries(f).every(
-    ([k, v]) => !k.startsWith("#") || e.tags.some((t) => t[0] === k.slice(1) && v.includes(t[1]))
-  );
-}
-var Relay = class {
-  constructor(Socket = WebSocket) {
-    this.Socket = Socket;
-    this.pending = /* @__PURE__ */ new Map();
-    this.counter = 0;
-  }
-  async open() {
-    this.socket = new this.Socket(RELAY);
-    this.socket.addEventListener("message", (ev) => this.receive(ev));
-    this.socket.addEventListener("close", () => {
-      for (const p of this.pending.values())
-        p.finish(Error("Relay disconnected. Please retry."));
-    });
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.close();
-        reject(Error("Relay connection timed out."));
-      }, 1e4);
-      this.socket.addEventListener("open", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-      this.socket.addEventListener("error", () => {
-        clearTimeout(timer);
-        reject(Error("Cannot reach relay.anmore.me. Please retry."));
-      });
-    });
-  }
-  query(filters, timeout = 12e3, { rejectAtLimit = false } = {}) {
-    if (this.socket?.readyState !== 1)
-      return Promise.reject(Error("Relay is not connected."));
-    const id = `anmore-${++this.counter}`, cap = filters.reduce((s, f) => s + (f.limit || 40), 0);
-    return new Promise((resolve, reject) => {
-      const events = /* @__PURE__ */ new Map();
-      let count = 0;
-      const timer = setTimeout(
-        () => finish(
-          Error("Relay query timed out; no unverified results were added.")
-        ),
-        timeout
-      );
-      const finish = (err) => {
-        clearTimeout(timer);
-        this.pending.delete(id);
-        if (this.socket.readyState === 1)
-          this.socket.send(JSON.stringify(["CLOSE", id]));
-        err ? reject(err) : resolve([...events.values()]);
-      };
-      this.pending.set(id, {
-        finish,
-        filters,
-        events,
-        accept: (e) => {
-          count++;
-          if (rejectAtLimit && count >= cap)
-            return finish(Error("Receipt snapshot truncated."));
-          if (count > cap + 20)
-            return finish(Error("Relay response exceeded the safety limit."));
-          if (validEvent(e) && filters.some((f) => matches(e, f)))
-            events.set(e.id, e);
-        }
-      });
-      this.socket.send(JSON.stringify(["REQ", id, ...filters]));
-    });
-  }
-  receive(ev) {
-    if (typeof ev.data !== "string" || ev.data.length > 12e5) {
-      for (const p2 of this.pending.values())
-        p2.finish(Error("Relay sent an oversized response."));
-      return;
-    }
-    let m;
-    try {
-      m = JSON.parse(ev.data);
-    } catch {
-      return;
-    }
-    if (!Array.isArray(m)) return;
-    const p = this.pending.get(m[1]);
-    if (m[0] === "NOTICE") {
-      for (const item of this.pending.values())
-        item.finish(
-          Error("Relay reported a service notice. Please retry later.")
-        );
-      return;
-    }
-    if (!p) return;
-    if (m[0] === "EVENT") p.accept(m[2]);
-    if (m[0] === "EOSE") p.finish();
-    if (m[0] === "CLOSED")
-      p.finish(Error("Relay declined the read request. Please retry later."));
-  }
-  close() {
-    this.socket?.close();
-  }
-};
 
 // node_modules/@scure/base/lib/esm/index.js
 function assertNumber(n) {
@@ -5218,22 +5016,22 @@ function genBech32(encoding) {
   const fromWords = _words.decode;
   const toWords = _words.encode;
   const fromWordsUnsafe = unsafeWrapper(fromWords);
-  function encode(prefix, words, limit2 = 90) {
+  function encode(prefix, words, limit = 90) {
     if (typeof prefix !== "string")
       throw new Error(`bech32.encode prefix should be string, not ${typeof prefix}`);
     if (!Array.isArray(words) || words.length && typeof words[0] !== "number")
       throw new Error(`bech32.encode words should be array of numbers, not ${typeof words}`);
     const actualLength = prefix.length + 7 + words.length;
-    if (limit2 !== false && actualLength > limit2)
-      throw new TypeError(`Length ${actualLength} exceeds limit ${limit2}`);
+    if (limit !== false && actualLength > limit)
+      throw new TypeError(`Length ${actualLength} exceeds limit ${limit}`);
     prefix = prefix.toLowerCase();
     return `${prefix}1${BECH_ALPHABET.encode(words)}${bechChecksum(prefix, words, ENCODING_CONST)}`;
   }
-  function decode(str, limit2 = 90) {
+  function decode(str, limit = 90) {
     if (typeof str !== "string")
       throw new Error(`bech32.decode input should be string, not ${typeof str}`);
-    if (str.length < 8 || limit2 !== false && str.length > limit2)
-      throw new TypeError(`Wrong string length: ${str.length} (${str}). Expected (8..${limit2})`);
+    if (str.length < 8 || limit !== false && str.length > limit)
+      throw new TypeError(`Wrong string length: ${str.length} (${str}). Expected (8..${limit})`);
     const lowered = str.toLowerCase();
     if (str !== lowered && str !== str.toUpperCase())
       throw new Error(`String must be lowercase or uppercase`);
@@ -5419,16 +5217,13 @@ async function boundedJSON(url, fetcher = fetch) {
   return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes3));
 }
 async function resolveCommunity(relay, fetcher = fetch, now = Math.floor(Date.now() / 1e3)) {
-  const directory = await boundedJSON(
+  const { mapping: directory, mappingJSON } = await fetchIdentityMapping(
     "https://trailscoffee.com/.well-known/nostr.json",
     fetcher
   );
-  if (!directory?.names || Array.isArray(directory.names))
-    throw Error("Community recipient directory unavailable");
   const entries = Object.entries(directory.names);
-  if (entries.length > 128 || entries.some(([n, p]) => !/^[a-z0-9_.-]+$/.test(n) || !hex2(p)))
-    throw Error("Community recipient directory exceeds safety contract");
-  const authors = [...new Set(entries.map(([, p]) => p))];
+  if (entries.length > 128) throw Error("Community recipient directory exceeds safety contract");
+  const authors = [...new Set(entries.filter(([n, p]) => approvedIdentifier(n + "@trailscoffee.com") && hex2(p)).map(([, p]) => p))];
   const profiles = [];
   for (let i2 = 0; i2 < authors.length; i2 += 16)
     profiles.push(
@@ -5446,10 +5241,10 @@ async function resolveCommunity(relay, fetcher = fetch, now = Math.floor(Date.no
     } catch {
       continue;
     }
-    if (metadata?.lud16 !== COMMUNITY_ADDRESS || typeof metadata.nip05 !== "string" || !/^[a-z0-9_.-]+@trailscoffee\.com$/.test(metadata.nip05))
+    if (metadata?.lud16 !== COMMUNITY_ADDRESS || !approvedIdentifier(metadata.nip05) || profileIdentityStatus(profile2, now) !== "eligible")
       continue;
     const name = metadata.nip05.split("@")[0];
-    if (directory.names[name] !== pubkey) continue;
+    if (!Object.hasOwn(directory.names, name) || directory.names[name] !== pubkey) continue;
     matches2.push(profile2);
   }
   if (matches2.length !== 1)
@@ -5482,7 +5277,8 @@ async function resolveCommunity(relay, fetcher = fetch, now = Math.floor(Date.no
     issuer: endpoint.nostrPubkey,
     min: endpoint.minSendable,
     max: endpoint.maxSendable,
-    checkedAt: now
+    checkedAt: now,
+    evidence: { profile: JSON.parse(JSON.stringify(profile)), mapping: directory, mappingJSON, endpoint }
   };
 }
 function one(event, name, required = true) {
@@ -5598,19 +5394,20 @@ function zapPeriodWindow(period, now = Math.floor(Date.now() / 1e3)) {
   else date.setUTCMonth(date.getUTCMonth() + 1);
   return { start, end: midnight(date) };
 }
-function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() / 1e3), period = "all") {
+function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() / 1e3), period = "all", removedIds = /* @__PURE__ */ new Set()) {
   const window2 = zapPeriodWindow(period, now);
   const targets = new Map(posts.map((e) => [e.id, e])), payments = /* @__PURE__ */ new Map(), totals2 = /* @__PURE__ */ new Map();
   if (!authority) return totals2;
   for (const receipt of receipts) {
     try {
-      if (receipt.kind !== 9735 || receipt.pubkey !== authority.issuer || !validEvent(receipt, now))
+      const context = typeof authority === "function" ? authority(receipt) : authority;
+      if (!context || receipt.kind !== 9735 || receipt.pubkey !== context.issuer || !validEvent(receipt, now))
         continue;
       const postId = one(receipt, "e"), post2 = targets.get(postId);
-      if (!post2 || one(receipt, "p") !== authority.recipient || receipt.tags.some((t) => t[0] === "a"))
+      if (!post2 || one(receipt, "p") !== context.recipient || receipt.tags.some((t) => t[0] === "a"))
         continue;
       const description = one(receipt, "description"), request = JSON.parse(description), parsed = readInvoice(one(receipt, "bolt11"));
-      if (request.kind !== 9734 || !validEvent(request, now) || one(request, "e") !== postId || one(request, "p") !== authority.recipient || one(request, "lnurl", false) !== void 0 && one(request, "lnurl", false) !== COMMUNITY_LNURL || request.tags.some((t) => t[0] === "a"))
+      if (request.kind !== 9734 || !validEvent(request, now) || one(request, "e") !== postId || one(request, "p") !== context.recipient || one(request, "lnurl", false) !== void 0 && one(request, "lnurl", false) !== COMMUNITY_LNURL || request.tags.some((t) => t[0] === "a"))
         continue;
       const amount = one(request, "amount", false), kind = one(request, "k", false), sender = one(receipt, "P", false);
       if (amount !== void 0 && (!/^[1-9][0-9]*$/.test(amount) || BigInt(amount) !== parsed.msats) || kind !== void 0 && kind !== String(post2.kind) || sender !== void 0 && sender !== request.pubkey)
@@ -5618,6 +5415,7 @@ function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() 
       if (parsed.descriptionHash !== hashText(description) || request.created_at > receipt.created_at || parsed.timestamp > receipt.created_at || parsed.expiresAt < receipt.created_at)
         continue;
       const payment = {
+        removed: removedIds.has(receipt.id),
         receivedAt: receipt.created_at,
         postId,
         msats: parsed.msats,
@@ -5627,12 +5425,15 @@ function verifiedTotals(receipts, posts, authority, now = Math.floor(Date.now() 
       if (previous && (previous.postId !== postId || previous.msats !== payment.msats || previous.descriptionHash !== payment.descriptionHash))
         payments.set(parsed.paymentHash, { conflict: true });
       else if (!previous) payments.set(parsed.paymentHash, payment);
-      else if (!previous.conflict) previous.receivedAt = Math.min(previous.receivedAt, payment.receivedAt);
+      else if (!previous.conflict) {
+        previous.receivedAt = Math.min(previous.receivedAt, payment.receivedAt);
+        previous.removed ||= payment.removed;
+      }
     } catch {
     }
   }
   for (const p of payments.values())
-    if (!p.conflict && (!window2 || p.receivedAt >= window2.start && p.receivedAt < window2.end))
+    if (!p.conflict && !p.removed && (!window2 || p.receivedAt >= window2.start && p.receivedAt < window2.end))
       totals2.set(p.postId, (totals2.get(p.postId) ?? 0n) + p.msats);
   return totals2;
 }
@@ -5641,6 +5442,717 @@ function sortPosts(posts, totals2, mode = "newest") {
     const aa = totals2.get(a.id) ?? 0n, bb = totals2.get(b.id) ?? 0n;
     return (mode === "top" && aa !== bb ? aa > bb ? -1 : 1 : 0) || b.created_at - a.created_at || a.id.localeCompare(b.id);
   });
+}
+
+// src/feed-store.js
+var empty = () => ({ version: 1, accepted: [], heads: [], removals: [], profiles: [], decisions: [], revoked: [], receipts: [], coverage: {}, lastChecked: null });
+function evidence(event, proof) {
+  return validEvent(event) && [1, 20, 31922, 31923].includes(event.kind) && profileEvidence(event.pubkey, proof);
+}
+function profileEvidence(pubkey, proof) {
+  if (!proof || !validEvent(proof.profile) || proof.profile.kind !== 0 || proof.profile.pubkey !== pubkey || !Number.isSafeInteger(proof.checkedAt) || proof.checkedAt < 0 || proof.checkedAt > Math.floor(Date.now() / 1e3)) return false;
+  try {
+    const id = JSON.parse(proof.profile.content).nip05;
+    return approvedIdentifier(id) && profileIdentityStatus(proof.profile) === "eligible" && validMappingEvidence(proof) && Object.hasOwn(proof.mapping?.names ?? {}, id.split("@")[0]) && proof.mapping.names[id.split("@")[0]] === pubkey;
+  } catch {
+    return false;
+  }
+}
+function currentEvidence(event, proof) {
+  return evidence(event, proof) && Math.floor(Date.now() / 1e3) - proof.checkedAt <= 300;
+}
+function receiptEvidence(claim, posts) {
+  try {
+    const a = claim.authority, p = a.evidence.profile, m = JSON.parse(p.content), endpoint = a.evidence.endpoint;
+    if (!validEvent(p) || p.kind !== 0 || p.id !== a.profileId || p.pubkey !== a.recipient || m.lud16 !== COMMUNITY_ADDRESS || !approvedIdentifier(m.nip05) || !validMappingEvidence(a.evidence) || !Object.hasOwn(a.evidence.mapping.names, m.nip05.split("@")[0]) || a.evidence.mapping.names[m.nip05.split("@")[0]] !== p.pubkey || endpoint.tag !== "payRequest" || endpoint.allowsNostr !== true || endpoint.nostrPubkey !== a.issuer || endpoint.callback !== PAY_CALLBACK || !Number.isSafeInteger(a.checkedAt) || a.checkedAt > Math.floor(Date.now() / 1e3) || !Array.isArray(claim.sources) || claim.sources.some((s) => !["wss://relay.anmore.me", "wss://relay.primal.net"].includes(s))) return false;
+    return verifiedTotals([claim.event], posts, a).size === 1;
+  } catch {
+    return false;
+  }
+}
+function validate(value) {
+  if (value === void 0) return empty();
+  if (value.version !== 1 || !Array.isArray(value.decisions) || value.decisions.some((d) => !/^[0-9a-f]{64}$/.test(d.pubkey) || !Number.isSafeInteger(d.checkedAt) || d.checkedAt < 0 || d.checkedAt > Math.floor(Date.now() / 1e3) || typeof d.revoked !== "boolean" || !d.revoked && !profileEvidence(d.pubkey, d.proof)) || !Array.isArray(value.heads) || value.heads.some((e) => ![31922, 31923].includes(e.kind) || !validEvent(e)) || !Array.isArray(value.accepted) || value.accepted.some((x) => !evidence(x.event, x.proof)) || !Array.isArray(value.removals) || value.removals.some((e) => e.kind !== 5 || !validEvent(e)) || !Array.isArray(value.profiles) || value.profiles.some((e) => e.kind !== 0 || !validEvent(e)) || !Array.isArray(value.revoked) || value.revoked.some((k) => !/^[0-9a-f]{64}$/.test(k)) || !Array.isArray(value.receipts) || !value.coverage || typeof value.coverage !== "object") throw Error("Unrecognized or corrupt accepted generation");
+  if (value.coverage === null || Array.isArray(value.coverage)) throw Error("Corrupt coverage");
+  const clock = Math.floor(Date.now() / 1e3), integer2 = (n) => Number.isSafeInteger(n) && n >= 0;
+  const timestamp = (n) => integer2(n) && n <= clock;
+  const c = value.coverage;
+  if (value.lastChecked !== null && !timestamp(value.lastChecked) || c.latest !== void 0 && !timestamp(c.latest) || c.older !== void 0 && (!timestamp(c.older?.until) || !integer2(c.older?.limit) || c.older.limit < 1 || c.older.limit > 600) || ["calendarOffset", "receiptRemovalOffset", "receiptTargetOffset"].some((k) => c[k] !== void 0 && !integer2(c[k])) || ["olderEnded", "latestComplete", "reconciliationLimited"].some((k) => c[k] !== void 0 && typeof c[k] !== "boolean") || c.receipts !== void 0 && (!timestamp(c.receipts?.checkedAt) || typeof c.receipts.partial !== "boolean" || !Array.isArray(c.receipts.sources) || c.receipts.sources.some((s) => !["wss://relay.anmore.me", "wss://relay.primal.net"].includes(s)))) throw Error("Corrupt completion cursor");
+  if (value.receipts.some((c2) => !receiptEvidence(c2, value.accepted.map((x) => x.event)))) throw Error("Corrupt receipt ledger");
+  return value;
+}
+function boundedRemovals(state) {
+  const targets = [...state.accepted.map((x) => x.event), ...state.profiles, ...state.heads, ...state.receipts.map((x) => x.event)];
+  const ids = new Map(targets.map((e) => [e.id, e.pubkey]));
+  const addresses = new Set(targets.filter((e) => e.kind === 0 || e.kind >= 3e4).map((e) => e.kind === 0 ? `0:${e.pubkey}:` : address(e)));
+  const relevant = [], unknown = [];
+  for (const e of [...new Map(state.removals.map((e2) => [e2.id, e2])).values()]) {
+    if (e.kind !== 5 || !validEvent(e) || JSON.stringify(e).length > 16384 || !e.tags.some((t) => ["e", "a"].includes(t[0]))) continue;
+    const known = e.tags.some((t) => t[0] === "e" && ids.get(t[1]) === e.pubkey || t[0] === "a" && addresses.has(t[1]) && t[1].split(":")[1] === e.pubkey);
+    (known ? relevant : unknown).push(e);
+  }
+  let bytes3 = 0;
+  const pending = [];
+  for (const e of unknown.reverse()) {
+    const size = JSON.stringify(e).length;
+    if (pending.length >= 128 || bytes3 + size > 262144) break;
+    pending.push(e);
+    bytes3 += size;
+  }
+  return [...relevant, ...pending.reverse()];
+}
+function profileDeleted(profile, removals) {
+  return removals.some((d) => d.pubkey === profile.pubkey && d.tags.some((t) => t[0] === "e" && t[1] === profile.id || t[0] === "a" && t[1] === `0:${profile.pubkey}:` && d.created_at >= profile.created_at));
+}
+function eligible(proof, state) {
+  const p = proof?.profile;
+  if (!p) return false;
+  const head = state.profiles.filter((x) => x.pubkey === p.pubkey).sort((a, b) => b.created_at - a.created_at || a.id.localeCompare(b.id))[0];
+  return (!head || head.id === p.id) && !profileDeleted(p, state.removals);
+}
+function combine(old, current, pending = /* @__PURE__ */ new Set()) {
+  const merged = { ...current };
+  for (const field of ["accepted", "heads", "removals", "profiles"]) merged[field] = [...new Map([...old[field], ...current[field]].map((x) => [x.event?.id ?? x.id, x])).values()];
+  const receipts = /* @__PURE__ */ new Map();
+  for (const claim of [...old.receipts, ...current.receipts]) {
+    const prior = receipts.get(claim.event.id);
+    receipts.set(claim.event.id, prior ? { ...prior, sources: [.../* @__PURE__ */ new Set([...prior.sources, ...claim.sources])] } : claim);
+  }
+  merged.receipts = [...receipts.values()];
+  merged.profiles = [...new Map([...merged.profiles, ...merged.accepted.map((x) => x.proof.profile), ...[...old.decisions, ...current.decisions].filter((d) => !d.revoked && profileEvidence(d.pubkey, d.proof)).map((d) => d.proof.profile)].map((p) => [p.id, p])).values()];
+  const decisions = /* @__PURE__ */ new Map();
+  for (const d of [...old.decisions, ...current.decisions]) {
+    if (!d.revoked && (!profileEvidence(d.pubkey, d.proof) || !eligible(d.proof, merged) || Math.floor(Date.now() / 1e3) - d.checkedAt > 300 && !old.decisions.some((prev2) => !prev2.revoked && prev2.pubkey === d.pubkey && prev2.checkedAt === d.checkedAt && prev2.proof?.profile.id === d.proof?.profile.id))) continue;
+    const prev = decisions.get(d.pubkey);
+    if (!prev || d.checkedAt > prev.checkedAt || d.checkedAt === prev.checkedAt && d.revoked) decisions.set(d.pubkey, d);
+  }
+  const decisionList = [...decisions.values()], knownKeys = new Set(merged.accepted.map((x) => x.event.pubkey));
+  merged.decisions = [...decisionList.filter((d) => knownKeys.has(d.pubkey)), ...decisionList.filter((d) => !knownKeys.has(d.pubkey)).slice(-512)];
+  merged.revoked = merged.decisions.filter((d) => d.revoked).map((d) => d.pubkey);
+  merged.lastChecked = Math.max(old.lastChecked ?? 0, current.lastChecked ?? 0) || null;
+  merged.coverage = { ...old.coverage, ...current.coverage };
+  if (old.coverage.latest !== void 0) merged.coverage.latest = Math.max(old.coverage.latest, current.coverage.latest ?? 0);
+  if (old.coverage.older && (!current.coverage.older || old.coverage.older.until < current.coverage.older.until)) merged.coverage.older = old.coverage.older;
+  const latestProfiles = /* @__PURE__ */ new Map();
+  for (const profile of merged.profiles) {
+    const old2 = latestProfiles.get(profile.pubkey);
+    if (!old2 || profile.created_at > old2.created_at || profile.created_at === old2.created_at && profile.id < old2.id) latestProfiles.set(profile.pubkey, profile);
+  }
+  const knownAuthors = new Set(merged.accepted.map((x) => x.event.pubkey));
+  const known = [], unknown = [];
+  let bytes3 = 0;
+  for (const profile of [...latestProfiles.values()].reverse()) {
+    if (knownAuthors.has(profile.pubkey)) known.push(profile);
+    else {
+      const size = JSON.stringify(profile).length;
+      if (unknown.length < 512 && bytes3 + size <= 2097152) {
+        unknown.push(profile);
+        bytes3 += size;
+      }
+    }
+  }
+  merged.profiles = [...known, ...unknown.reverse()];
+  merged.removals = boundedRemovals(merged);
+  const historical = new Set(old.accepted.map((x) => x.event.id));
+  merged.accepted = merged.accepted.filter((x) => !pending.has(x.event.id) || historical.has(x.event.id) || currentEvidence(x.event, x.proof) && eligible(x.proof, merged));
+  return merged;
+}
+var FeedStore = class {
+  constructor(name = "anmore-accepted-v1", factory = globalThis.indexedDB) {
+    this.name = name;
+    this.factory = factory;
+    this.state = empty();
+    this.warning = null;
+    this.blocked = true;
+    this.queue = Promise.resolve();
+    this.pendingAdmissions = /* @__PURE__ */ new Set();
+    this.pendingDecisions = [];
+  }
+  async db() {
+    if (this.connection) return this.connection;
+    this.connection = await new Promise((resolve, reject) => {
+      const req = this.factory.open(this.name, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("generations");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(Error("Storage upgrade blocked"));
+    });
+    return this.connection;
+  }
+  async restore() {
+    try {
+      const db = await this.db();
+      const value = await new Promise((resolve, reject) => {
+        const tx = db.transaction("generations", "readonly");
+        const req = tx.objectStore("generations").get("accepted");
+        let value2;
+        req.onsuccess = () => {
+          value2 = req.result;
+        };
+        tx.oncomplete = () => resolve(value2);
+        req.onerror = () => reject(req.error ?? Error("IndexedDB read failed"));
+        tx.onabort = () => reject(tx.error ?? Error("IndexedDB read aborted"));
+      });
+      this.state = combine(validate(value), { ...this.state, decisions: [...this.state.decisions, ...this.pendingDecisions] }, this.pendingAdmissions);
+      this.blocked = false;
+      this.warning = null;
+      return true;
+    } catch (error) {
+      this.blocked = true;
+      this.warning = "Saved history unreadable; writes blocked. Retry recovery. " + error.message;
+      return false;
+    }
+  }
+  events() {
+    const accepted = new Set(this.state.accepted.map((x) => x.event.id));
+    return visibleEvents([...this.state.accepted.map((x) => x.event), ...this.state.heads, ...this.state.removals]).filter((e) => accepted.has(e.id) && !this.state.revoked.includes(e.pubkey));
+  }
+  identities() {
+    return new Map(this.state.accepted.map(({ event, proof }) => {
+      const meta = JSON.parse(proof.profile.content);
+      return [event.pubkey, { pubkey: event.pubkey, nip05: meta.nip05, name: (typeof meta.display_name === "string" ? meta.display_name : typeof meta.name === "string" ? meta.name : meta.nip05.split("@")[0]).slice(0, 100) }];
+    }));
+  }
+  save() {
+    const task = this.queue.then(() => this.persist());
+    this.queue = task.catch(() => {
+    });
+    return task;
+  }
+  async persist() {
+    if (this.blocked) return false;
+    try {
+      const db = await this.db();
+      let merged, processed, decisionCount;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("generations", "readwrite"), store = tx.objectStore("generations");
+        const req = store.get("accepted");
+        let failure;
+        req.onsuccess = () => {
+          try {
+            const old = validate(req.result);
+            processed = new Set(this.pendingAdmissions);
+            decisionCount = this.pendingDecisions.length;
+            merged = combine(old, structuredClone({ ...this.state, decisions: [...this.state.decisions, ...this.pendingDecisions] }), processed);
+            store.put(merged, "accepted");
+          } catch (error) {
+            failure = error;
+            this.blocked = true;
+            tx.abort();
+          }
+        };
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(failure ?? tx.error ?? Error("IndexedDB transaction aborted"));
+        tx.onabort = () => reject(failure ?? tx.error ?? Error("IndexedDB transaction aborted"));
+      });
+      this.state = combine(merged, { ...this.state, decisions: [...this.state.decisions, ...this.pendingDecisions] }, this.pendingAdmissions);
+      this.pendingDecisions.splice(0, decisionCount);
+      for (const id of processed) this.pendingAdmissions.delete(id);
+      this.warning = null;
+      return true;
+    } catch (error) {
+      this.warning = this.blocked ? "Saved history unreadable; writes blocked. Retry recovery. " + error.message : "History could not be saved; current updates are memory-only. " + error.message;
+      return false;
+    }
+  }
+  receiptTotals(period = "all", now = Math.floor(Date.now() / 1e3)) {
+    const claims = this.state.receipts, contexts = new Map(claims.map((c) => [c.event.id, c.authority]));
+    const posts = this.state.accepted.map((x) => x.event);
+    const removed = new Set(claims.filter((c) => this.state.removals.some((d) => d.pubkey === c.event.pubkey && d.tags.some((t) => t[0] === "e" && t[1] === c.event.id))).map((c) => c.event.id));
+    return verifiedTotals(claims.map((c) => c.event), posts, (e) => contexts.get(e.id), now, period, removed);
+  }
+  async addReceipts(events, authority, provenance2 = /* @__PURE__ */ new Map(), removals = []) {
+    const claims = new Map(this.state.receipts.map((c) => [c.event.id, c]));
+    for (const event of events) {
+      const claim = { event: canonicalEvent(event), authority: structuredClone(authority), sources: [...provenance2.get(event.id) ?? []] };
+      if (!receiptEvidence(claim, this.state.accepted.map((x) => x.event))) continue;
+      const old = claims.get(event.id);
+      if (old) old.sources = [.../* @__PURE__ */ new Set([...old.sources, ...claim.sources])];
+      else claims.set(event.id, claim);
+    }
+    this.state.receipts = [...claims.values()];
+    await this.remove(removals);
+  }
+  async recover() {
+    if (!await this.restore()) return false;
+    return this.save();
+  }
+  async merge({ events = [], profiles = [], identities = [], removals = [], revoked = [], coverage, checkedAt }) {
+    const byAuthor = new Map(identities);
+    for (const event of events) {
+      const identity = byAuthor.get(event.pubkey);
+      if (identity && currentEvidence(event, identity.proof) && !this.state.accepted.some((x) => x.event.id === event.id)) {
+        this.pendingAdmissions.add(event.id);
+        this.state.accepted.push({ event: canonicalEvent(event), proof: structuredClone(identity.proof) });
+      }
+    }
+    const known = new Set(this.state.accepted.filter((x) => x.event.kind >= 3e4).map((x) => address(x.event)));
+    const heads = /* @__PURE__ */ new Map();
+    for (const e of [...this.state.heads, ...events]) if ([31922, 31923].includes(e.kind) && validEvent(e) && known.has(address(e))) {
+      const old = heads.get(address(e));
+      if (!old || e.created_at > old.created_at || e.created_at === old.created_at && e.id < old.id) heads.set(address(e), canonicalEvent(e));
+    }
+    this.state.heads = [...heads.values()];
+    this.state.profiles = [...new Map([...this.state.profiles, ...profiles.filter((e) => e.kind === 0 && validEvent(e)).map(canonicalEvent)].map((e) => [e.id, e])).values()];
+    const decisions = [];
+    for (const pubkey of revoked) decisions.push({ pubkey, revoked: true, checkedAt: checkedAt ?? Math.floor(Date.now() / 1e3) });
+    for (const [pubkey, identity] of identities) if (profileEvidence(pubkey, identity?.proof) && Math.floor(Date.now() / 1e3) - identity.proof.checkedAt <= 300) decisions.push({ pubkey, revoked: false, checkedAt: identity.proof.checkedAt, proof: structuredClone(identity.proof) });
+    this.pendingDecisions.push(...decisions);
+    this.state = combine(this.state, { ...this.state, decisions: [...this.state.decisions, ...this.pendingDecisions] });
+    if (coverage) this.state.coverage = { ...this.state.coverage, ...coverage };
+    if (checkedAt) this.state.lastChecked = checkedAt;
+    await this.remove(removals);
+  }
+  async remove(events) {
+    this.state.removals = boundedRemovals({ ...this.state, removals: [...this.state.removals, ...events.filter((e) => e.kind === 5 && validEvent(e)).map(canonicalEvent)] });
+    await this.save();
+  }
+  async accept(event, proof) {
+    if (!currentEvidence(event, proof)) return false;
+    if (!this.state.accepted.some((x) => x.event.id === event.id)) {
+      this.pendingAdmissions.add(event.id);
+      this.state.accepted.push({ event: canonicalEvent(event), proof: structuredClone(proof) });
+    }
+    await this.save();
+    return this.state.accepted.some((x) => x.event.id === event.id);
+  }
+};
+
+// src/relay.js
+function matches(e, f) {
+  return (!f.kinds || f.kinds.includes(e.kind)) && (!f.authors || f.authors.includes(e.pubkey)) && (!f.ids || f.ids.includes(e.id)) && (f.until === void 0 || e.created_at <= f.until) && (f.since === void 0 || e.created_at >= f.since) && Object.entries(f).every(
+    ([k, v]) => !k.startsWith("#") || e.tags.some((t) => t[0] === k.slice(1) && v.includes(t[1]))
+  );
+}
+var Relay = class {
+  constructor(Socket = WebSocket) {
+    this.Socket = Socket;
+    this.pending = /* @__PURE__ */ new Map();
+    this.counter = 0;
+  }
+  async open() {
+    this.socket = new this.Socket(RELAY);
+    this.socket.addEventListener("message", (ev) => this.receive(ev));
+    this.socket.addEventListener("close", () => {
+      for (const p of this.pending.values())
+        p.finish(Error("Relay disconnected. Please retry."));
+    });
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.close();
+        reject(Error("Relay connection timed out."));
+      }, 1e4);
+      this.socket.addEventListener("open", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      this.socket.addEventListener("error", () => {
+        clearTimeout(timer);
+        reject(Error("Cannot reach relay.anmore.me. Please retry."));
+      });
+    });
+  }
+  query(filters, timeout = 12e3, { rejectAtLimit = false } = {}) {
+    if (this.socket?.readyState !== 1)
+      return Promise.reject(Error("Relay is not connected."));
+    const id = `anmore-${++this.counter}`, cap = filters.reduce((s, f) => s + (f.limit || 40), 0);
+    return new Promise((resolve, reject) => {
+      const events = /* @__PURE__ */ new Map();
+      let count = 0;
+      const timer = setTimeout(
+        () => finish(
+          Error("Relay query timed out; no unverified results were added.")
+        ),
+        timeout
+      );
+      const finish = (err) => {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        if (this.socket.readyState === 1)
+          this.socket.send(JSON.stringify(["CLOSE", id]));
+        err ? reject(err) : resolve([...events.values()]);
+      };
+      this.pending.set(id, {
+        finish,
+        filters,
+        events,
+        accept: (e) => {
+          count++;
+          if (rejectAtLimit && count >= cap)
+            return finish(Error("Receipt snapshot truncated."));
+          if (count > cap + 20)
+            return finish(Error("Relay response exceeded the safety limit."));
+          if (validEvent(e) && filters.some((f) => matches(e, f)))
+            events.set(e.id, e);
+        }
+      });
+      this.socket.send(JSON.stringify(["REQ", id, ...filters]));
+    });
+  }
+  receive(ev) {
+    if (typeof ev.data !== "string" || ev.data.length > 12e5) {
+      for (const p2 of this.pending.values())
+        p2.finish(Error("Relay sent an oversized response."));
+      return;
+    }
+    let m;
+    try {
+      m = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(m)) return;
+    const p = this.pending.get(m[1]);
+    if (m[0] === "NOTICE") {
+      for (const item of this.pending.values())
+        item.finish(
+          Error("Relay reported a service notice. Please retry later.")
+        );
+      return;
+    }
+    if (!p) return;
+    if (m[0] === "EVENT") p.accept(m[2]);
+    if (m[0] === "EOSE") p.finish();
+    if (m[0] === "CLOSED")
+      p.finish(Error("Relay declined the read request. Please retry later."));
+  }
+  close() {
+    this.socket?.close();
+  }
+};
+
+// src/feed-sync.js
+var nowSeconds = () => Math.floor(Date.now() / 1e3);
+var deleted = (e, removals) => removals.some((d) => d.pubkey === e.pubkey && d.tags.some((t) => t[0] === "e" && t[1] === e.id || t[0] === "a" && t[1] === (e.kind === 0 ? `0:${e.pubkey}:` : address(e)) && d.created_at >= e.created_at));
+var FeedSync = class {
+  constructor(store, options = {}) {
+    this.store = store;
+    this.relay = options.relay ?? (() => new Relay());
+    this.identify = options.identify ?? identifyDecision;
+    this.now = options.now ?? nowSeconds;
+    this.epoch = 0;
+    this.round = 0;
+    this.authorOffset = 0;
+    this.pending = /* @__PURE__ */ new Map();
+  }
+  run(options = {}) {
+    if (this.flight) return this.flight;
+    const epoch = ++this.epoch;
+    const flight = this.perform(options, epoch).finally(() => {
+      if (this.flight === flight) this.flight = null;
+    });
+    this.flight = flight;
+    return flight;
+  }
+  cancel() {
+    this.epoch++;
+    this.flight = null;
+    this.active?.close();
+  }
+  receiptTargets(posts) {
+    const sorted = [...posts].sort((a, b) => a.id.localeCompare(b.id));
+    const offset = Math.min(this.store.state.coverage.receiptTargetOffset ?? 0, sorted.length);
+    return { posts: sorted.slice(offset, offset + 1200), nextTargetOffset: offset + 1200 >= sorted.length ? 0 : offset + 1200, partial: sorted.length > 1200 };
+  }
+  async commitReceipts(snapshot, authority, relay, epoch = this.epoch) {
+    const removals = [], ids = [...new Set(snapshot.receipts.map((e) => e.id))];
+    for (let i2 = 0; i2 < ids.length; i2 += 64) {
+      const part = await relay.query([{ kinds: [5], authors: [authority.issuer], "#e": ids.slice(i2, i2 + 64), limit: 500 }]);
+      if (epoch !== this.epoch) throw Error("Retired receipt sync");
+      if (part.length >= 500) throw Error("Receipt deletion history incomplete");
+      removals.push(...part);
+    }
+    if (epoch !== this.epoch) throw Error("Retired receipt sync");
+    if (Number.isSafeInteger(snapshot.nextTargetOffset) && snapshot.nextTargetOffset >= 0) this.store.state.coverage.receiptTargetOffset = snapshot.nextTargetOffset;
+    this.store.state.coverage.receipts = { checkedAt: this.now(), sources: snapshot.sources ?? [], partial: snapshot.partial ?? true };
+    await this.store.addReceipts(snapshot.receipts, authority, snapshot.provenance, removals);
+  }
+  async perform({ older = false, top = false } = {}, epoch) {
+    const relay = this.relay();
+    this.active = relay;
+    const guard = () => {
+      if (epoch !== this.epoch) throw Error("Retired feed sync");
+    };
+    const query = async (filters) => {
+      const value = await relay.query(filters);
+      guard();
+      return value;
+    };
+    try {
+      if (this.store.blocked) await this.store.recover();
+      guard();
+      await relay.open();
+      guard();
+      const now = this.now(), prior = this.store.state.coverage;
+      const reconcile = !older && ++this.round % 5 === 0;
+      let until = older ? prior.older?.until ?? now : now;
+      let size = older ? prior.older?.limit ?? 12 : 12;
+      const since = !older && !reconcile && prior.latest !== void 0 ? Math.max(0, prior.latest - 300) : void 0;
+      const events = [];
+      let completed = false, next;
+      for (let i2 = 0; i2 < (top ? 6 : older ? 1 : prior.older ? 6 : 1); i2++) {
+        if (size > 600 || events.length + size > 600) break;
+        const chunk = await query([{ kinds: [1, 20], until, limit: size, ...since === void 0 ? {} : { since } }]);
+        if (chunk.length > size) throw Error("Relay content read exceeded limit");
+        events.push(...chunk);
+        const oldest = chunk.length ? Math.min(...chunk.map((e) => e.created_at)) : until;
+        next = { until: oldest, limit: oldest === until ? size + 12 : chunk.filter((e) => e.created_at === oldest).length + 12 };
+        if (chunk.length < size) {
+          completed = true;
+          break;
+        }
+        until = oldest;
+        size = next.limit;
+      }
+      if (!older) events.push(...await query([{ kinds: [31922, 31923], until: now, limit: 60 }]));
+      const calendars = [...new Map([...this.store.state.accepted.map((x) => x.event), ...events].filter((e) => [31922, 31923].includes(e.kind)).map((e) => [address(e), e])).values()].sort((a, b) => address(a).localeCompare(address(b)));
+      const calendarOffset = prior.calendarOffset ?? 0;
+      for (const e of calendars.slice(calendarOffset, calendarOffset + 64)) events.push(...await query([{ kinds: [e.kind], authors: [e.pubkey], "#d": [e.tags.find((t) => t[0] === "d")?.[1] ?? ""], limit: 1 }]));
+      const accepted = new Set(this.store.state.accepted.map((x) => x.event.id));
+      for (const e of events) if (validEvent(e) && !accepted.has(e.id)) this.pending.set(e.id, e);
+      let pendingBytes = 0;
+      const pending = [];
+      for (const e of [...this.pending.values()].reverse()) {
+        const bytes3 = JSON.stringify(e).length;
+        if (pending.length >= 500 || pendingBytes + bytes3 > 2097152) break;
+        pendingBytes += bytes3;
+        pending.push(e);
+      }
+      this.pending = new Map(pending.reverse().map((e) => [e.id, e]));
+      events.push(...this.pending.values());
+      const allKnown = [...new Set(this.store.state.accepted.map((x) => x.event.pubkey))].sort();
+      const rotating = allKnown.slice(this.authorOffset, this.authorOffset + 32);
+      this.authorOffset = this.authorOffset + 32 >= allKnown.length ? 0 : this.authorOffset + 32;
+      const authors = [.../* @__PURE__ */ new Set([...events.map((e) => e.pubkey), ...rotating])];
+      const profiles = [], removals = [], identities = [], revoked = [];
+      let unavailable = 0;
+      for (const pubkey of authors) {
+        const found = await query([{ kinds: [0], authors: [pubkey], limit: 1 }]);
+        profiles.push(...found);
+        const profile = latestProfile([...this.store.state.profiles, ...found], pubkey);
+        const targets = [...events, ...this.store.state.accepted.map((x) => x.event), ...this.store.state.heads, ...profile ? [profile] : []].filter((e) => e.pubkey === pubkey);
+        const ids = [...new Set(targets.map((e) => e.id))], addresses = [...new Set(targets.filter((e) => e.kind === 0 || e.kind >= 3e4).map((e) => e.kind === 0 ? `0:${pubkey}:` : address(e)))];
+        const ds = [];
+        for (let i2 = 0; i2 < ids.length; i2 += 64) {
+          const part = await query([{ kinds: [5], authors: [pubkey], "#e": ids.slice(i2, i2 + 64), limit: 500 }]);
+          if (part.length >= 500) throw Error("Deletion history incomplete; retained history unchanged");
+          ds.push(...part);
+        }
+        for (let i2 = 0; i2 < addresses.length; i2 += 64) {
+          const part = await query([{ kinds: [5], authors: [pubkey], "#a": addresses.slice(i2, i2 + 64), limit: 500 }]);
+          if (part.length >= 500) throw Error("Deletion history incomplete; retained history unchanged");
+          ds.push(...part);
+        }
+        removals.push(...ds);
+        if (!profile || deleted(profile, [...this.store.state.removals, ...ds])) continue;
+        try {
+          const profileStatus = profileIdentityStatus(profile);
+          const outcome = profileStatus === "eligible" ? await this.identify(profile) : { status: profileStatus };
+          guard();
+          const decision = outcome?.status ? outcome : outcome ? { status: "verified", identity: outcome } : { status: "contradiction" };
+          if (decision.status === "verified") identities.push([pubkey, decision.identity]);
+          else if (["withdrawn", "contradiction"].includes(decision.status)) revoked.push(pubkey);
+          else unavailable++;
+        } catch (error) {
+          guard();
+          unavailable++;
+        }
+      }
+      const claims = this.store.state.receipts;
+      const offset = prior.receiptRemovalOffset ?? 0;
+      const selected = claims.slice(offset, offset + 64), issuers = [...new Set(selected.map((c) => c.event.pubkey))];
+      for (const issuer of issuers) {
+        const ids = selected.filter((c) => c.event.pubkey === issuer).map((c) => c.event.id);
+        const part = await query([{ kinds: [5], authors: [issuer], "#e": ids, limit: 500 }]);
+        if (part.length >= 500) throw Error("Receipt deletion history incomplete");
+        removals.push(...part);
+      }
+      guard();
+      const coverage = { calendarOffset: calendarOffset + 64 >= calendars.length ? 0 : calendarOffset + 64, receiptRemovalOffset: offset + 64 >= claims.length ? 0 : offset + 64, latestComplete: completed, reconciliationLimited: reconcile && !completed };
+      if (completed && !older) coverage.latest = now;
+      if (next && (older || !prior.older)) coverage.older = next;
+      if (older && next?.limit > 600) delete coverage.older;
+      if (older) coverage.olderEnded = completed;
+      await this.store.merge({ events, profiles, identities, removals, revoked, coverage, checkedAt: now });
+      guard();
+      const admitted = new Set(this.store.state.accepted.map((x) => x.event.id));
+      for (const [id, e] of this.pending) if (admitted.has(id) || revoked.includes(e.pubkey)) this.pending.delete(id);
+      return { relay, unavailable, completed };
+    } finally {
+      relay.close();
+      if (this.active === relay) this.active = null;
+    }
+  }
+};
+
+// src/pwa.js
+var INSTALL_PREFERENCE = "anmore-install-dismissed-at";
+var COOLDOWN = 7 * 864e5;
+function createInstallState(storage, now = Date.now) {
+  let dismissed = 0;
+  try {
+    const value = Number(storage?.getItem(INSTALL_PREFERENCE));
+    if (Number.isFinite(value) && value > 0 && value <= now())
+      dismissed = value;
+  } catch {
+  }
+  return {
+    eligible() {
+      return !dismissed || now() - dismissed >= COOLDOWN;
+    },
+    dismiss() {
+      dismissed = now();
+      try {
+        storage?.setItem(INSTALL_PREFERENCE, String(dismissed));
+      } catch {
+      }
+    }
+  };
+}
+function setupWorker(win = window, doc = document) {
+  if (!("serviceWorker" in win.navigator)) return;
+  const sw = win.navigator.serviceWorker;
+  const $3 = (id) => doc.getElementById(id);
+  let registration, armed = false;
+  const pending = () => {
+    $3("app-update").hidden = !(registration?.waiting && sw.controller);
+  };
+  $3("update-confirm").addEventListener("change", () => {
+    $3("update-reload").disabled = !$3("update-confirm").checked;
+  });
+  $3("update-reload").addEventListener("click", () => {
+    if (!$3("update-confirm").checked || $3("zap-dialog").open) return;
+    if (!registration?.waiting) return;
+    armed = true;
+    $3("update-reload").disabled = true;
+    registration.waiting.postMessage({ type: "ACTIVATE_OFFLINE_UPDATE" });
+  });
+  sw.addEventListener("controllerchange", () => {
+    pending();
+    if (armed && !$3("zap-dialog").open) {
+      armed = false;
+      win.location.reload();
+    }
+  });
+  sw.register("./sw.js", { scope: "./", updateViaCache: "none" }).then((r) => {
+    registration = r;
+    pending();
+    r.addEventListener("updatefound", () => {
+      r.installing?.addEventListener("statechange", pending);
+    });
+  }).catch(() => {
+    $3("install-status").textContent = "Offline landing is unavailable in this browser session. You can still read online and use install help.";
+  });
+}
+function setupInstall(win = window, doc = document) {
+  const $3 = (id) => doc.getElementById(id);
+  let storage;
+  try {
+    storage = win.localStorage;
+  } catch {
+  }
+  const state = createInstallState(storage);
+  let deferred = null, pending = false, completed = false;
+  const standalone = () => win.matchMedia("(display-mode: standalone)").matches || win.navigator.standalone === true;
+  const render = () => {
+    const hidden = standalone() || completed;
+    $3("install-area").hidden = hidden;
+    $3("install-invitation").hidden = hidden || !state.eligible();
+    $3("install-native").hidden = hidden || !deferred;
+    $3("install-native").disabled = pending;
+  };
+  $3("install-instructions").textContent = installInstructions(win.navigator);
+  $3("install-dismiss").addEventListener("click", () => {
+    state.dismiss();
+    render();
+    $3("install-help").querySelector("summary").focus({ preventScroll: true });
+  });
+  $3("install-show-help").addEventListener("click", () => {
+    $3("install-help").open = true;
+    $3("install-help").scrollIntoView({ block: "center" });
+    $3("install-help").querySelector("summary").focus();
+  });
+  win.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    if (!standalone() && !completed && !pending) deferred = event;
+    render();
+  });
+  $3("install-native").addEventListener("click", async () => {
+    if (!deferred || pending || standalone() || completed) return;
+    const event = deferred;
+    deferred = null;
+    pending = true;
+    render();
+    try {
+      const result = await event.prompt();
+      const choice = event.userChoice ? await event.userChoice : result;
+      if (completed) return;
+      if (choice?.outcome === "accepted") {
+        state.dismiss();
+        $3("install-status").textContent = "Installation requested. Your browser will finish adding the app.";
+      } else {
+        state.dismiss();
+        $3("install-status").textContent = "Not installed. You can try again from your browser menu, or follow the instructions above.";
+      }
+    } catch {
+      if (!completed)
+        $3("install-status").textContent = "The install prompt could not open. Use your browser menu or the instructions above.";
+    } finally {
+      pending = false;
+      render();
+    }
+  });
+  win.addEventListener("appinstalled", () => {
+    completed = true;
+    deferred = null;
+    state.dismiss();
+    render();
+  });
+  win.matchMedia("(display-mode: standalone)").addEventListener?.("change", render);
+  render();
+}
+function installInstructions({
+  userAgent = "",
+  maxTouchPoints = 0
+} = {}) {
+  if (/iPhone|iPad|iPod/.test(userAgent) || /Macintosh/.test(userAgent) && maxTouchPoints > 1)
+    return "Open this site in Safari. Tap Share (you may need More), then Add to Home Screen. Turn on Open as Web App if offered, then tap Add. If you are in another app\u2019s browser, open Safari first.";
+  if (/Android/.test(userAgent))
+    return "Use Install app above when available, or your browser menu\u2019s Install app or Add to Home screen option. In an in-app browser, open this page in Chrome or another supporting browser first. If unavailable, bookmark this page.";
+  return "Look for your browser\u2019s install icon in the address bar, or Install app / Install page as app in its menu. Availability varies by browser; if unavailable, bookmark this page. Safari on Mac may offer File \u2192 Add to Dock.";
+}
+
+// src/media.js
+function bodyURLs(text) {
+  return [...text.matchAll(/(?<!\S)https:\/\/[^\s<>"\u0000-\u001f]+/g)].map((m) => {
+    const raw = /[?#]/.test(m[0]) ? m[0] : m[0].replace(/[.,!;:)]+$/, "");
+    return { raw, index: m.index };
+  });
+}
+var directVideo = (url) => /\.(mp4|webm|mov)$/i.test(new URL(url).pathname);
+var mediaURL = (raw) => typeof raw === "string" && /^https:\/\//.test(raw) && !/[\s\\\u0000-\u001f\u007f]/.test(raw) && safeURL(raw) ? raw : null;
+function postVideos(e) {
+  const videos = /* @__PURE__ */ new Map();
+  const add = (raw, label) => {
+    const url = mediaURL(raw);
+    if (url && directVideo(url) && !videos.has(url) && videos.size < 4)
+      videos.set(url, { url, label: label || "Video attached to this community update" });
+  };
+  for (const { raw } of bodyURLs(e.content)) add(raw);
+  for (const t of e.tags) {
+    if (t[0] !== "imeta") continue;
+    const urls = t.slice(1).filter((v) => v.startsWith("url "));
+    if (urls.length !== 1) continue;
+    const alt = t.slice(1).find((v) => v.startsWith("alt "))?.slice(4, 204);
+    add(urls[0].slice(4), alt);
+  }
+  return [...videos.values()];
+}
+function withoutVideos(text, videos) {
+  const urls = new Set(videos.map((v) => v.url));
+  for (const { raw, index } of bodyURLs(text).reverse())
+    if (urls.has(raw)) text = text.slice(0, index) + text.slice(index + raw.length);
+  return text.trim();
 }
 
 // src/receipts.js
@@ -5940,35 +6452,33 @@ var zapUI = setupZaps({
 });
 var feedOrder = "newest";
 var zapPeriod = "all";
+var feedProjectionKey;
 var periodLabels = { week: "This week \xB7 since Monday 00:00", month: "This month \xB7 since the 1st 00:00", all: "All time" };
-var TOP_PAGES = 6;
-var TOP_ENTRIES = 600;
 function renderFeed() {
   $2("zap-periods").hidden = feedOrder !== "top";
   for (const period of ["week", "month", "all"]) {
     $2("period-" + period).setAttribute("aria-pressed", String(zapPeriod === period));
     $2("period-" + period).disabled = busy;
   }
-  if (zapState.snapshot && zapState.authority)
-    totals = feedOrder !== "top" || zapPeriod === "all" ? zapState.snapshot.totals : verifiedTotals(
-      zapState.snapshot.receipts,
-      [...currentPosts.values()],
-      zapState.authority,
-      Math.floor(Date.now() / 1e3),
-      zapPeriod
-    );
+  totals = feedStore.receiptTotals(feedOrder === "top" ? zapPeriod : "all");
   $2("order-newest").setAttribute(
     "aria-pressed",
     String(feedOrder === "newest")
   );
   $2("order-top").setAttribute("aria-pressed", String(feedOrder === "top"));
   $2("sort-note").hidden = feedOrder !== "top";
-  $2("sort-note").textContent = busy ? "Checking earlier updates\u2026" : zapState.error ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts \xB7 ${currentPosts.size} posts. ${periodLabels[zapPeriod]}${zapPeriod === "all" ? "" : " America/Vancouver"} \xB7 verified receipts received in this period. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
-  $2("feed").replaceChildren(
-    ...sortPosts([...currentPosts.values()], totals, feedOrder).map(
-      (e) => post(e, currentIdentities.get(e.pubkey))
-    )
-  );
+  $2("sort-note").textContent = busy ? "Checking earlier updates\u2026" : zapState.error && !feedStore.state.receipts.length ? "Zap checks unavailable \xB7 showing newest first." : `Top zapped among loaded posts \xB7 ${currentPosts.size} posts. ${periodLabels[zapPeriod]}${zapPeriod === "all" ? "" : " America/Vancouver"} \xB7 verified receipts received in this period. ${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. " : ""}${ended ? "Refresh to recheck." : "Load more to widen coverage."}`;
+  const ordered = sortPosts([...currentPosts.values()], totals, feedOrder);
+  const projectionKey = JSON.stringify([
+    ordered.map((e) => [e.id, currentIdentities.get(e.pubkey), String(totals.get(e.id) ?? 0n)]),
+    !!(zapState.error && !feedStore.state.receipts.length),
+    !!zapState.snapshot?.partial,
+    zapState.snapshot?.sources
+  ]);
+  if (projectionKey !== feedProjectionKey) {
+    $2("feed").replaceChildren(...ordered.map((e) => post(e, currentIdentities.get(e.pubkey))));
+    feedProjectionKey = projectionKey;
+  }
 }
 async function recheckZap(id) {
   const target = currentPosts.get(id);
@@ -6022,9 +6532,6 @@ var format = (ts, options) => new Intl.DateTimeFormat("en-CA", {
   timeZone: "America/Vancouver",
   ...options
 }).format(new Date(ts * 1e3));
-var stored = [];
-var cursor;
-var limit = 12;
 var busy = false;
 var ended = false;
 function richText(text) {
@@ -6172,15 +6679,16 @@ function post(e, identity) {
   }
   const tipping = el("div", "post-zap");
   const confirmed = totals.get(e.id) ?? 0n;
+  const unavailable = zapState.error && !feedStore.state.receipts.length;
   const amount = el(
     "span",
     "zap-total",
-    zapState.error || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " \xB7 provisional" : ""}`
+    unavailable || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " \xB7 provisional" : ""}`
   );
-  amount.title = zapState.error ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
+  amount.title = unavailable ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
   amount.setAttribute(
     "aria-label",
-    zapState.error || zapState.snapshot?.partial && confirmed === 0n ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`
+    unavailable || zapState.snapshot?.partial && confirmed === 0n ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`
   );
   const zap = el("button", "zap-button");
   zap.type = "button";
@@ -6238,224 +6746,75 @@ function status(text, error = false) {
   $2("status").textContent = text;
   $2("status").classList.toggle("error", error);
 }
-async function batches(items, size, fn) {
-  const result = [];
-  for (let i2 = 0; i2 < items.length; i2 += size)
-    result.push(...await fn(items.slice(i2, i2 + size)));
-  return result;
-}
-async function load(reset = false) {
-  if (busy) return;
-  busy = true;
-  zapUI.invalidate();
-  currentPosts = /* @__PURE__ */ new Map();
-  currentIdentities = /* @__PURE__ */ new Map();
-  totals = /* @__PURE__ */ new Map();
-  zapState = { authority: null, error: "Zap checks unavailable." };
-  $2("refresh").disabled = true;
-  $2("order-newest").disabled = true;
-  $2("order-top").disabled = true;
+var feedStore = new FeedStore();
+var feedSync = new FeedSync(feedStore);
+var lastAttempt = 0;
+var retryAfter = 0;
+var failures = 0;
+function projectSaved() {
+  const visible = feedStore.events();
+  currentPosts = new Map(visible.filter((e) => [1, 20].includes(e.kind)).map((e) => [e.id, e]));
+  currentIdentities = feedStore.identities();
   renderFeed();
-  $2("load-more").disabled = true;
+  $2("empty").hidden = currentPosts.size > 0;
+  const events = visible.filter((e) => e.kind >= 3e4).map((e) => ({ e, info: calendarInfo(e) })).filter((x) => x.info).sort((a, b) => a.info.sort - b.info.sort || a.e.id.localeCompare(b.e.id)).slice(0, 4);
+  $2("events").replaceChildren(...events.length ? events.map(({ e, info }) => eventCard(e, currentIdentities.get(e.pubkey), info)) : [el("p", "small muted", "No upcoming events in the loaded verified calendar history.")]);
+}
+function checkedLabel() {
+  return feedStore.state.lastChecked ? `Last checked ${format(feedStore.state.lastChecked, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} PT` : "No completed relay check yet";
+}
+async function load(reset = false, automatic = false) {
+  if (busy || automatic && ($2("zap-dialog").open || document.visibilityState !== "visible" || !navigator.onLine || Date.now() < retryAfter || Date.now() - lastAttempt < 15e3)) return;
+  busy = true;
+  lastAttempt = Date.now();
+  zapUI.invalidate();
+  for (const id of ["refresh", "order-newest", "order-top", "load-more"]) $2(id).disabled = true;
   $2("feed").setAttribute("aria-busy", "true");
-  status(
-    reset ? "Checking the latest stories and community identities\u2026" : "Checking earlier updates and refreshing identity associations\u2026"
-  );
-  const relay = new Relay();
+  renderFeed();
+  status(`${checkedLabel()} \xB7 checking relay; retained history remains visible.`);
   try {
-    if (!navigator.onLine)
-      throw Error(
-        "You\u2019re offline. Community updates need an internet connection."
-      );
-    await relay.open();
-    let until = reset ? Math.floor(Date.now() / 1e3) : cursor ?? Math.floor(Date.now() / 1e3);
-    let requested = reset ? 12 : limit;
-    const page = [];
-    let nextCursor = until, nextLimit = requested, pageEnded = false;
-    for (let i2 = 0; i2 < (feedOrder === "top" ? TOP_PAGES : 1); i2++) {
-      if (requested > 600 || page.length + requested > TOP_ENTRIES) break;
-      const chunk = await relay.query([
-        { kinds: [1, 20], until, limit: requested }
-      ]);
-      if (feedOrder === "top" && (chunk.length > requested || page.length + chunk.length > TOP_ENTRIES))
-        throw Error("Relay exceeded the Top reading limit. Please retry.");
-      page.push(...chunk);
-      const oldest = chunk.length ? Math.min(...chunk.map((e) => e.created_at)) : until;
-      nextLimit = oldest === until ? requested + 12 : chunk.filter((e) => e.created_at === oldest).length + 12;
-      nextCursor = oldest;
-      pageEnded = chunk.length < requested;
-      if (pageEnded || nextLimit > 600) break;
-      until = nextCursor;
-      requested = nextLimit;
+    if (feedStore.blocked) {
+      await feedStore.recover();
+      projectSaved();
     }
-    const calendar = reset ? await relay.query([
-      {
-        kinds: [31922, 31923],
-        until: Math.floor(Date.now() / 1e3),
-        limit: 60
-      }
-    ]) : [];
-    const retained = reset ? [] : stored;
-    const retainedPosts = retained.filter((e) => [1, 20].includes(e.kind));
-    const present = new Set((await batches(retainedPosts, 100, async (chunk) => {
-      const ids = chunk.map((e) => e.id);
-      const found = await relay.query([{ ids, limit: ids.length }]);
-      if (found.length > ids.length || found.some((e) => !ids.includes(e.id)))
-        throw Error("Source presence check exceeded its exact-ID boundary.");
-      return found;
-    })).map((e) => e.id));
-    const retainedIds = new Set(retainedPosts.map((e) => e.id));
-    const available = (e) => !retainedIds.has(e.id) || present.has(e.id);
-    let candidates = [...retained.filter(available), ...page.filter(available), ...calendar];
-    if (candidates.length > 1200)
-      throw Error(
-        "This reading session has reached its safety limit. Refresh to start again."
-      );
-    const coordinates = [
-      ...new Map(
-        candidates.filter((e) => e.kind >= 3e4).map((e) => [address(e), e])
-      ).values()
-    ];
-    const revisions = await batches(
-      coordinates,
-      20,
-      (chunk) => relay.query(
-        chunk.map((e) => ({
-          authors: [e.pubkey],
-          kinds: [e.kind],
-          "#d": [tag(e, "d") ?? ""],
-          limit: 1
-        }))
-      )
-    );
-    candidates.push(...revisions);
-    const authors = [
-      ...new Set(candidates.filter((e) => e.kind !== 5).map((e) => e.pubkey))
-    ];
-    const profiles = await batches(
-      authors,
-      20,
-      (chunk) => relay.query(
-        chunk.map((pubkey) => ({ kinds: [0], authors: [pubkey], limit: 1 }))
-      )
-    );
-    const deletions = await batches(authors, 20, async (chunk) => {
-      const d = await relay.query([{ kinds: [5], authors: chunk, limit: 500 }]);
-      if (d.length >= 500)
-        throw Error(
-          "Deletion history is too large to verify safely. Please retry later."
-        );
-      return d;
-    });
-    candidates = [
-      ...new Map([...candidates, ...deletions].map((e) => [e.id, e])).values()
-    ];
-    let unavailable = 0;
-    const identities = /* @__PURE__ */ new Map();
-    await batches(authors, 4, async (chunk) => {
-      await Promise.all(
-        chunk.map(async (pubkey) => {
-          const profile = latestProfile(profiles, pubkey);
-          if (!profile || deletions.some(
-            (d) => d.pubkey === pubkey && d.tags.some(
-              (t) => t[0] === "e" && t[1] === profile.id || t[0] === "a" && t[1] === `0:${pubkey}:` && d.created_at >= profile.created_at
-            )
-          ))
-            return;
-          try {
-            const identity = await identify(profile);
-            if (identity) identities.set(pubkey, identity);
-          } catch {
-            unavailable++;
-          }
-        })
-      );
-      return [];
-    });
-    const visible = visibleEvents(candidates).filter(
-      (e) => identities.has(e.pubkey)
-    );
-    const feed = visible.filter((e) => [1, 20].includes(e.kind));
-    currentPosts = new Map(feed.map((e) => [e.id, e]));
-    currentIdentities = identities;
-    renderFeed();
+    if (!navigator.onLine) throw Error("You\u2019re offline");
+    const result = await feedSync.run({ older: !reset, top: feedOrder === "top" });
+    projectSaved();
+    const relay = new Relay(), receiptEpoch = feedSync.epoch;
     try {
+      await relay.open();
       const authority = await resolveCommunity(relay);
-      const snapshot = await collectReceipts(feed, authority, relay);
-      totals = snapshot.totals;
+      const targets = feedSync.receiptTargets([...currentPosts.values()]);
+      const snapshot = await collectReceipts(targets.posts, authority, relay);
+      snapshot.nextTargetOffset = targets.nextTargetOffset;
+      snapshot.partial ||= targets.partial;
+      await feedSync.commitReceipts(snapshot, authority, relay, receiptEpoch);
       zapState = { authority, error: null, snapshot };
+      totals = feedStore.receiptTotals();
     } catch (error) {
-      zapState = {
-        authority: null,
-        error: error.message || "Community zap verification is unavailable."
-      };
+      zapState = { authority: null, error: error.message || "Community zap verification unavailable.", snapshot: zapState.snapshot ? { ...zapState.snapshot, partial: true } : void 0 };
+    } finally {
+      relay.close();
     }
-    currentPosts = new Map(feed.map((e) => [e.id, e]));
-    currentIdentities = identities;
-    renderFeed();
-    $2("empty").hidden = feed.length > 0;
-    const events = visible.filter((e) => e.kind >= 3e4).map((e) => ({ e, info: calendarInfo(e) })).filter((x) => x.info).sort((a, b) => a.info.sort - b.info.sort || a.e.id.localeCompare(b.e.id)).slice(0, 4);
-    $2("events").replaceChildren(
-      ...events.length ? events.map(
-        ({ e, info }) => eventCard(e, identities.get(e.pubkey), info)
-      ) : [
-        el(
-          "p",
-          "small muted",
-          "No upcoming events in the latest verified calendar updates. Check back soon."
-        )
-      ]
-    );
-    stored = candidates;
-    limit = nextLimit;
-    cursor = nextCursor;
-    ended = pageEnded;
-    if (limit > 600) {
-      ended = true;
-      status(
-        "Many updates share one timestamp. The reading limit was reached; no older timestamps were skipped.",
-        true
-      );
-    } else
-      status(
-        unavailable ? `Some author identities could not be checked (${unavailable}). Their posts are hidden. Refresh to retry.` : `Updated ${format(Math.floor(Date.now() / 1e3), { hour: "numeric", minute: "2-digit" })} PT \xB7 identities checked.`,
-        unavailable > 0
-      );
-    $2("connection").textContent = "Connected";
+    failures = 0;
+    retryAfter = Date.now() + 6e4;
+    ended = !!feedStore.state.coverage.olderEnded;
+    status(`${checkedLabel()} \xB7 ${result.unavailable ? "Some current identity checks unavailable; accepted history retained. " : ""}${!result.completed ? "Bounded sync. " : ""}${feedStore.warning ?? ""}`, !!feedStore.warning || result.unavailable > 0);
+    $2("connection").textContent = "Last checked \xB7 not live";
     $2("connection").dataset.state = "ready";
-    $2("page-note").textContent = ended ? "You\u2019ve reached the end of this relay page. Refresh for new updates." : "No endless scroll. Take your time.";
+    $2("page-note").textContent = "Retained on this browser \xB7 Load more widens history; no global coverage guarantee.";
   } catch (error) {
+    zapState = { authority: null, error: error.message || "Community zap verification unavailable.", snapshot: zapState.snapshot ? { ...zapState.snapshot, partial: true } : void 0 };
     zapUI.invalidate();
-    currentPosts = /* @__PURE__ */ new Map();
-    currentIdentities = /* @__PURE__ */ new Map();
-    totals = /* @__PURE__ */ new Map();
-    zapState = {
-      authority: null,
-      error: "Feed checks unavailable. No invoice can be created."
-    };
-    renderFeed();
-    $2("empty").hidden = true;
-    $2("events").replaceChildren(
-      el(
-        "p",
-        "small muted",
-        "Events could not be verified. Please refresh to retry."
-      )
-    );
-    status(
-      error.message || "Community updates could not be verified. Please retry.",
-      true
-    );
-    $2("connection").textContent = navigator.onLine ? "Relay check unavailable" : "Offline";
+    failures++;
+    retryAfter = Date.now() + Math.min(3e5, 15e3 * 2 ** Math.min(failures, 5));
+    status(`${checkedLabel()} \xB7 stale retained history. ${error.message}. ${feedStore.warning ?? ""}`, true);
+    $2("connection").textContent = navigator.onLine ? "Relay check unavailable" : "Offline \xB7 last checked";
     $2("connection").dataset.state = "error";
-    ended = false;
   } finally {
-    relay.close();
     busy = false;
-    $2("refresh").disabled = false;
-    $2("order-newest").disabled = false;
-    $2("order-top").disabled = false;
-    renderFeed();
+    for (const id of ["refresh", "order-newest", "order-top"]) $2(id).disabled = false;
+    projectSaved();
     $2("load-more").disabled = ended;
     $2("feed").setAttribute("aria-busy", "false");
   }
@@ -6487,7 +6846,31 @@ window.addEventListener("offline", () => {
   $2("connection").dataset.state = "error";
 });
 setupWorker();
-load(true);
+async function startFeed() {
+  await feedStore.restore();
+  if (feedStore.state.receipts.length) zapState = { authority: null, error: null, snapshot: { partial: true, sources: [...new Set(feedStore.state.receipts.flatMap((c) => c.sources))] } };
+  projectSaved();
+  $2("feed").setAttribute("aria-busy", "false");
+  status(`${checkedLabel()} \xB7 stale saved history. ${feedStore.warning ?? ""}`, !!feedStore.warning);
+  load(true, true);
+}
+var resume = () => load(true, true);
+window.addEventListener("focus", resume);
+window.addEventListener("online", resume);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") resume();
+});
+window.addEventListener("pagehide", () => {
+  feedSync.cancel();
+  zapUI.invalidate();
+});
+setInterval(() => {
+  if (document.visibilityState === "visible" && !$2("zap-dialog").open) {
+    renderFeed();
+    resume();
+  }
+}, 6e4);
+startFeed();
 /*! Bundled license information:
 
 @noble/hashes/esm/utils.js:

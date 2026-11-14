@@ -58,7 +58,7 @@
     <link rel="icon" href="./icons/icon-192.png" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="stylesheet" href="./feed.css?v=top-install-2" />
+    <link rel="stylesheet" href="./feed.css?v=durable-feed-1" />
   </head>
   <body>
     <a class="skip" href="#community">Skip to community updates</a>
@@ -149,9 +149,10 @@
             menu. If unavailable, bookmark this page.
           </p>
           <p>
-            Installation is optional. Community updates and tips need an
-            internet connection. No saved feed, calendar, profiles or payments
-            are available offline.
+            Installation is optional. Saved feed updates, calendar entries and
+            author identities remain available offline on this browser, marked
+            with their last check. New updates and tips need an internet connection;
+            saved receipt observations are not current payment authority.
           </p>
         </details>
         <p id="install-status" role="status"></p>
@@ -335,7 +336,9 @@
                 All post zaps go to the community group, not the authors. Only
                 verified, post-bound community Lightning receipts from Anmore
                 and Primal count in this loaded snapshot. A partial check shows
-                lower bounds, not verified zero. An unpaid invoice, claimed
+                provisional observations; totals/order may change as receipts
+                become available. Missing receipts are not verified zero.
+                An unpaid invoice, claimed
                 amount, or generic transfer does not increase a post’s total.
                 Receipt issuers attest payment; these are not independent
                 settlement proofs. Cashu nutzaps are not supported here.
@@ -423,6 +426,6 @@
         required.
       </p></noscript
     >
-    <script type="module" src="./app.js?v=top-install-2"></script>
+    <script type="module" src="./app.js?v=durable-feed-1"></script>
   </body>
 </html>

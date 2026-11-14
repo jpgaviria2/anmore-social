@@ -570,11 +570,11 @@ try {
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
   holdNextFeed = true;
-  await page.getByRole("button", { name: "Load more updates" }).click();
+  await page.locator("#refresh").click();
   assert.equal(
     await page.locator("#order-top").isDisabled(),
     true,
-    "Sorting cannot render an emptied in-flight snapshot",
+    "Sorting is disabled while retained history is reconciled",
   );
   assert.equal(typeof resumeFeed, "function");
   resumeFeed();
@@ -582,6 +582,7 @@ try {
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
   assert.equal(await page.locator(".post").count(), 15);
+  let post0Amount = 7;
   const assertSnapshot = async (expectedCount, excluded = []) => {
     const cards = await page.locator(".post").evaluateAll((els) =>
       els.map((e) => ({
@@ -591,7 +592,7 @@ try {
     );
     assert.equal(cards.length, expectedCount);
     const values = new Map([
-      [posts[0].id, 7],
+      [posts[0].id, post0Amount],
       [posts[2].id, 21],
       [posts[14].id, 1250],
     ]);
@@ -641,10 +642,7 @@ try {
     );
     const amounts = await page.locator(".zap-total").allTextContents();
     if (state === "public-only") await assertSnapshot(15);
-    else if (state === "receipts-failure") {
-      assert.ok(amounts.every((a) => a === "—"));
-      assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
-    } else {
+    else {
       assert.equal(amounts[0], "1,250 sats · provisional");
       assert.equal(amounts[1], "21 sats · provisional");
       assert.equal(amounts[2], "7 sats · provisional");
@@ -660,20 +658,21 @@ try {
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
-  // A fresh verified receipt snapshot must update both amount and order.
+  // A conflicting reissue cannot erase the durable original payment binding.
   const previousReceipt = receipts[1];
   receipts[1] = zapReceipt(posts[0], 2000);
+  post0Amount = 0;
   await page.locator("#refresh").click();
   await page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
   assert.equal(
     await page.locator(".post").first().getAttribute("data-event-id"),
-    posts[0].id,
+    posts[14].id,
   );
   assert.equal(
     await page.locator(".zap-total").first().innerText(),
-    "2,000 sats",
+    "1,250 sats",
   );
   receipts[1] = previousReceipt;
   await page.locator("#refresh").click();
@@ -686,7 +685,7 @@ try {
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
   await assertSnapshot(15);
-  // A failed Top refresh/pagination must not retain a successful snapshot count.
+  // A failed refresh retains verified historical content, explicitly stale.
   const settleTop = () =>
     page.waitForFunction(
       () =>
@@ -697,12 +696,8 @@ try {
     mode = "relay-failure";
     await page.locator(trigger).click();
     await settleTop();
-    assert.equal(await page.locator(".post").count(), 0);
-    assert.match(await page.locator("#sort-note").innerText(), /unavailable/i);
-    assert.doesNotMatch(
-      await page.locator("#sort-note").innerText(),
-      /15 posts/,
-    );
+    assert.equal(await page.locator(".post").count(), 15);
+    assert.match(await page.locator("#status").innerText(), /stale retained history/i);
     mode = "normal";
     await page.locator("#refresh").click();
     await settleTop();
@@ -823,17 +818,17 @@ try {
   await chooseOrder("top");
   assert.equal(
     await page.locator(".post").first().getAttribute("data-event-id"),
-    posts[0].id,
-    "No unverified amounts may affect ranking",
+    posts[14].id,
+    "Previously verified ledger amounts remain display-only",
   );
-  assert.match(await page.locator(".zap-total").first().innerText(), /^—$/);
+  assert.match(await page.locator(".zap-total").first().innerText(), /1,250 sats.*provisional/);
   assert.equal(
     await page.locator(".zap-total").first().getAttribute("aria-label"),
-    "Zap total unavailable",
+    "1,250 sats · provisional partial receipt check; totals/order may change",
   );
   assert.match(
     await page.locator("#sort-note").innerText(),
-    /unavailable.*newest/,
+    /Partial receipt check/,
   );
   await page
     .locator(".post")
@@ -891,7 +886,7 @@ try {
     await page.locator(`[data-event-id="${posts[0].id}"]`).count(),
     0,
   );
-  await page.locator("#load-more").click();
+  await page.locator("#refresh").click();
   await settled();
   assert.equal(
     await page.locator(`[data-event-id="${posts[0].id}"]`).count(),
@@ -917,19 +912,19 @@ try {
   await assertSnapshot(14, [posts[0].id]);
   receipts[1] = previousReceipt;
   for (const state of [
-    "mismatch",
     "identity-failure",
     "relay-failure",
     "empty",
+    "mismatch",
   ]) {
     mode = state;
     await page.locator("#refresh").click();
     await settled();
-    assert.equal(await page.locator(".post").count(), 0);
+    assert.equal(await page.locator(".post").count(), state === "mismatch" ? 0 : 14);
     if (state === "identity-failure")
       assert.match(
         await page.locator("#status").innerText(),
-        /could not be checked/,
+        /current identity checks unavailable/,
       );
     if (state === "relay-failure")
       assert.match(await page.locator("#status").innerText(), /declined/);

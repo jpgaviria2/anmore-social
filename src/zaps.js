@@ -1,7 +1,7 @@
 import { bech32 } from "@scure/base";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { generateSecretKey, finalizeEvent } from "nostr-tools/pure";
-import { RELAY, validEvent, latestProfile } from "./core.js";
+import { RELAY, validEvent, latestProfile, approvedIdentifier, fetchIdentityMapping, profileIdentityStatus } from "./core.js";
 import { readInvoice, hashText } from "./invoice.js";
 export { readInvoice } from "./invoice.js";
 export const COMMUNITY_ADDRESS = "coffeeloverc2c2cd@pay.trailscoffee.com";
@@ -56,19 +56,11 @@ export async function resolveCommunity(
   fetcher = fetch,
   now = Math.floor(Date.now() / 1000),
 ) {
-  const directory = await boundedJSON(
-    "https://trailscoffee.com/.well-known/nostr.json",
-    fetcher,
-  );
-  if (!directory?.names || Array.isArray(directory.names))
-    throw Error("Community recipient directory unavailable");
-  const entries = Object.entries(directory.names);
-  if (
-    entries.length > 128 ||
-    entries.some(([n, p]) => !/^[a-z0-9_.-]+$/.test(n) || !hex(p))
-  )
-    throw Error("Community recipient directory exceeds safety contract");
-  const authors = [...new Set(entries.map(([, p]) => p))];
+  const {mapping:directory,mappingJSON}=await fetchIdentityMapping(
+    'https://trailscoffee.com/.well-known/nostr.json',fetcher);
+  const entries=Object.entries(directory.names);
+  if(entries.length>128)throw Error('Community recipient directory exceeds safety contract');
+  const authors=[...new Set(entries.filter(([n,p])=>approvedIdentifier(n+'@trailscoffee.com')&&hex(p)).map(([,p])=>p))];
   const profiles = [];
   for (let i = 0; i < authors.length; i += 16)
     profiles.push(
@@ -90,12 +82,11 @@ export async function resolveCommunity(
     }
     if (
       metadata?.lud16 !== COMMUNITY_ADDRESS ||
-      typeof metadata.nip05 !== "string" ||
-      !/^[a-z0-9_.-]+@trailscoffee\.com$/.test(metadata.nip05)
+      !approvedIdentifier(metadata.nip05) || profileIdentityStatus(profile,now)!=='eligible'
     )
       continue;
     const name = metadata.nip05.split("@")[0];
-    if (directory.names[name] !== pubkey) continue;
+    if (!Object.hasOwn(directory.names,name)||directory.names[name] !== pubkey) continue;
     matches.push(profile);
   }
   if (matches.length !== 1)
@@ -149,6 +140,7 @@ export async function resolveCommunity(
     min: endpoint.minSendable,
     max: endpoint.maxSendable,
     checkedAt: now,
+    evidence: {profile:JSON.parse(JSON.stringify(profile)),mapping:directory,mappingJSON,endpoint},
   };
 }
 function one(event, name, required = true) {
@@ -293,6 +285,7 @@ export function verifiedTotals(
   authority,
   now = Math.floor(Date.now() / 1000),
   period = "all",
+  removedIds = new Set(),
 ) {
   const window = zapPeriodWindow(period, now);
   const targets = new Map(posts.map((e) => [e.id, e])),
@@ -301,9 +294,10 @@ export function verifiedTotals(
   if (!authority) return totals;
   for (const receipt of receipts) {
     try {
+      const context = typeof authority === 'function' ? authority(receipt) : authority;
       if (
-        receipt.kind !== 9735 ||
-        receipt.pubkey !== authority.issuer ||
+        !context || receipt.kind !== 9735 ||
+        receipt.pubkey !== context.issuer ||
         !validEvent(receipt, now)
       )
         continue;
@@ -311,7 +305,7 @@ export function verifiedTotals(
         post = targets.get(postId);
       if (
         !post ||
-        one(receipt, "p") !== authority.recipient ||
+        one(receipt, "p") !== context.recipient ||
         receipt.tags.some((t) => t[0] === "a")
       )
         continue;
@@ -322,7 +316,7 @@ export function verifiedTotals(
         request.kind !== 9734 ||
         !validEvent(request, now) ||
         one(request, "e") !== postId ||
-        one(request, "p") !== authority.recipient ||
+        one(request, "p") !== context.recipient ||
         (one(request, "lnurl", false) !== undefined &&
           one(request, "lnurl", false) !== COMMUNITY_LNURL) ||
         request.tags.some((t) => t[0] === "a")
@@ -346,6 +340,7 @@ export function verifiedTotals(
       )
         continue;
       const payment = {
+        removed: removedIds.has(receipt.id),
         receivedAt: receipt.created_at,
         postId,
         msats: parsed.msats,
@@ -360,13 +355,13 @@ export function verifiedTotals(
       )
         payments.set(parsed.paymentHash, { conflict: true });
       else if (!previous) payments.set(parsed.paymentHash, payment);
-      else if (!previous.conflict) previous.receivedAt = Math.min(previous.receivedAt, payment.receivedAt);
+      else if (!previous.conflict) {previous.receivedAt = Math.min(previous.receivedAt, payment.receivedAt);previous.removed ||= payment.removed;}
     } catch {
       /* Unverifiable claims never contribute to a monetary total. */
     }
   }
   for (const p of payments.values())
-    if (!p.conflict && (!window || (p.receivedAt >= window.start && p.receivedAt < window.end)))
+    if (!p.conflict && !p.removed && (!window || (p.receivedAt >= window.start && p.receivedAt < window.end)))
       totals.set(p.postId, (totals.get(p.postId) ?? 0n) + p.msats);
   return totals;
 }

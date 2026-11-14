@@ -1,5 +1,8 @@
 import { verifyEvent } from "nostr-tools/pure";
 export const RELAY = "wss://relay.anmore.me";
+export function canonicalEvent(e) {
+ return {id:e.id,pubkey:e.pubkey,sig:e.sig,created_at:e.created_at,kind:e.kind,tags:e.tags.map(t=>[...t]),content:e.content};
+}
 export function validEvent(input, now = Math.floor(Date.now() / 1000)) {
   try {
     if (
@@ -40,8 +43,47 @@ export function validEvent(input, now = Math.floor(Date.now() / 1000)) {
   }
 }
 
+export const approvedIdentifier = value => typeof value==='string' && /^[A-Za-z0-9_.-]{1,64}@trailscoffee\.com$/.test(value);
+export const validNamesMap = mapping => !!mapping && typeof mapping==='object' && !Array.isArray(mapping) &&
+ !!mapping.names && typeof mapping.names==='object' && !Array.isArray(mapping.names) && Object.values(mapping.names).every(v=>typeof v==='string');
+export function validMappingEvidence(proof){
+ try{const text=proof.mappingJSON??JSON.stringify(proof.mapping);
+  return typeof text==='string'&&new TextEncoder().encode(text).byteLength<=65536&&validNamesMap(proof.mapping)&&JSON.stringify(JSON.parse(text))===JSON.stringify(proof.mapping);
+ }catch{return false;}
+}
+// The deadline covers fetch AND every streamed byte, including a stalled body.
+export async function fetchIdentityMapping(url,fetcher=fetch,timeoutMs=8000){
+ const controller=new AbortController();let reader,timer;
+ const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('Identity endpoint timeout'));},timeoutMs);});
+ const work=(async()=>{
+  const response=await fetcher(url,{redirect:'error',credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',headers:{Accept:'application/json'},signal:controller.signal});
+  if(response.status!==200||response.redirected||(response.url&&response.url!==url))throw Error('Identity endpoint unavailable');
+  const length=response.headers?.get('content-length');
+  if(length!==null&&length!==undefined&&(!/^\d+$/.test(length)||Number(length)>65536))throw Error('Identity response exceeded safety limit');
+  reader=response.body?.getReader();if(!reader)throw Error('Identity response body unavailable');
+  let size=0;const chunks=[];
+  while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>65536)throw Error('Identity response exceeded safety limit');chunks.push(value);}
+  const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
+  const mappingJSON=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes),mapping=JSON.parse(mappingJSON);
+  if(!validNamesMap(mapping))throw Error('Identity endpoint returned malformed mapping');
+  return {mapping,mappingJSON};
+ })();
+ try{return await Promise.race([work,timeout]);}finally{clearTimeout(timer);controller.abort();if(reader)Promise.resolve(reader.cancel()).catch(()=>{});}
+}
+export function profileIdentityStatus(profile,now){
+ if(!validEvent(profile,now)||profile.kind!==0)return 'unavailable';
+ try{const m=JSON.parse(profile.content);if(!m||typeof m!=='object'||Array.isArray(m))return 'unavailable';
+  if([m.name,m.display_name].some(v=>typeof v==='string'&&v.trim().toLowerCase()==='deleted'))return 'unavailable';
+  return approvedIdentifier(m.nip05)?'eligible':'withdrawn';
+ }catch{return 'unavailable';}
+}
+export async function identifyDecision(profile,fetcher=fetch,now){
+ const status=profileIdentityStatus(profile,now);if(status!=='eligible')return {status,profile};
+ try{const identity=await identify(profile,fetcher,now);return identity?{status:'verified',identity,profile}:{status:'contradiction',profile};}
+ catch(error){return {status:'unavailable',profile,error};}
+}
 export async function identify(profile, fetcher = fetch, now) {
-  if (!validEvent(profile, now) || profile.kind !== 0) return null;
+  if (profileIdentityStatus(profile,now)!=='eligible') return null;
   let metadata;
   try {
     metadata = JSON.parse(profile.content);
@@ -50,30 +92,16 @@ export async function identify(profile, fetcher = fetch, now) {
   }
   if (
     !metadata ||
-    typeof metadata.nip05 !== "string" ||
-    !/^[a-z0-9_.-]+@trailscoffee\.com$/.test(metadata.nip05)
+    !approvedIdentifier(metadata.nip05)
   )
     return null;
   const name = metadata.nip05.split("@")[0];
-  const response = await fetcher(
-    `https://trailscoffee.com/.well-known/nostr.json?name=${encodeURIComponent(name)}`,
-    {
-      redirect: "error",
-      credentials: "omit",
-      cache: "no-store",
-      signal: AbortSignal.timeout(8000),
-    },
-  );
-  if (!response.ok) throw Error("Identity endpoint unavailable");
-  const mapping = await response.json();
-  if (
-    !mapping?.names ||
-    !Object.hasOwn(mapping.names, name) ||
-    mapping.names[name] !== profile.pubkey
-  )
-    return null;
+  const {mapping,mappingJSON}=await fetchIdentityMapping(
+    `https://trailscoffee.com/.well-known/nostr.json?name=${encodeURIComponent(name)}`,fetcher);
+  if (!Object.hasOwn(mapping.names,name)||mapping.names[name]!==profile.pubkey)return null;
   return {
     pubkey: profile.pubkey,
+    proof: {profile: canonicalEvent(profile), mapping, mappingJSON, checkedAt: now ?? Math.floor(Date.now()/1000)},
     nip05: metadata.nip05,
     name:
       typeof metadata.display_name === "string"

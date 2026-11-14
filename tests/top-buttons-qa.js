@@ -304,6 +304,14 @@ const settle = () =>
   page.waitForFunction(
     () => document.querySelector("#feed").getAttribute("aria-busy") === "false",
   );
+// Independent monetary timelines use an explicitly new local history. Within
+// each recovery/replay scenario the real durable database is retained.
+const freshFeed = async () => {
+  const base=process.env.QA_URL || 'http://127.0.0.1:4173';
+  await page.goto(new URL('/offline.html',base).href);
+  await page.evaluate(()=>new Promise((resolve,reject)=>{const q=indexedDB.deleteDatabase('anmore-accepted-v1');q.onsuccess=resolve;q.onerror=()=>reject(q.error);q.onblocked=()=>reject(Error('Fixture DB still open'));}));
+  await page.goto(base);await settle();
+};
 const expectedCards = winners => [
   ...winners.map(([index, amount]) => ({ id: posts[index].id, amount })),
   ...posts.filter((_, index) => !winners.some(([i]) => i === index)).map(p => ({ id:p.id, amount:"0 sats" })),
@@ -355,6 +363,13 @@ try {
     "Top automatically includes older high tip",
   );
   assert.equal(callbacks, 0);
+  // Background reconciliation must not close an in-progress invoice session.
+  const beforeDialogSync=requests.length;
+  await page.evaluate(()=>document.querySelector('#zap-dialog').showModal());
+  await page.clock.fastForward(61000);
+  assert.equal(await page.locator('#zap-dialog').isVisible(),true);
+  assert.equal(requests.length,beforeDialogSync,'Visible automatic sync pauses while tip dialog is open');
+  await page.evaluate(()=>document.querySelector('#zap-dialog').close());
   const periods = page.getByRole("group", { name: "Zap timeframe" });
   assert.equal(await periods.isVisible(), true);
   const week = periods.getByRole("button", { name: "This week", exact: true });
@@ -391,6 +406,7 @@ try {
       ? adversaryReceipt(posts[14], weekStart - 1)
       : adversaryReceipt(posts[2], weekStart + 2)];
     mode = "public-failure";
+    await freshFeed();await top.click();await settle();
     await page.locator("#refresh").click(); await settle();
     await (scenario === "earliest" ? week : all).click();
     const observed = await cards();
@@ -438,6 +454,7 @@ try {
     zapReceipt(posts[0], 900, monthStart - 1, "91".repeat(32)),
     zapReceipt(posts[2], 500, weekStart - 1, "92".repeat(32)),
     zapReceipt(posts[14], 50, now - 1, "93".repeat(32)));
+  await freshFeed();await top.click();await settle();
   await page.locator("#refresh").click(); await settle();
   assert.deepEqual((await cards())[0], { id: posts[0].id, amount: "900 sats" });
   await week.focus(); await page.keyboard.press("Enter");
@@ -452,6 +469,7 @@ try {
   assert.deepEqual(await cards(), expectedCards([[0, "900 sats"], [2, "500 sats"], [14, "50 sats"]]));
   assert.equal(callbacks, 0);
   receipts.splice(0, receipts.length, zapReceipt(posts[0], 900, monthStart - 1, "94".repeat(32)));
+  await freshFeed();await top.click();await settle();
   await page.locator("#refresh").click(); await settle();
   await week.click();
   assert.ok((await cards()).every(c => c.amount === "0 sats"));
@@ -459,6 +477,7 @@ try {
   await month.click(); assert.ok((await cards()).every(c => c.amount === "0 sats"));
   receipts.splice(0, receipts.length, ...baseline);
   mode = "public-failure";
+  await freshFeed();await top.click();await settle();
   await page.locator("#refresh").click(); await settle();
   await week.click();
   assert.deepEqual((await cards())[0], { id:posts[14].id, amount:"1,250 sats · provisional" });
@@ -466,8 +485,8 @@ try {
   assert.equal((await cards()).find(c => c.id === posts[1].id).amount, "—");
   mode = "receipts-failure";
   await page.locator("#refresh").click(); await settle();
-  assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
-  assert.deepEqual((await cards()).map(c => c.id), posts.map(p => p.id));
+  assert.match(await page.locator("#sort-note").innerText(), /Partial receipt/);
+  assert.equal((await cards())[0].id,posts[14].id);
   mode = "normal";
   await all.click();
   await page.locator("#refresh").click(); await settle();
@@ -516,22 +535,21 @@ try {
   missingSourceIds.add(posts[0].id);
   missingOnExactRead.add(posts[11].id);
   await top.click(); await settle();
-  assert.equal((await cards()).some(c => c.id === posts[0].id), false,
-    "Top discovery must evict retained posts absent on Anmore, even with Primal receipts");
-  assert.equal((await cards()).some(c => c.id === posts[11].id), false, "A stale overlapping page must not re-add a target missing from the later exact read");
+  assert.equal((await cards()).some(c => c.id === posts[0].id), true,
+    "Relay absence is not authenticated removal of accepted history");
+  assert.equal((await cards()).some(c => c.id === posts[11].id), true, "Missing exact relay responses cannot erase accepted history");
   missingOnExactRead.clear();
   missingSourceIds.clear();
   await newest.click();
   missingSourceIds.add(posts[2].id);
   await top.click(); await settle();
-  assert.equal((await cards()).some(c => c.id === posts[2].id), false,
-    "Reentering Top at end of history must still revalidate source presence");
+  assert.equal((await cards()).some(c => c.id === posts[2].id), true,
+    "Reentering Top preserves accepted history independently of source retention");
   missingSourceIds.clear();
   mode = "presence-failure";
   await newest.click(); await top.click(); await settle();
-  assert.deepEqual(await cards(), [], "Failed exact-ID read is not an authoritative empty response");
-  assert.match(await page.locator("#status").innerText(), /declined the read request/);
-  assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
+  assert.equal((await cards()).length,15,"Absence-only reads are no longer removal authority");
+  assert.match(await page.locator("#sort-note").innerText(), /loaded posts/);
   mode = "normal";
   // Same-author signed deletion wins over a stale highest receipt on either peer.
   const highestDeletion = sign({
@@ -556,7 +574,7 @@ try {
   );
   posts.push(...deep);
   receipts.push(zapReceipt(posts[50], 2500));
-  await page.reload();
+  await freshFeed();
   await settle();
   await top.click();
   await settle();
@@ -573,7 +591,7 @@ try {
       sign({ created_at: now - 100 - i, content: `Deep update ${i}` }),
     ),
   );
-  await page.reload();
+  await freshFeed();
   await settle();
   const before = requests.filter(
     (m) => m[0] === "REQ" && m.slice(2).some((f) => f.kinds?.includes(1)),
@@ -589,21 +607,25 @@ try {
   assert.equal(await page.locator("#load-more").isEnabled(), true);
   missingSourceIds.add(posts[14].id);
   await page.locator("#load-more").click(); await settle();
-  assert.equal((await cards()).some(c => c.id === posts[14].id), false,
-    "Load more must evict a source-pruned retained winner despite surviving receipts");
-  assert.equal((await cards()).length, posts.length - 1);
+  assert.equal((await cards()).some(c => c.id === posts[14].id), true,
+    "Load more retains accepted content despite later relay absence");
+  assert.equal((await cards()).length, posts.length);
   const presenceBefore = requests.length;
   await newest.click(); await top.click(); await settle();
   const presenceReads = requests.slice(presenceBefore).filter(m => m[0] === "REQ" && m[2].ids && !m[2].kinds);
-  assert.deepEqual(presenceReads.map(m => m[2].ids.length), [100, 14]);
+  assert.deepEqual(presenceReads, [],"Source-absence eviction requests are retired");
   missingSourceIds.clear();
-  await page.reload(); await settle(); await top.click(); await settle();
-  // Top pagination failure clears the entire snapshot, recovery re-verifies it.
+  await freshFeed(); await settle(); await top.click(); await settle();
+  // Top pagination failure retains history; only completed pages move cursors.
   mode = "relay-failure";
   await page.locator("#load-more").click();
   await settle();
-  assert.deepEqual(await cards(), []);
-  assert.match(await page.locator("#sort-note").innerText(), /unavailable/);
+  assert.ok((await cards()).length>0);
+  assert.match(await page.locator("#status").innerText(), /stale retained history/);
+  assert.match(await page.locator("#sort-note").innerText(), /Partial receipt check.*totals\/order may change/);
+  const staleWinner=page.locator(`[data-event-id="${posts[14].id}"] .zap-total`);
+  assert.equal(await staleWinner.innerText(),"1,250 sats · provisional");
+  assert.match(await staleWinner.getAttribute("aria-label"),/partial receipt check/);
   assert.equal(await top.isEnabled(), true);
   mode = "normal";
   await page.locator("#refresh").click();
@@ -613,11 +635,16 @@ try {
     amount: "1,250 sats",
   });
   // The shared transport tolerates extra frames; Top must enforce its own admission budget.
+  const retainedIds=(await cards()).map(c=>c.id).sort();
+  const overBudgetPost=sign({created_at:now-1,content:"New over-budget candidate must not be retained"});
+  posts.push(overBudgetPost);
   mode = "over-top-limit";
   await page.locator("#refresh").click();
   await settle();
-  assert.deepEqual(await cards(), [], "Over-request Top responses cannot become admitted cards");
+  assert.deepEqual((await cards()).map(c=>c.id).sort(),retainedIds,"Over-request responses retain exactly the previously accepted IDs");
+  assert.equal((await cards()).some(c=>c.id===overBudgetPost.id),false,"New over-budget candidate is not admitted");
   assert.match(await page.locator("#status").innerText(), /exceeded.*limit/i);
+  posts.pop();
   mode = "normal";
   await page.locator("#refresh").click();
   await settle();

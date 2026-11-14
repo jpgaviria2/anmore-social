@@ -7,6 +7,7 @@ async function worker(
   fetcher = async () => {
     throw Error("offline");
   },
+  cached = true,
 ) {
   const handlers = {},
     removed = [],
@@ -28,7 +29,7 @@ async function worker(
   };
   const cache = {
     addAll: async (paths) => saved.push(...paths),
-    match: async () => new Response("offline"),
+    match: async () => cached ? new Response("saved shell") : undefined,
   };
   const caches = {
     open: async () => cache,
@@ -37,6 +38,7 @@ async function worker(
       "anmore-social-offline-v0",
       "unrelated-cache",
       "anmore-social-offline-v1",
+      "anmore-social-shell-v1",
     ],
     delete: async (key) => removed.push(key),
   };
@@ -65,10 +67,10 @@ async function worker(
   };
 }
 
-test("owner-authorized offline worker installs only dedicated landing resources without skipWaiting", async () => {
+test("owner-authorized worker installs exact reviewed shell without skipWaiting", async () => {
   const w = await worker();
   await w.run("install");
-  assert.deepEqual(w.saved, ["./offline.html", "./offline.css"]);
+  assert.deepEqual(w.saved, ["./index.html","./app.js","./feed.css","./manifest.webmanifest","./icons/icon-192.png","./icons/apple-touch-icon.png","./offline.html","./offline.css"]);
   assert.equal(w.skipped(), 0);
 });
 
@@ -79,12 +81,13 @@ test("activation preserves unrelated and current caches while removing only own 
   assert.deepEqual(w.removed, [
     "anmore-social-pwa-old",
     "anmore-social-offline-v0",
+    "anmore-social-offline-v1",
   ]);
   assert.equal(w.claimed(), 1);
   assert.equal(w.skipped(), 0);
 });
 
-test("only root document navigation gets network-first dedicated offline fallback; payments and content bypass worker", async () => {
+test("only exact reviewed same-origin shell is cached; payments and arbitrary paths bypass worker", async () => {
   const w = await worker();
   assert.equal(typeof w.handlers.fetch, "function");
   let response;
@@ -96,14 +99,15 @@ test("only root document navigation gets network-first dedicated offline fallbac
     },
     respondWith: (p) => (response = p),
   });
-  assert.equal(await (await response).text(), "offline");
+  assert.equal(await (await response).text(), "saved shell");
   for (const [url, mode, method] of [
     ["https://pay.trailscoffee.com/callback", "navigate", "GET"],
     ["https://anmore.social/payment", "navigate", "GET"],
     ["https://anmore.social/?invoice=secret", "navigate", "GET"],
     ["https://anmore.social/?source=pwa&token=secret", "navigate", "GET"],
     ["https://anmore.social/.well-known/nostr.json", "cors", "GET"],
-    ["https://anmore.social/app.js", "cors", "GET"],
+    ["https://anmore.social/app.js?invoice=secret", "cors", "GET"],
+    ["https://external.example/photo.jpg", "cors", "GET"],
     ["https://anmore.social/", "navigate", "POST"],
     ["lightning:invoice", "navigate", "GET"],
   ]) {
@@ -116,14 +120,14 @@ test("only root document navigation gets network-first dedicated offline fallbac
   }
 });
 
-test("network-first returns live bytes and server errors unchanged without any runtime cache writes", async () => {
+test("missing shell cache returns live bytes and server errors unchanged without runtime cache writes", async () => {
   for (const status of [200, 404, 503]) {
     let requests = 0;
     const w = await worker(async (request, options) => {
       requests++;
       assert.equal(options.cache, "no-store");
       return new Response("live-" + status, { status });
-    });
+    }, false);
     let result;
     w.handlers.fetch({
       request: {

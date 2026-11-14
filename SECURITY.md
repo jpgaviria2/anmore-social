@@ -31,6 +31,10 @@ The service worker preinstalls **only the reviewed versioned same-origin shell**
 
 Waiting updates cannot automatically reset invoice safety state: only explicit acknowledged update/reload may activate; an open tip dialog blocks activation and another tab cannot force reload. Shell cache revisions retain the `anmore-social-shell-` ownership prefix, bump with every reviewed shell byte/query revision, and may not broaden the allowlist without review. Cache deletion is restricted to obsolete owned shell/offline/legacy PWA prefixes, preserving unrelated caches and accepted IndexedDB generations. Earlier `PWA_READINESS.md` describes the superseded offline-landing-only release.
 
+## Media rendering boundary
+
+Cards expose four previews, not a four-attachment limit; the mixed gallery retains the complete accepted attachment collection. Mobile three-line captions expand explicitly; removed standalone attachment URL lines remain accessible through the gallery. Video starts only after **Play video**, with no autoplay or pre-action video preload; navigation, close, hidden/offscreen lifecycle and post removal release playback. Native format support varies (including HLS); failures retain an original-source link. No transcoding service, media proxy or new backend is introduced. External images/posters/media can expose the reader's IP to their hosts. These presentation changes do not alter source curation, author eligibility, community recipients or receipt/payment provenance.
+
 ## Contribution Hygiene
 
 Do not include real API keys, tokens, Nostr private keys, wallet seeds, macaroons, database dumps, customer data, or production logs in issues, pull requests, screenshots, or test fixtures.

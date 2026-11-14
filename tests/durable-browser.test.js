@@ -203,6 +203,87 @@ test('latest refresh preserves completed older cursor and loaded history through
  assert.deepEqual(result.ids,[event.id,newer.id].sort());assert.deepEqual(result.boundary,result.after);
  assert.ok(result.requests.some(fs=>fs[0].since!==undefined));
 });
+test('full initial head bootstraps durable inclusive delta without scanning large older history',async t=>{
+ await setup(t);
+ const recent=Array.from({length:11},(_,i)=>sign({created_at:now-1000*(i+1),content:'head '+i}));
+ const ties=Array.from({length:25},(_,i)=>sign({created_at:now-12000,content:'head boundary '+i}));
+ const history=Array.from({length:1000},(_,i)=>sign({created_at:now-20000-i,content:'large history '+i}));
+ const rows=[...recent,...ties,...history],requests=[];
+ await page.context().routeWebSocket(/wss:\/\/.*/,ws=>ws.onMessage(raw=>{
+  const m=JSON.parse(raw);if(m[0]!=='REQ')return;const f=m[2];requests.push(f);
+  const found=f.kinds.includes(0)?[profile]:f.kinds.includes(1)?rows.filter(e=>e.created_at<=f.until&&(f.since===undefined||e.created_at>=f.since)).slice(0,f.limit):[];
+  for(const e of found)ws.send(JSON.stringify(['EVENT',m[1],e]));ws.send(JSON.stringify(['EOSE',m[1]]));
+ }));
+ await page.reload();
+ const initial=await page.evaluate(async({proof,now})=>{
+  const s=new api.FeedStore('bootstrap-delta');await s.restore();
+  await new api.FeedSync(s,{identify:async()=>({proof}),now:()=>now}).run();
+  s.connection.close();const r=new api.FeedStore('bootstrap-delta');await r.restore();
+  return {coverage:r.state.coverage,count:r.events().length};
+ },{proof,now}).catch(error=>{throw Error(error.message+' REQS '+JSON.stringify(requests));});
+ assert.equal(initial.count,12);assert.equal(initial.coverage.latest,now-12000);
+ assert.equal(initial.coverage.latestComplete,false);
+ const first=requests.filter(f=>f.kinds.includes(1));assert.equal(first.length,1);assert.equal(first[0].since,undefined);
+ requests.length=0;
+ const result=await page.evaluate(async({proof,now})=>{
+  const s=new api.FeedStore('bootstrap-delta');await s.restore();
+  await new api.FeedSync(s,{identify:async()=>({proof}),now:()=>now}).run();
+  const r=new api.FeedStore('bootstrap-delta');await r.restore();return {coverage:r.state.coverage,ids:r.events().map(e=>e.id).sort()};
+ },{proof,now});
+ const head=requests.filter(f=>f.kinds.includes(1));assert.ok(head.length<=6);
+ assert.ok(head.every(f=>f.since===now-12300),'every head REQ keeps the inclusive bootstrap overlap');
+ assert.deepEqual(result.ids,[...recent,...ties].map(e=>e.id).sort());
+ assert.deepEqual(result.coverage.older,initial.coverage.older);
+ assert.equal(result.coverage.latest,now);assert.equal(result.coverage.latestComplete,true);
+});
+test('interrupted and tie-saturated delta cannot advance bootstrap past unserved rows',async t=>{
+ await setup(t);const rows=Array.from({length:80},(_,i)=>sign({created_at:now-1000,content:'saturated tie '+i}));
+ let phase='initial',contentReads=0;const requests=[];
+ await page.context().routeWebSocket(/wss:\/\/.*/,ws=>ws.onMessage(raw=>{
+  const m=JSON.parse(raw);if(m[0]!=='REQ')return;const f=m[2];requests.push(f);
+  const found=f.kinds.includes(0)?[profile]:f.kinds.includes(1)?rows.filter(e=>e.created_at<=f.until&&(f.since===undefined||e.created_at>=f.since)).slice(0,f.limit):[];
+  if(f.kinds.includes(1)&&phase==='interrupted'&&++contentReads===2){
+   ws.send(JSON.stringify(['EVENT',m[1],found[0]]));ws.send(JSON.stringify(['CLOSED',m[1],'interrupted before EOSE']));return;
+  }
+  for(const e of found)ws.send(JSON.stringify(['EVENT',m[1],e]));ws.send(JSON.stringify(['EOSE',m[1]]));
+ }));await page.reload();
+ const initial=await page.evaluate(async({proof,now})=>{
+  const s=new api.FeedStore('bootstrap-saturation');await s.restore();
+  await new api.FeedSync(s,{identify:async()=>({proof}),now:()=>now}).run();return structuredClone(s.state.coverage);
+ },{proof,now});assert.equal(initial.latest,now-1000);assert.equal(initial.latestComplete,false);
+ phase='interrupted';requests.length=0;
+ const interrupted=await page.evaluate(async({proof,now})=>{
+  const s=new api.FeedStore('bootstrap-saturation');await s.restore();let error;
+  try{await new api.FeedSync(s,{identify:async()=>({proof}),now:()=>now}).run();}catch(e){error=e.message;}
+  const r=new api.FeedStore('bootstrap-saturation');await r.restore();return {error,coverage:r.state.coverage,count:r.events().length};
+ },{proof,now});assert.match(interrupted.error,/declined/);assert.deepEqual(interrupted.coverage,initial);assert.equal(interrupted.count,12);
+ phase='saturated';requests.length=0;
+ const saturated=await page.evaluate(async({proof,now})=>{
+  const s=new api.FeedStore('bootstrap-saturation');await s.restore();
+  await new api.FeedSync(s,{identify:async()=>({proof}),now:()=>now}).run();
+  const r=new api.FeedStore('bootstrap-saturation');await r.restore();return {coverage:r.state.coverage,count:r.events().length};
+ },{proof,now});const head=requests.filter(f=>f.kinds.includes(1));
+ assert.equal(head.length,6);assert.ok(head.reduce((n,f)=>n+f.limit,0)<=600);
+ assert.ok(head.every(f=>f.since===now-1300&&f.until>=now-1000));
+ assert.equal(saturated.count,72);assert.equal(saturated.coverage.latest,initial.latest);
+ assert.equal(saturated.coverage.latestComplete,false);assert.deepEqual(saturated.coverage.older,initial.older);
+});
+test('bootstrapped full head retries identity-outage candidates after completed delta moves beyond their timestamps',async t=>{
+ await setup(t);const rows=Array.from({length:12},(_,i)=>sign({created_at:now-1000,content:'pending bootstrap '+i}));
+ const result=await page.evaluate(async({rows,profile,proof,now})=>{
+  const s=new api.FeedStore('bootstrap-pending');await s.restore();let available=false;const requests=[];
+  const wire={open:async()=>{},close(){},query:async([f])=>{requests.push(f);return f.kinds.includes(0)?[profile]:f.kinds.includes(1)?rows.filter(e=>e.created_at<=f.until&&(f.since===undefined||e.created_at>=f.since)).slice(0,f.limit):[];}};
+  const sync=new api.FeedSync(s,{relay:()=>wire,now:()=>now,identify:async()=>{if(!available)throw Error('identity outage');return {proof};}});
+  await sync.run();const initial={count:s.events().length,coverage:structuredClone(s.state.coverage)};
+  await sync.run();const unavailable={count:s.events().length,latest:s.state.coverage.latest,pending:sync.pending.size};
+  available=true;requests.length=0;await sync.run();
+  const r=new api.FeedStore('bootstrap-pending');await r.restore();return {initial,unavailable,requests,ids:r.events().map(e=>e.id).sort(),older:r.state.coverage.older};
+ },{rows,profile,proof,now});
+ assert.equal(result.initial.count,0);assert.equal(result.initial.coverage.latest,now-1000);assert.equal(result.initial.coverage.latestComplete,false);
+ assert.deepEqual(result.unavailable,{count:0,latest:now,pending:12});
+ assert.equal(result.requests.find(f=>f.kinds.includes(1)).since,now-300);
+ assert.deepEqual(result.ids,rows.map(e=>e.id).sort());assert.deepEqual(result.older,result.initial.coverage.older);
+});
 test('document fixture isolates HTTP with a genuine installed service worker controller',async t=>{
  await setup(t);
  // A network fallback is denied as well; it must never substitute for the

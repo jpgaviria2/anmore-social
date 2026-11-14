@@ -5889,13 +5889,14 @@ var FeedSync = class {
       let size = older ? prior.older?.limit ?? 12 : 12;
       const since = !older && !reconcile && prior.latest !== void 0 ? Math.max(0, prior.latest - 300) : void 0;
       const events = [];
-      let completed = false, next;
+      let completed = false, next, headOldest;
       for (let i2 = 0; i2 < (top ? 6 : older ? 1 : prior.older ? 6 : 1); i2++) {
         if (size > 600 || events.length + size > 600) break;
         const chunk = await query([{ kinds: [1, 20], until, limit: size, ...since === void 0 ? {} : { since } }]);
         if (chunk.length > size) throw Error("Relay content read exceeded limit");
         events.push(...chunk);
         const oldest = chunk.length ? Math.min(...chunk.map((e) => e.created_at)) : until;
+        if (i2 === 0 && chunk.length) headOldest = oldest;
         next = { until: oldest, limit: oldest === until ? size + 12 : chunk.filter((e) => e.created_at === oldest).length + 12 };
         if (chunk.length < size) {
           completed = true;
@@ -5969,7 +5970,8 @@ var FeedSync = class {
       }
       guard();
       const coverage = { calendarOffset: calendarOffset + 64 >= calendars.length ? 0 : calendarOffset + 64, receiptRemovalOffset: offset + 64 >= claims.length ? 0 : offset + 64, latestComplete: completed, reconciliationLimited: reconcile && !completed };
-      if (completed && !older) coverage.latest = now;
+      if (completed && !older && since !== void 0) coverage.latest = now;
+      else if (!older && prior.latest === void 0 && headOldest !== void 0) coverage.latest = headOldest;
       if (next && (older || !prior.older)) coverage.older = next;
       if (older && next?.limit > 600) delete coverage.older;
       if (older) coverage.olderEnded = completed;

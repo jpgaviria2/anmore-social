@@ -36,13 +36,14 @@ export class FeedSync {
    let until=older?(prior.older?.until??now):now;
    let size=older?(prior.older?.limit??12):12;
    const since=!older&&!reconcile&&prior.latest!==undefined?Math.max(0,prior.latest-300):undefined;
-   const events=[];let completed=false,next;
+   const events=[];let completed=false,next,headOldest;
    for(let i=0;i<(top?6:older?1:prior.older?6:1);i++) {
     if(size>600||events.length+size>600)break;
     const chunk=await query([{kinds:[1,20],until,limit:size,...(since===undefined?{}:{since})}]);
     if(chunk.length>size)throw Error('Relay content read exceeded limit');
     events.push(...chunk);
     const oldest=chunk.length?Math.min(...chunk.map(e=>e.created_at)):until;
+    if(i===0&&chunk.length)headOldest=oldest;
     next={until:oldest,limit:oldest===until?size+12:chunk.filter(e=>e.created_at===oldest).length+12};
     if(chunk.length<size){completed=true;break;}
     until=oldest;size=next.limit;
@@ -89,7 +90,10 @@ export class FeedSync {
    const selected=claims.slice(offset,offset+64),issuers=[...new Set(selected.map(c=>c.event.pubkey))];
    for(const issuer of issuers){const ids=selected.filter(c=>c.event.pubkey===issuer).map(c=>c.event.id);const part=await query([{kinds:[5],authors:[issuer],'#e':ids,limit:500}]);if(part.length>=500)throw Error('Receipt deletion history incomplete');removals.push(...part);}
    guard();const coverage={calendarOffset:calendarOffset+64>=calendars.length?0:calendarOffset+64,receiptRemovalOffset:offset+64>=claims.length?0:offset+64,latestComplete:completed,reconciliationLimited:reconcile&&!completed};
-   if(completed&&!older)coverage.latest=now;
+   if(completed&&!older&&since!==undefined)coverage.latest=now;
+   // Bootstrap only the served head, not wall-clock/history completeness.
+   // The next inclusive overlap must still drain ties and any unserved range.
+   else if(!older&&prior.latest===undefined&&headOldest!==undefined)coverage.latest=headOldest;
    if(next&&(older||!prior.older))coverage.older=next;
    // EOSE completes this bounded older page, not all history. Retain the
    // inclusive tie boundary; a failed query never reaches this commit.

@@ -1511,19 +1511,19 @@ var require_segments = __commonJS({
         const nodeGroup = nodes[i2];
         const currentNodeIds = [];
         for (let j = 0; j < nodeGroup.length; j++) {
-          const node = nodeGroup[j];
+          const node2 = nodeGroup[j];
           const key = "" + i2 + j;
           currentNodeIds.push(key);
-          table[key] = { node, lastCount: 0 };
+          table[key] = { node: node2, lastCount: 0 };
           graph[key] = {};
           for (let n = 0; n < prevNodeIds.length; n++) {
             const prevNodeId = prevNodeIds[n];
-            if (table[prevNodeId] && table[prevNodeId].node.mode === node.mode) {
-              graph[prevNodeId][key] = getSegmentBitsLength(table[prevNodeId].lastCount + node.length, node.mode) - getSegmentBitsLength(table[prevNodeId].lastCount, node.mode);
-              table[prevNodeId].lastCount += node.length;
+            if (table[prevNodeId] && table[prevNodeId].node.mode === node2.mode) {
+              graph[prevNodeId][key] = getSegmentBitsLength(table[prevNodeId].lastCount + node2.length, node2.mode) - getSegmentBitsLength(table[prevNodeId].lastCount, node2.mode);
+              table[prevNodeId].lastCount += node2.length;
             } else {
-              if (table[prevNodeId]) table[prevNodeId].lastCount = node.length;
-              graph[prevNodeId][key] = getSegmentBitsLength(node.length, node.mode) + 4 + Mode.getCharCountIndicator(node.mode, version);
+              if (table[prevNodeId]) table[prevNodeId].lastCount = node2.length;
+              graph[prevNodeId][key] = getSegmentBitsLength(node2.length, node2.mode) + 4 + Mode.getCharCountIndicator(node2.mode, version);
             }
           }
         }
@@ -6126,35 +6126,420 @@ function installInstructions({
 
 // src/media.js
 function bodyURLs(text) {
-  return [...text.matchAll(/(?<!\S)https:\/\/[^\s<>"\u0000-\u001f]+/g)].map((m) => {
-    const raw = /[?#]/.test(m[0]) ? m[0] : m[0].replace(/[.,!;:)]+$/, "");
+  return [
+    ...text.matchAll(/(?<![^\s([{"'<`])https:\/\/[^\s<>"`\u0000-\u001f]+/gi)
+  ].map((m) => {
+    let raw = m[0];
+    const closer = { "(": ")", "[": "]", "{": "}", "'": "'" }[text[m.index - 1]];
+    const end = closer ? raw.lastIndexOf(closer) : -1;
+    if (end !== -1 && /^[.,!;:]*$/.test(raw.slice(end + 1)))
+      raw = raw.slice(0, end);
+    if (!/[?#]/.test(raw)) raw = raw.replace(/[.,!;:)\]}]+$/, "");
     return { raw, index: m.index };
   });
 }
-var directVideo = (url) => /\.(mp4|webm|mov)$/i.test(new URL(url).pathname);
-var mediaURL = (raw) => typeof raw === "string" && /^https:\/\//.test(raw) && !/[\s\\\u0000-\u001f\u007f]/.test(raw) && safeURL(raw) ? raw : null;
-function postVideos(e) {
-  const videos = /* @__PURE__ */ new Map();
-  const add = (raw, label) => {
-    const url = mediaURL(raw);
-    if (url && directVideo(url) && !videos.has(url) && videos.size < 4)
-      videos.set(url, { url, label: label || "Video attached to this community update" });
-  };
-  for (const { raw } of bodyURLs(e.content)) add(raw);
-  for (const t of e.tags) {
-    if (t[0] !== "imeta") continue;
-    const urls = t.slice(1).filter((v) => v.startsWith("url "));
-    if (urls.length !== 1) continue;
-    const alt = t.slice(1).find((v) => v.startsWith("alt "))?.slice(4, 204);
-    add(urls[0].slice(4), alt);
+var mediaURL = (raw) => typeof raw === "string" && /^https:\/\//i.test(raw) && !/^https:\/\/[^/?#]*:/i.test(raw) && !/[\s\\\u0000-\u001f\u007f]/.test(raw) && safeURL(raw) ? raw : null;
+function parsePost(event) {
+  if (!event || typeof event.content !== "string" || event.content.length > 1e5 || !Array.isArray(event.tags) || event.tags.length > 2e3 || event.tags.some(
+    (t) => !Array.isArray(t) || t.length === 0 || t.some((v) => typeof v !== "string")
+  ))
+    return { text: "", title: "", attachments: [] };
+  let content = event.content, title = "", payload;
+  try {
+    const decoded = JSON.parse(content);
+    if (decoded && typeof decoded === "object" && !Array.isArray(decoded)) {
+      payload = decoded;
+      content = [decoded.body, decoded.content, decoded.description].find(
+        (v) => typeof v === "string"
+      ) ?? "";
+      title = typeof decoded.title === "string" ? decoded.title.slice(0, 200) : "";
+    }
+  } catch {
   }
-  return [...videos.values()];
+  const candidates = [], seen = /* @__PURE__ */ new Map(), rejected = /* @__PURE__ */ new Set();
+  const extensions = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    avif: "image/avif",
+    mp4: "video/mp4",
+    webm: "video/webm",
+    mov: "video/quicktime",
+    m4v: "video/x-m4v",
+    m3u8: "application/vnd.apple.mpegurl"
+  };
+  const mimeTypes = new Map(
+    Object.values(extensions).map((m) => [
+      m,
+      m.startsWith("image/") ? "image" : "video"
+    ])
+  );
+  mimeTypes.set("application/x-mpegurl", "video");
+  for (const mime of [
+    "video/ogg",
+    "video/mpeg",
+    "video/mp2t",
+    "video/3gpp",
+    "video/av1",
+    "video/x-matroska"
+  ])
+    mimeTypes.set(mime, "video");
+  const add = (raw, mime, label, declared) => {
+    const url = mediaURL(raw);
+    if (!url) return;
+    const parsed = new URL(url), ext = parsed.pathname.match(/\.([^./]+)$/)?.[1].toLowerCase();
+    const extMime = extensions[ext];
+    if (/^(.*\.)?(facebook\.com|instagram\.com|fb\.watch)$/.test(parsed.hostname))
+      return;
+    if (mime !== void 0 && (!mimeTypes.has(mime) || ext && mime !== extMime && !(ext === "m3u8" && mime === "application/x-mpegurl"))) {
+      rejected.add(url);
+      return;
+    }
+    const type = mimeTypes.get(mime || extMime) || (declared === "image" && !ext ? "image" : null);
+    if (!type) return;
+    const previous = seen.get(url);
+    if (previous) {
+      if (previous.type !== type || mime && previous.mime && previous.mime !== mime)
+        rejected.add(url);
+      if (mime && !previous.mime) previous.mime = mime;
+      return;
+    }
+    const attachment = {
+      type,
+      url,
+      label: typeof label === "string" && label.trim() ? label.slice(0, 200) : `${type === "image" ? "Photo" : "Video"} attached to this community update`,
+      ...mime ? { mime } : {}
+    };
+    seen.set(url, attachment);
+    candidates.push(attachment);
+  };
+  if (payload)
+    for (const key of Object.keys(payload)) {
+      if (key !== "images" && key !== "videos") continue;
+      const values = Array.isArray(payload[key]) ? payload[key] : [payload[key]];
+      for (const value of values)
+        add(value, void 0, void 0, key === "images" ? "image" : "video");
+    }
+  for (const tag2 of event.tags) {
+    if (tag2[0] === "image") add(tag2[1], void 0, void 0, "image");
+    if (tag2[0] !== "imeta") continue;
+    const urls2 = tag2.slice(1).filter((v) => typeof v === "string" && v.startsWith("url "));
+    const mimes = tag2.slice(1).filter((v) => typeof v === "string" && v.startsWith("m "));
+    if (urls2.length !== 1 || mimes.length > 1) {
+      for (const raw of urls2) rejected.add(raw.slice(4));
+      continue;
+    }
+    const mime = mimes[0]?.slice(2).trim().toLowerCase();
+    const label = tag2.slice(1).find((v) => typeof v === "string" && v.startsWith("alt "))?.slice(4);
+    add(urls2[0].slice(4), mime, label);
+  }
+  for (const { raw } of bodyURLs(content)) add(raw);
+  const attachments = candidates.filter((a) => !rejected.has(a.url));
+  const urls = new Set(attachments.map((a) => a.url));
+  const text = content.split("\n").filter((line) => {
+    const found = bodyURLs(line);
+    if (found.length !== 1 || !urls.has(found[0].raw)) return true;
+    const { raw, index } = found[0];
+    return !/^[\s()[\]{}<>"'`.,!;:]*$/.test(
+      line.slice(0, index) + line.slice(index + raw.length)
+    );
+  }).join("\n").trim();
+  return { text, title, attachments };
 }
-function withoutVideos(text, videos) {
-  const urls = new Set(videos.map((v) => v.url));
-  for (const { raw, index } of bodyURLs(text).reverse())
-    if (urls.has(raw)) text = text.slice(0, index) + text.slice(index + raw.length);
-  return text.trim();
+
+// src/gallery.js
+var node = (tag2, cls, text) => {
+  const n = document.createElement(tag2);
+  if (cls) n.className = cls;
+  if (text !== void 0) n.textContent = text;
+  return n;
+};
+var viewer;
+function gallery() {
+  if (viewer) return viewer;
+  const dialog = node("dialog", "media-gallery");
+  dialog.id = "media-gallery";
+  dialog.setAttribute("aria-label", "Community media gallery");
+  const bar = node("div", "gallery-bar");
+  const counter = node("span");
+  counter.id = "media-counter";
+  counter.setAttribute("aria-live", "polite");
+  const button = (label, action) => {
+    const b = node("button", "gallery-button", label);
+    b.type = "button";
+    b.addEventListener("click", action);
+    return b;
+  };
+  const close = button("Close", () => dialog.close());
+  const stage = node("div", "gallery-stage");
+  const controls = node("div", "gallery-controls");
+  const previous = button("Previous", () => show(index - 1));
+  const next = button("Next", () => show(index + 1));
+  const original = node("a", "gallery-original", "Open original (new tab)");
+  original.target = "_blank";
+  original.rel = "noopener noreferrer";
+  bar.append(counter, close);
+  controls.append(previous, original, next);
+  dialog.append(bar, stage, controls);
+  document.body.append(dialog);
+  let items = [], index = 0, opener, scroll = 0, oldOverflow;
+  let activeVideo, observer, touch, sessionActive = false;
+  const clear = () => {
+    touch = null;
+    observer?.disconnect();
+    observer = null;
+    if (activeVideo) {
+      activeVideo.pause();
+      activeVideo.removeAttribute("src");
+      activeVideo.load();
+      activeVideo = null;
+    }
+    stage.replaceChildren();
+  };
+  function show(selected) {
+    if (selected < 0 || selected >= items.length) return;
+    if (dialog.open && stage.contains(document.activeElement)) close.focus();
+    clear();
+    index = selected;
+    const item = items[index];
+    counter.textContent = `Media ${index + 1} of ${items.length}`;
+    if (index === 0 && document.activeElement === previous || index === items.length - 1 && document.activeElement === next)
+      close.focus();
+    previous.disabled = index === 0;
+    next.disabled = index === items.length - 1;
+    original.href = item.url;
+    if (item.type === "video") {
+      const play = button("Play video", () => {
+        const video = node("video");
+        video.controls = true;
+        video.playsInline = true;
+        video.preload = "none";
+        video.setAttribute("aria-label", item.label);
+        const failure = node(
+          "p",
+          "gallery-failure",
+          "Video unavailable in this browser. Open the original to try another player."
+        );
+        failure.hidden = true;
+        const hls = ["application/vnd.apple.mpegurl", "application/x-mpegurl"].includes(
+          item.mime?.toLowerCase()
+        ) || /\.m3u8$/i.test(new URL(item.url).pathname);
+        if (hls && !video.canPlayType("application/vnd.apple.mpegurl")) {
+          close.focus();
+          stage.replaceChildren(
+            node(
+              "p",
+              "gallery-failure",
+              "HLS playback is not supported in this browser. Open the original to try a compatible player."
+            )
+          );
+          return;
+        }
+        activeVideo = video;
+        video.addEventListener("error", () => {
+          failure.hidden = false;
+        });
+        stage.replaceChildren(video, failure);
+        close.focus();
+        video.src = item.url;
+        video.play().catch(() => {
+          if (activeVideo === video) failure.hidden = false;
+        });
+        const owner = new IntersectionObserver((entries) => {
+          if (activeVideo === video && observer === owner && entries.some((e) => !e.isIntersecting))
+            show(index);
+        });
+        observer = owner;
+        owner.observe(stage);
+      });
+      const preview = node("div", "gallery-video-preview");
+      if (item.poster) {
+        const poster = node("img");
+        poster.src = item.poster;
+        poster.alt = "";
+        poster.referrerPolicy = "no-referrer";
+        preview.append(poster);
+      }
+      preview.append(node("p", "", item.label), play);
+      stage.append(preview);
+      return;
+    }
+    const img = node("img");
+    img.src = item.url;
+    img.alt = item.label;
+    img.referrerPolicy = "no-referrer";
+    img.addEventListener(
+      "error",
+      () => {
+        if (stage.contains(img))
+          stage.replaceChildren(
+            node(
+              "p",
+              "gallery-failure",
+              "Photo unavailable. You can open the original in a new tab."
+            )
+          );
+      },
+      { once: true }
+    );
+    stage.append(img);
+  }
+  dialog.addEventListener("keydown", (e) => {
+    const playerOwnsKey = e.composedPath().some((n) => n instanceof HTMLVideoElement);
+    if (e.key === "ArrowRight" && !playerOwnsKey) {
+      e.preventDefault();
+      show(index + 1);
+    }
+    if (e.key === "ArrowLeft" && !playerOwnsKey) {
+      e.preventDefault();
+      show(index - 1);
+    }
+    if (e.key === "Tab") {
+      const focusable = [
+        ...dialog.querySelectorAll(
+          "button:not(:disabled),a[href],video[controls]"
+        )
+      ].filter((n) => !n.hidden);
+      const first = focusable[0], last = focusable.at(-1);
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+  stage.addEventListener("touchcancel", () => {
+    touch = null;
+  }, { passive: true });
+  stage.addEventListener(
+    "touchstart",
+    (e) => {
+      touch = null;
+      if (e.composedPath().some((n) => n instanceof HTMLVideoElement) || e.touches.length !== 1) return;
+      touch = {
+        id: e.touches[0].identifier,
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY
+      };
+    },
+    { passive: true }
+  );
+  stage.addEventListener(
+    "touchend",
+    (e) => {
+      const end = e.changedTouches[0];
+      if (touch && end && end.identifier === touch.id && !e.composedPath().some((n) => n instanceof HTMLVideoElement) && Math.abs(end.clientX - touch.x) > 50 && Math.abs(end.clientX - touch.x) > Math.abs(end.clientY - touch.y))
+        show(index + (end.clientX < touch.x ? 1 : -1));
+      touch = null;
+    },
+    { passive: true }
+  );
+  const suspend = () => {
+    if (dialog.open && activeVideo) show(index);
+  };
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") suspend();
+  });
+  window.addEventListener("pagehide", suspend);
+  dialog.addEventListener("cancel", clear);
+  const teardown = () => {
+    if (!sessionActive) return;
+    sessionActive = false;
+    clear();
+    document.body.style.overflow = oldOverflow;
+    window.scrollTo({ top: scroll, behavior: "instant" });
+    if (opener?.isConnected) opener.focus({ preventScroll: true });
+    else {
+      const heading = document.getElementById("feed-heading");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }
+    }
+  };
+  const nativeClose = dialog.close.bind(dialog);
+  dialog.close = (...args) => {
+    nativeClose(...args);
+    if (!dialog.open) teardown();
+  };
+  dialog.addEventListener("close", () => {
+    if (!dialog.open) teardown();
+  });
+  viewer = {
+    open(attachments, selected, trigger) {
+      if (sessionActive) {
+        if (dialog.open) dialog.close();
+        else teardown();
+      }
+      items = attachments;
+      opener = trigger;
+      scroll = window.scrollY;
+      oldOverflow = document.body.style.overflow;
+      sessionActive = true;
+      document.body.style.overflow = "hidden";
+      show(selected);
+      dialog.showModal();
+      close.focus();
+    },
+    reconcile() {
+      if (dialog.open && !opener?.isConnected) dialog.close();
+    }
+  };
+  return viewer;
+}
+function reconcileGallery() {
+  viewer?.reconcile();
+}
+function mediaGrid(attachments) {
+  if (!attachments.length) return null;
+  const grid = node(
+    "div",
+    `post-media media-grid media-count-${Math.min(4, attachments.length)}`
+  );
+  attachments.slice(0, 4).forEach((item, index) => {
+    const tile = node("button", "media-tile");
+    tile.type = "button";
+    tile.setAttribute(
+      "aria-label",
+      `Open ${item.type === "video" ? "video" : "photo"} ${index + 1} of ${attachments.length}: ${item.label}`
+    );
+    if (item.type === "image" || item.poster) {
+      const img = node("img");
+      img.src = item.type === "image" ? item.url : item.poster;
+      img.alt = item.type === "image" ? item.label : "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener(
+        "error",
+        () => {
+          img.replaceWith(
+            node(
+              "span",
+              "media-failure",
+              item.type === "image" ? "Photo unavailable \xB7 Open original" : "Video"
+            )
+          );
+        },
+        { once: true }
+      );
+      tile.append(img);
+    }
+    if (item.type === "video")
+      tile.append(node("span", "video-badge", "\u25B6 Video"));
+    if (index === 3 && attachments.length > 4)
+      tile.append(node("span", "media-more", `+${attachments.length - 4}`));
+    tile.addEventListener(
+      "click",
+      () => gallery().open(attachments, index, tile)
+    );
+    grid.append(tile);
+  });
+  return grid;
 }
 
 // src/receipts.js
@@ -6336,7 +6721,7 @@ function setupZaps({ getPost, getState, recheck }) {
       ...dialog.querySelectorAll(
         'button:not([disabled]),a[href],input:not([disabled]),textarea:not([disabled]),summary,[tabindex="0"]'
       )
-    ].filter((node) => node.getClientRects().length > 0);
+    ].filter((node2) => node2.getClientRects().length > 0);
     const first = controls[0], last = controls.at(-1), active = document.activeElement;
     if (!first) {
       event.preventDefault();
@@ -6478,7 +6863,31 @@ function renderFeed() {
     zapState.snapshot?.sources
   ]);
   if (projectionKey !== feedProjectionKey) {
-    $2("feed").replaceChildren(...ordered.map((e) => post(e, currentIdentities.get(e.pubkey))));
+    const feed = $2("feed");
+    const existing = new Map([...feed.children].map((card) => [card.dataset.eventId, card]));
+    let cursor = feed.firstElementChild;
+    for (const e of ordered) {
+      const identity = currentIdentities.get(e.pubkey);
+      const card = existing.get(e.id) || post(e, identity);
+      existing.delete(e.id);
+      if (card !== cursor) {
+        const focused = card.contains(document.activeElement) ? document.activeElement : null;
+        feed.insertBefore(card, cursor);
+        if (focused?.isConnected && document.activeElement !== focused) focused.focus({ preventScroll: true });
+      }
+      cursor = card.nextElementSibling;
+      card.querySelector(".author strong").textContent = identity.name;
+      card.querySelector(".avatar").textContent = Array.from(identity.name)[0]?.toUpperCase() || "A";
+      card.querySelector(".identity").textContent = identity.nip05;
+      card.querySelector(".provenance dd").textContent = identity.nip05;
+      const amount = updateZapTotal(e, card.querySelector(".zap-total"));
+      card.querySelector(".receipt-warning").textContent = amount.title;
+    }
+    for (const card of existing.values()) {
+      card._captionObserver?.disconnect();
+      card.remove();
+    }
+    reconcileGallery();
     feedProjectionKey = projectionKey;
   }
 }
@@ -6539,20 +6948,17 @@ var ended = false;
 function richText(text) {
   const p = el("p");
   let last = 0;
-  for (const m of text.matchAll(/https:\/\/[^\s<>"\u0000-\u001f]+/g)) {
-    p.append(document.createTextNode(text.slice(last, m.index)));
-    const raw = m[0].replace(/[.,!;:)]+$/, "");
-    const url = safeURL(raw);
-    p.append(url ? link(raw, url) : document.createTextNode(raw));
-    p.append(document.createTextNode(m[0].slice(raw.length)));
-    last = m.index + m[0].length;
+  for (const { raw, index } of bodyURLs(text)) {
+    p.append(document.createTextNode(text.slice(last, index)));
+    p.append(safeURL(raw) ? link(raw, raw) : document.createTextNode(raw));
+    last = index + raw.length;
   }
   p.append(document.createTextNode(text.slice(last)));
   return p;
 }
 function provenance(e, identity) {
   const details = el("details", "provenance");
-  details.append(el("summary", "", "Source"));
+  details.append(el("summary", "", "Details"));
   const dl = el("dl");
   for (const [label, value] of [
     ["Community identity", identity.nip05],
@@ -6578,21 +6984,16 @@ function provenance(e, identity) {
   );
   return details;
 }
-function imageURLs(e) {
-  const urls = [];
-  for (const t of e.tags) {
-    if (t[0] === "image") urls.push(t[1]);
-    if (t[0] === "imeta") {
-      for (const v of t.slice(1))
-        if (v.startsWith("url ")) urls.push(v.slice(4));
-    }
-  }
-  for (const m of e.content.matchAll(/https:\/\/[^\s<>"\u0000-\u001f]+/g)) {
-    const u = safeURL(m[0]);
-    if (u && /\.(jpe?g|png|webp|gif|avif)$/i.test(new URL(u).pathname))
-      urls.push(u);
-  }
-  return [...new Set(urls.map(safeURL).filter(Boolean))].slice(0, 4);
+function updateZapTotal(e, amount) {
+  const confirmed = totals.get(e.id) ?? 0n;
+  const unavailable = zapState.error && !feedStore.state.receipts.length;
+  amount.textContent = unavailable || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " \xB7 provisional" : ""}`;
+  amount.title = unavailable ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
+  amount.setAttribute(
+    "aria-label",
+    unavailable || zapState.snapshot?.partial && confirmed === 0n ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`
+  );
+  return amount;
 }
 function post(e, identity) {
   const article = el("article", "post");
@@ -6619,79 +7020,38 @@ function post(e, identity) {
   time.title = format(e.created_at, { dateStyle: "full", timeStyle: "short" }) + " Pacific";
   top.append(avatar, author, time);
   article.append(top);
-  const videos = postVideos(e);
-  const videoURLs = new Set(videos.map((v) => v.url));
-  const images = imageURLs(e).filter((url) => !videoURLs.has(url) && !/\.(mp4|webm|mov)$/i.test(new URL(url).pathname));
-  let text = withoutVideos(e.content, videos);
-  for (const url of images)
-    text = text.split("\n").filter((line) => line.trim() !== url).join("\n");
-  text = text.trim();
+  const parsed = parsePost(e);
+  const media = mediaGrid(parsed.attachments);
+  if (media) article.append(media);
   const body = el("div", "post-body");
-  if (text.length > 700) {
-    body.append(richText(text.slice(0, 650)));
-    const more = el("details");
-    more.append(
-      el("summary", "", "Read the full update"),
-      richText(text.slice(650))
-    );
-    body.append(more);
-  } else if (text) body.append(richText(text));
-  article.append(body);
-  if (images.length) {
-    const media = el("div", "post-media");
-    for (const url of images) {
-      const img = el("img");
-      img.src = url;
-      img.alt = tag(e, "alt") || "Photo attached to this community update";
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.referrerPolicy = "no-referrer";
-      img.addEventListener(
-        "error",
-        () => {
-          const p = el("p", "media-failure", "Photo unavailable. ");
-          p.append(link("Open original image (new tab)", url));
-          img.replaceWith(p);
-        },
-        { once: true }
-      );
-      media.append(img);
+  if (parsed.title) body.append(el("h3", "post-title", parsed.title));
+  if (parsed.text) {
+    const caption = richText(parsed.text);
+    caption.className = "post-caption";
+    caption.id = "caption-" + e.id;
+    const more = el("button", "caption-toggle", "Read more");
+    more.type = "button";
+    more.setAttribute("aria-controls", caption.id);
+    more.setAttribute("aria-expanded", "false");
+    const expand = (expanded) => {
+      more.setAttribute("aria-expanded", String(expanded));
+      more.textContent = expanded ? "Read less" : "Read more";
+      caption.classList.toggle("expanded", expanded);
+    };
+    more.addEventListener("click", () => expand(more.getAttribute("aria-expanded") !== "true"));
+    caption.addEventListener("focusin", () => expand(true));
+    body.append(caption, more);
+    if (typeof ResizeObserver !== "undefined") {
+      const measure = new ResizeObserver(() => {
+        if (more.getAttribute("aria-expanded") === "false") more.hidden = caption.scrollHeight <= caption.clientHeight + 1;
+      });
+      measure.observe(caption);
+      article._captionObserver = measure;
     }
-    article.append(media);
   }
-  for (const { url, label } of videos) {
-    const media = el("div", "post-video");
-    const video = el("video");
-    video.controls = true;
-    video.setAttribute("playsinline", "");
-    video.preload = "none";
-    video.setAttribute("aria-label", label);
-    const failure = el("p", "video-error", "Video unavailable in this browser.");
-    failure.hidden = true;
-    video.addEventListener("error", () => {
-      failure.hidden = false;
-    });
-    video.addEventListener("play", () => {
-      for (const other of document.querySelectorAll("#feed video"))
-        if (other !== video) other.pause();
-    });
-    video.src = url;
-    media.append(video, failure, link("Open original video (new tab)", url));
-    article.append(media);
-  }
+  article.append(body);
   const tipping = el("div", "post-zap");
-  const confirmed = totals.get(e.id) ?? 0n;
-  const unavailable = zapState.error && !feedStore.state.receipts.length;
-  const amount = el(
-    "span",
-    "zap-total",
-    unavailable || zapState.snapshot?.partial && confirmed === 0n ? "\u2014" : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " \xB7 provisional" : ""}`
-  );
-  amount.title = unavailable ? "Zap checks unavailable \u2014 not proof that no payments exist." : `${zapState.snapshot?.partial ? "Partial receipt check \xB7 totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts \xB7 ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
-  amount.setAttribute(
-    "aria-label",
-    unavailable || zapState.snapshot?.partial && confirmed === 0n ? "Zap total unavailable" : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`
-  );
+  const amount = updateZapTotal(e, el("span", "zap-total"));
   const zap = el("button", "zap-button");
   zap.type = "button";
   zap.setAttribute("aria-label", "Zap this post");
@@ -6702,9 +7062,11 @@ function post(e, identity) {
   const path = document.createElementNS(icon.namespaceURI, "path");
   path.setAttribute("d", "m13 2-9 12h7l-1 8 10-13h-7l0-7Z");
   icon.append(path);
-  zap.append(icon);
+  zap.append(icon, document.createTextNode("Zap"));
   zap.addEventListener("click", () => zapUI.open(e.id, zap));
-  tipping.append(zap, amount, provenance(e, identity));
+  const details = provenance(e, identity);
+  details.append(el("p", "receipt-warning", amount.title));
+  tipping.append(zap, amount, details);
   article.append(tipping);
   return article;
 }
@@ -6852,6 +7214,10 @@ async function startFeed() {
   await feedStore.restore();
   if (feedStore.state.receipts.length) zapState = { authority: null, error: null, snapshot: { partial: true, sources: [...new Set(feedStore.state.receipts.flatMap((c) => c.sources))] } };
   projectSaved();
+  if (!navigator.onLine) {
+    $2("connection").textContent = "Offline \xB7 retained updates";
+    $2("connection").dataset.state = "error";
+  }
   $2("feed").setAttribute("aria-busy", "false");
   status(`${checkedLabel()} \xB7 stale saved history. ${feedStore.warning ?? ""}`, !!feedStore.warning);
   load(true, true);

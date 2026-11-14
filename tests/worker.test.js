@@ -39,6 +39,7 @@ async function worker(
       "unrelated-cache",
       "anmore-social-offline-v1",
       "anmore-social-shell-v1",
+      "anmore-social-shell-v2",
     ],
     delete: async (key) => removed.push(key),
   };
@@ -67,6 +68,25 @@ async function worker(
   };
 }
 
+test("release shell generation v2 matches both index asset queries and worker allowlist", async () => {
+  const source = await readFile(new URL("../sw.js", import.meta.url), "utf8");
+  const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+  assert.match(source, /const OFFLINE_CACHE = "anmore-social-shell-v2";/);
+  for (const asset of ["app.js", "feed.css"]) {
+    assert.ok(index.includes(`./${asset}?v=durable-feed-2`), asset);
+    const w = await worker();
+    for (const generation of [1, 2, 3]) {
+      let response;
+      w.handlers.fetch({
+        request: { url: `https://anmore.social/${asset}?v=durable-feed-${generation}`, method: "GET", mode: "cors" },
+        respondWith: p => (response = p),
+      });
+      assert.equal(!!response, generation === 2, `${asset} generation ${generation}`);
+      if (response) assert.equal(await (await response).text(), "saved shell");
+    }
+  }
+});
+
 test("owner-authorized worker installs exact reviewed shell without skipWaiting", async () => {
   const w = await worker();
   await w.run("install");
@@ -82,6 +102,7 @@ test("activation preserves unrelated and current caches while removing only own 
     "anmore-social-pwa-old",
     "anmore-social-offline-v0",
     "anmore-social-offline-v1",
+    "anmore-social-shell-v1",
   ]);
   assert.equal(w.claimed(), 1);
   assert.equal(w.skipped(), 0);

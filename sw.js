@@ -1,13 +1,13 @@
 // Reviewed immutable same-origin shell only. Public accepted evidence is in
 // IndexedDB, never HTTP caches. No invoice, payment, external media or runtime writes.
-const OFFLINE_CACHE = "anmore-social-shell-v1";
+const OFFLINE_CACHE = "anmore-social-shell-v2";
 const SHELL = ["index.html","app.js","feed.css","manifest.webmanifest","icons/icon-192.png","icons/apple-touch-icon.png","offline.html","offline.css"];
 self.addEventListener("fetch", event => {
  const request=event.request,url=new URL(request.url),root=new URL('./',self.registration.scope);
  if(request.method!=="GET"||url.origin!==root.origin)return;
  const path=url.pathname.slice(root.pathname.length);
  const landing=(path===''||path==='index.html')&&(url.search===''||url.search==='?source=pwa')&&request.mode==='navigate';
- const asset=SHELL.includes(path)&&(url.search===''||(['app.js','feed.css'].includes(path)&&url.search==='?v=durable-feed-1'));
+ const asset=SHELL.includes(path)&&(url.search===''||(['app.js','feed.css'].includes(path)&&url.search==='?v=durable-feed-2'));
  if(!landing&&!asset)return;
  // Version-pinned cache-first shell avoids mixing new markup and an old bundle.
  // Activation remains explicit; no network response is ever written at runtime.

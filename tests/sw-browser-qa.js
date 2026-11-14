@@ -6,7 +6,7 @@ import AxeBuilder from "@axe-core/playwright";
 import assert from "node:assert/strict";
 const root = new URL("../", import.meta.url);
 const shell=["/index.html","/app.js","/feed.css","/manifest.webmanifest","/icons/icon-192.png","/icons/apple-touch-icon.png","/offline.html","/offline.css"];
-let revision = 1,
+let revision = 2,
   mode = "current",
   networkDown = false;
 const legacyCommit = "9e89c6ae178e6a934a0637bbdfbd951cf7d68602";
@@ -47,7 +47,7 @@ const server = http.createServer(async (req, res) => {
           body
             .toString()
             .replaceAll(
-              "anmore-social-shell-v1",
+              "anmore-social-shell-v2",
               `anmore-social-shell-v${revision}`,
             ),
         );
@@ -56,10 +56,10 @@ const server = http.createServer(async (req, res) => {
       // Distinct deployed shell generations, not just a renamed worker cache.
       if (file === "index.html") body = Buffer.from(body.toString()
         .replace('<body>', `<body data-shell-version="${revision}">`)
-        .replaceAll('durable-feed-1', `durable-feed-${revision}`));
+        .replaceAll('durable-feed-2', `durable-feed-${revision}`));
       if (file === "app.js") body = Buffer.from(`window.__shellVersion=${revision};\n${body.toString()}`);
       if (file === "sw.js") body = Buffer.from(body.toString()
-        .replaceAll('durable-feed-1', `durable-feed-${revision}`));
+        .replaceAll('durable-feed-2', `durable-feed-${revision}`));
     }
     res.setHeader(
       "Content-Type",
@@ -161,7 +161,7 @@ try {
     await rm(profile, { recursive: true, force: true });
   }
   assert.deepEqual(await cacheState(page), {
-    "anmore-social-shell-v1": shell,
+    "anmore-social-shell-v2": shell,
   });
   await page.evaluate(async () => {
     for (const url of [
@@ -174,7 +174,7 @@ try {
       await fetch(url);
     await caches.open("unrelated-cache");
   });
-  assert.deepEqual((await cacheState(page))["anmore-social-shell-v1"],shell);
+  assert.deepEqual((await cacheState(page))["anmore-social-shell-v2"],shell);
   networkDown = true;
   await context.setOffline(true);
   await page.reload();
@@ -214,10 +214,10 @@ try {
   const second = await context.newPage();
   await second.goto(origin);
   await controlled(second);
-  assert.equal(await page.evaluate(()=>window.__shellVersion),1,'Version-one bundle bytes executed');
-  assert.equal(await second.locator('body').getAttribute('data-shell-version'),'1');
+  assert.equal(await page.evaluate(()=>window.__shellVersion),2,'Current version-two bundle bytes executed');
+  assert.equal(await second.locator('body').getAttribute('data-shell-version'),'2');
   await second.evaluate(() => (window.__invoiceSession = "preserved"));
-  revision = 2;
+  revision = 3;
   await page.evaluate(async () =>
     (await navigator.serviceWorker.getRegistration()).update(),
   );
@@ -225,9 +225,9 @@ try {
     async () => (await navigator.serviceWorker.getRegistration())?.waiting,
   );
   await page.locator("#app-update").waitFor({ timeout: 3000 });
-  assert.equal(await page.locator('body').getAttribute('data-shell-version'),'1','Waiting update retains old markup');
-  assert.equal(await page.evaluate(()=>window.__shellVersion),1,'Waiting update retains old executing bundle');
-  assert.match(await page.evaluate(async()=>await (await fetch('/app.js?v=durable-feed-1')).text()),/^window\.__shellVersion=1;/,'Old query remains pinned before consent');
+  assert.equal(await page.locator('body').getAttribute('data-shell-version'),'2','Waiting update retains old markup');
+  assert.equal(await page.evaluate(()=>window.__shellVersion),2,'Waiting update retains old executing bundle');
+  assert.match(await page.evaluate(async()=>await (await fetch('/app.js?v=durable-feed-2')).text()),/^window\.__shellVersion=2;/,'Old query remains pinned before consent');
   assert.equal(
     await page.locator("#update-reload").isDisabled(),
     true,
@@ -274,10 +274,10 @@ try {
     page.locator("#update-reload").click(),
   ]);
   await page.waitForFunction(async () =>
-    (await caches.keys()).includes("anmore-social-shell-v2"),
+    (await caches.keys()).includes("anmore-social-shell-v3"),
   );
   assert.deepEqual(await cacheState(page), {
-    "anmore-social-shell-v2": shell,
+    "anmore-social-shell-v3": shell,
     "unrelated-cache": [],
   });
   assert.equal(
@@ -285,17 +285,17 @@ try {
     "preserved",
     "No forced reload of another tab/invoice session",
   );
-  assert.equal(await page.locator('body').getAttribute('data-shell-version'),'2');
-  assert.equal(await page.evaluate(()=>window.__shellVersion),2,'Consenting reload executes matching new bundle');
-  assert.equal(await page.locator('script[src*="app.js"]').getAttribute('src'),'./app.js?v=durable-feed-2');
-  assert.equal(await second.locator('body').getAttribute('data-shell-version'),'1','Nonconsenting tab keeps existing markup');
-  assert.equal(await second.evaluate(()=>window.__shellVersion),1,'Nonconsenting tab keeps existing JS state');
+  assert.equal(await page.locator('body').getAttribute('data-shell-version'),'3');
+  assert.equal(await page.evaluate(()=>window.__shellVersion),3,'Consenting reload executes matching new bundle');
+  assert.equal(await page.locator('script[src*="app.js"]').getAttribute('src'),'./app.js?v=durable-feed-3');
+  assert.equal(await second.locator('body').getAttribute('data-shell-version'),'2','Nonconsenting tab keeps existing markup');
+  assert.equal(await second.evaluate(()=>window.__shellVersion),2,'Nonconsenting tab keeps existing JS state');
   networkDown=true;await context.setOffline(true);
   await page.reload();
-  assert.equal(await page.locator('body').getAttribute('data-shell-version'),'2');
-  assert.equal(await page.evaluate(()=>window.__shellVersion),2,'Offline reload uses coherent new HTML/bundle');
-  assert.match(await page.evaluate(async()=>await (await fetch('/app.js?v=durable-feed-2')).text()),/^window\.__shellVersion=2;/);
-  assert.equal(await page.evaluate(async()=>{try{await fetch('/app.js?v=durable-feed-1');return false;}catch{return true;}}),true,'Obsolete asset query is not silently served new bytes offline');
+  assert.equal(await page.locator('body').getAttribute('data-shell-version'),'3');
+  assert.equal(await page.evaluate(()=>window.__shellVersion),3,'Offline reload uses coherent new HTML/bundle');
+  assert.match(await page.evaluate(async()=>await (await fetch('/app.js?v=durable-feed-3')).text()),/^window\.__shellVersion=3;/);
+  assert.equal(await page.evaluate(async()=>{try{await fetch('/app.js?v=durable-feed-2');return false;}catch{return true;}}),true,'Obsolete asset query is not silently served new bytes offline');
   assert.equal(await second.evaluate(()=>window.__invoiceSession),'preserved');
   networkDown=false;await context.setOffline(false);
   evidence.update = {
@@ -310,7 +310,7 @@ try {
   await context.close();
   for (const oldMode of ["legacy", "retirement"]) {
     mode = oldMode;
-    revision = 1;
+    revision = 2;
     const migration = await contextFor();
     const tab = await migration.newPage();
     await tab.goto(origin + "/migration");
@@ -341,11 +341,11 @@ try {
     }
     await controlled(tab);
     await tab.waitForFunction(async () =>
-      (await caches.keys()).includes("anmore-social-shell-v1"),
+      (await caches.keys()).includes("anmore-social-shell-v2"),
     );
     assert.deepEqual(await cacheState(tab), {
       "unrelated-cache": [],
-      "anmore-social-shell-v1": shell,
+      "anmore-social-shell-v2": shell,
     });
     assert.equal(
       await tab.evaluate(

@@ -6,6 +6,8 @@ import { build } from "esbuild";
 import { chromium, webkit } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
 import { finalizeEvent } from "nostr-tools/pure";
+import { invoice, keys } from "./zap-fixtures.js";
+import { COMMUNITY_ADDRESS, COMMUNITY_LNURL, PAY_CALLBACK } from "../src/zaps.js";
 const root = new URL("../", import.meta.url);
 await mkdir(
   process.env.VISUAL_UI_ARTIFACTS ||
@@ -759,4 +761,201 @@ test("author identity refresh updates compact avatar and expanded provenance wit
     true,
   );
 });
+const videoTag = ["imeta", "url https://media.example/clip.mp4", "m video/mp4", "alt Local clip"];
+for (const engine of ["chromium", "webkit"])
+  test(`${engine}: native video owns arrow keys without detaching actual playback`, async (t) => {
+    const { page } = await fixture(t, engine, [sign({ tags: [photo(1), videoTag, photo(2)] })]);
+    await page.locator(".media-tile").nth(1).click();
+    await page.getByRole("button", { name: "Play video", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.currentTime > 0.1);
+    const result = await page.evaluate(() => {
+      const video = document.querySelector("video");
+      video.focus();
+      const prevented = ["ArrowLeft", "ArrowRight"].map(key => {
+        const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+        video.dispatchEvent(event);
+        return event.defaultPrevented;
+      });
+      return { prevented, connected: video.isConnected, src: video.getAttribute("src"), playing: !video.paused, counter: document.querySelector("#media-counter").textContent };
+    });
+    assert.deepEqual(result.prevented, [false, false], "gallery must not cancel player keys");
+    assert.equal(result.connected && result.playing, true);
+    assert.equal(result.src, "https://media.example/clip.mp4");
+    assert.equal(result.counter, "Media 2 of 3");
+    await page.getByRole("button", { name: "Close", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await page.locator("#media-counter").textContent(), "Media 3 of 3");
+  });
+// Deterministic DOM touch fault injection, not physical-device gesture timing.
+for (const engine of ["chromium", "webkit"])
+  for (const scenario of ["cancel", "slide", "close", "video-start", "video-end", "identifier"])
+    test(`${engine}: gallery touch ownership rejects stale ${scenario} sequence`, async (t) => {
+      const { page } = await fixture(t, engine, [sign({ tags: [photo(1), videoTag, photo(2)] })]);
+      await page.locator(".media-tile").first().click();
+      const result = await page.evaluate(async (scenario) => {
+        const dialog = document.querySelector("#media-gallery");
+        const stage = dialog.querySelector(".gallery-stage");
+        const send = (target, type, x, identifier = 1) => {
+          const point = { identifier, clientX: x, clientY: 100 };
+          const event = new Event(type, { bubbles: true });
+          Object.defineProperties(event, {
+            touches: { value: type === "touchstart" ? [point] : [] },
+            changedTouches: { value: [point] },
+          });
+          target.dispatchEvent(event);
+        };
+        send(stage, "touchstart", 300);
+        let expected = "Media 1 of 3", video;
+        if (scenario === "cancel") stage.dispatchEvent(new Event("touchcancel", { bubbles: true }));
+        if (["slide", "video-start", "video-end"].includes(scenario)) {
+          dialog.querySelector(".gallery-controls button:last-child").click();
+          expected = "Media 2 of 3";
+        }
+        if (scenario === "close") {
+          dialog.close();
+          await new Promise(resolve => dialog.addEventListener("close", resolve, { once: true }));
+          document.querySelector(".media-tile").click();
+        }
+        if (scenario.startsWith("video")) {
+          stage.querySelector("button").click();
+          video = stage.querySelector("video");
+          await new Promise(resolve => video.addEventListener("playing", resolve, { once: true }));
+          if (scenario === "video-start") send(video, "touchstart", 200);
+          else send(stage, "touchstart", 300);
+        }
+        send(video || stage, "touchend", 100, scenario === "identifier" ? 2 : 1);
+        return { counter: document.querySelector("#media-counter").textContent, expected, videoKept: !video || (video.isConnected && !video.paused && !!video.getAttribute("src")) };
+      }, scenario);
+      assert.equal(result.counter, result.expected, scenario);
+      assert.equal(result.videoKept, true);
+      await page.getByRole("button", { name: "Close", exact: true }).click();
+    });
+for (const engine of ["chromium", "webkit"])
+  test(`${engine}: same-task native close and reopen fences queued close and restores scroll lock`, async (t) => {
+    const { page } = await fixture(t, engine, [sign({ tags: [videoTag, photo(1)] })]);
+    await page.evaluate(() => { document.body.style.overflow = "clip"; });
+    await page.locator(".media-tile").first().click();
+    await page.getByRole("button", { name: "Play video", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.currentTime > 0.1);
+    const result = await page.evaluate(async () => {
+      const dialog = document.querySelector("#media-gallery");
+      const video = dialog.querySelector("video");
+      const nativeEvents = [];
+      dialog.addEventListener("close", e => nativeEvents.push(e.isTrusted));
+      const closed = () => new Promise(resolve => dialog.addEventListener("close", resolve, { once: true }));
+      const first = closed();
+      dialog.close();
+      const synchronous = { cleaned: video.paused && !video.getAttribute("src") && !video.isConnected, overflow: document.body.style.overflow };
+      document.querySelectorAll(".media-tile")[1].click();
+      await first; // Actual browser-queued close, never a dispatched Event("close").
+      const reopened = { open: dialog.open, image: !!dialog.querySelector(".gallery-stage img"), counter: dialog.querySelector("#media-counter").textContent, overflow: document.body.style.overflow, focus: dialog.contains(document.activeElement) };
+      const last = closed();
+      dialog.close();
+      await last;
+      return { synchronous, reopened, finalOverflow: document.body.style.overflow, nativeEvents, open: dialog.open };
+    });
+    assert.deepEqual(result.synchronous, { cleaned: true, overflow: "clip" }, "close must tear down before returning");
+    assert.deepEqual(result.reopened, { open: true, image: true, counter: "Media 2 of 2", overflow: "hidden", focus: true });
+    assert.equal(result.finalOverflow, "clip");
+    assert.equal(result.open, false);
+    assert.deepEqual(result.nativeEvents, [true, true]);
+  });
+for (const engine of ["chromium", "webkit"])
+  test(`${engine}: retired observer callback cannot own a later actual video`, async (t) => {
+    const { page } = await fixture(t, engine, [sign({ tags: [videoTag, photo(1)] })]);
+    // Retain disconnected callbacks deterministically; actual media is not stubbed.
+    // This proves ownership fencing, not spontaneous native IO queue timing.
+    await page.evaluate(() => {
+      window.galleryObservers = [];
+      window.IntersectionObserver = class {
+        constructor(callback) { this.callback = callback; galleryObservers.push(this); }
+        observe() {}
+        disconnect() { this.disconnected = true; }
+      };
+    });
+    await page.locator(".media-tile").first().click();
+    await page.getByRole("button", { name: "Play video", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.currentTime > 0.1);
+    await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+    await page.getByRole("button", { name: "Play video", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.currentTime > 0.1);
+    const result = await page.evaluate(() => {
+      const stale = galleryObservers[0], owner = galleryObservers.at(-1);
+      const video = document.querySelector("video");
+      stale.callback([{ isIntersecting: false }]);
+      const kept = video.isConnected && !video.paused && !!video.getAttribute("src");
+      owner.callback([{ isIntersecting: false }]);
+      return { disconnected: stale.disconnected, kept, currentCanSuspend: !video.isConnected && video.paused && !video.getAttribute("src") };
+    });
+    assert.deepEqual(result, { disconnected: true, kept: true, currentCanSuspend: true });
+  });
+// Historical signed receipt fixture only: no live invoice or payment request.
+function receiptClaim(post) {
+  const signed = (data, key) => finalizeEvent({ kind: 1, created_at: now - 20, content: "", tags: [], ...data }, key);
+  const community = signed({ kind: 0, content: JSON.stringify({ nip05: "community@trailscoffee.com", lud16: COMMUNITY_ADDRESS }) }, keys.recipient);
+  const issuer = signed({}, keys.issuer).pubkey;
+  const mapping = { names: { community: community.pubkey } };
+  const endpoint = { tag: "payRequest", allowsNostr: true, nostrPubkey: issuer, callback: PAY_CALLBACK, minSendable: 1000, maxSendable: 100000000 };
+  const authority = { recipient: community.pubkey, profileId: community.id, issuer, checkedAt: now, min: 1000, max: 100000000, evidence: { profile: community, mapping, mappingJSON: JSON.stringify(mapping), endpoint } };
+  const request = signed({ kind: 9734, created_at: now - 10, tags: [["p", community.pubkey], ["e", post.id], ["amount", "25000"], ["lnurl", COMMUNITY_LNURL], ["relays", "wss://relay.anmore.me"]] }, keys.sender);
+  const description = JSON.stringify(request);
+  const event = signed({ kind: 9735, created_at: now - 1, tags: [["p", community.pubkey], ["e", post.id], ["description", description], ["bolt11", invoice(description, { msats: 25000n, time: now - 5, paymentHash: post.id })]] }, keys.issuer);
+  return { event, authority };
+}
+for (const engine of ["chromium", "webkit"])
+  test(`${engine}: receipt Top refresh moves the actually focused card and preserves its descendant with preventScroll`, async (t) => {
+    const original = sign({ created_at: now - 20, content: "Expanded neighbourhood caption. ".repeat(60), tags: [photo(1)] });
+    const newer = sign({ created_at: now - 2, content: "Newer unpaid neighbour" });
+    const { page } = await fixture(t, engine, [original, newer]);
+    await page.evaluate(() => { window.fixtureOnline = true; document.querySelector("#order-top").click(); });
+    await page.waitForFunction(() => !document.querySelector("#refresh").disabled);
+    const card = page.locator(`[data-event-id="${original.id}"]`);
+    assert.equal(await page.locator(".post").first().getAttribute("data-event-id"), newer.id);
+    await card.locator(".caption-toggle").click();
+    await card.locator(".provenance summary").click();
+    await card.locator(".caption-toggle").focus();
+    await page.evaluate(() => {
+      window.savedFocus = document.activeElement;
+      window.savedCard = savedFocus.closest(".post");
+      window.focusOptions = [];
+      savedFocus.focus = function(options) { focusOptions.push(options); HTMLElement.prototype.focus.call(this, options); };
+      window.movedActiveCard = false;
+      new MutationObserver(records => {
+        if (records.some(record => [...record.removedNodes].includes(savedCard))) movedActiveCard = true;
+      }).observe(document.querySelector("#feed"), { childList: true });
+    });
+    const accepted = await page.evaluate(async ({ event, authority }) => {
+      const { FeedStore } = await import("/api.js");
+      const store = new FeedStore();
+      await store.restore();
+      await store.addReceipts([event], authority, new Map([[event.id, ["wss://relay.anmore.me"]]]));
+      return store.state.receipts.length;
+    }, receiptClaim(original));
+    assert.equal(accepted, 1, "receipt accepted through real durable store, as from another tab");
+    await page.evaluate(() => document.querySelector("#refresh").click());
+    await page.waitForFunction(() => !document.querySelector("#refresh").disabled);
+    assert.equal(await page.locator(".post").first().getAttribute("data-event-id"), original.id);
+    const result = await page.evaluate(() => ({ moved: movedActiveCard, sameCard: savedCard === document.querySelector(".post"), focus: savedFocus === document.activeElement, expanded: savedFocus.getAttribute("aria-expanded"), details: savedCard.querySelector("details").open, preventScroll: focusOptions.some(options => options?.preventScroll === true) }));
+    assert.deepEqual(result, { moved: true, sameCard: true, focus: true, expanded: "true", details: true, preventScroll: true });
+  });
+for (const engine of ["chromium", "webkit"])
+  test(`${engine}: signed gallery opener removal restores useful feed heading focus`, async (t) => {
+    const original = sign({ tags: [videoTag] });
+    const { page, events } = await fixture(t, engine, [original]);
+    await page.locator(".media-tile").click();
+    await page.getByRole("button", { name: "Play video", exact: true }).click();
+    await page.waitForFunction(() => document.querySelector("video")?.currentTime > 0.1);
+    await page.evaluate(() => { window.removedVideo = document.querySelector("video"); });
+    const deletion = sign({ kind: 5, created_at: now, tags: [["e", original.id], ["k", "1"]], content: "Remove original" });
+    await page.evaluate(async deletion => {
+      const { FeedStore } = await import("/api.js");
+      const store = new FeedStore(); await store.restore(); await store.remove([deletion]);
+      window.fixtureOnline = true;
+    }, deletion);
+    events.splice(0);
+    await page.evaluate(() => document.querySelector("#refresh").click());
+    await page.waitForFunction(() => !document.querySelector("#refresh").disabled);
+    assert.equal(await page.locator(".post").count(), 0);
+    assert.deepEqual(await page.evaluate(() => ({ open: document.querySelector("#media-gallery").open, locked: document.body.style.overflow === "hidden", cleaned: removedVideo.paused && !removedVideo.getAttribute("src") && !removedVideo.isConnected, focus: document.activeElement.id })), { open: false, locked: false, cleaned: true, focus: "feed-heading" });
+  });
 export { fixture, sign, photo };

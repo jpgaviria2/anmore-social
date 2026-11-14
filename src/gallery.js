@@ -38,8 +38,9 @@ function gallery() {
     opener,
     scroll = 0,
     oldOverflow;
-  let activeVideo, observer;
+  let activeVideo, observer, touch, sessionActive = false;
   const clear = () => {
+    touch = null;
     observer?.disconnect();
     observer = null;
     if (activeVideo) {
@@ -103,11 +104,12 @@ function gallery() {
         video.play().catch(() => {
           if (activeVideo === video) failure.hidden = false;
         });
-        observer = new IntersectionObserver((entries) => {
-          if (activeVideo && entries.some((e) => !e.isIntersecting))
+        const owner = new IntersectionObserver((entries) => {
+          if (activeVideo === video && observer === owner && entries.some((e) => !e.isIntersecting))
             show(index);
         });
-        observer.observe(stage);
+        observer = owner;
+        owner.observe(stage);
       });
       const preview = node("div", "gallery-video-preview");
       if (item.poster) {
@@ -142,11 +144,12 @@ function gallery() {
     stage.append(img);
   }
   dialog.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") {
+    const playerOwnsKey = e.composedPath().some((n) => n instanceof HTMLVideoElement);
+    if (e.key === "ArrowRight" && !playerOwnsKey) {
       e.preventDefault();
       show(index + 1);
     }
-    if (e.key === "ArrowLeft") {
+    if (e.key === "ArrowLeft" && !playerOwnsKey) {
       e.preventDefault();
       show(index - 1);
     }
@@ -167,12 +170,14 @@ function gallery() {
       }
     }
   });
-  let touch;
+  stage.addEventListener("touchcancel", () => { touch = null; }, { passive: true });
   stage.addEventListener(
     "touchstart",
     (e) => {
-      if (e.target.closest("video")) return;
-      touch = e.touches[0] && {
+      touch = null;
+      if (e.composedPath().some((n) => n instanceof HTMLVideoElement) || e.touches.length !== 1) return;
+      touch = {
+        id: e.touches[0].identifier,
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
       };
@@ -185,7 +190,8 @@ function gallery() {
       const end = e.changedTouches[0];
       if (
         touch &&
-        end &&
+        end && end.identifier === touch.id &&
+        !e.composedPath().some((n) => n instanceof HTMLVideoElement) &&
         Math.abs(end.clientX - touch.x) > 50 &&
         Math.abs(end.clientX - touch.x) > Math.abs(end.clientY - touch.y)
       )
@@ -202,18 +208,42 @@ function gallery() {
   });
   window.addEventListener("pagehide", suspend);
   dialog.addEventListener("cancel", clear);
-  dialog.addEventListener("close", () => {
+  const teardown = () => {
+    if (!sessionActive) return;
+    sessionActive = false;
     clear();
     document.body.style.overflow = oldOverflow;
     window.scrollTo({ top: scroll, behavior: "instant" });
     if (opener?.isConnected) opener.focus({ preventScroll: true });
+    else {
+      const heading = document.getElementById("feed-heading");
+      if (heading) {
+        heading.tabIndex = -1;
+        heading.focus({ preventScroll: true });
+      }
+    }
+  };
+  // Native close events are queued. Retire this session synchronously so a
+  // same-task reopen cannot inherit its scroll lock or be cleared by its event.
+  const nativeClose = dialog.close.bind(dialog);
+  dialog.close = (...args) => {
+    nativeClose(...args);
+    if (!dialog.open) teardown();
+  };
+  dialog.addEventListener("close", () => {
+    if (!dialog.open) teardown();
   });
   viewer = {
     open(attachments, selected, trigger) {
+      if (sessionActive) {
+        if (dialog.open) dialog.close();
+        else teardown();
+      }
       items = attachments;
       opener = trigger;
       scroll = window.scrollY;
       oldOverflow = document.body.style.overflow;
+      sessionActive = true;
       document.body.style.overflow = "hidden";
       show(selected);
       dialog.showModal();

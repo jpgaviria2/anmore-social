@@ -16,6 +16,7 @@ function harness(visibility = 'visible') {
   class Node {
     constructor() { this.dataset={}; this.attrs={}; this.children=[]; this.textContent=''; this.classList={toggle(){}}; }
     append(...nodes) { for(const n of nodes){this.children.push(n);n.parent=this;} }
+    contains(n) { return descendants(this).includes(n); }
     get firstElementChild(){return this.children[0]||null;}
     get nextElementSibling(){const a=this.parent?.children||[];return a[a.indexOf(this)+1]||null;}
     insertBefore(n,before){if(n.parent){const a=n.parent.children;a.splice(a.indexOf(n),1);}const i=this.children.indexOf(before);this.children.splice(i<0?this.children.length:i,0,n);n.parent=this;}

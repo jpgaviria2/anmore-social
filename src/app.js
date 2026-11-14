@@ -66,7 +66,11 @@ function renderFeed() {
       const identity=currentIdentities.get(e.pubkey);
       const card=existing.get(e.id)||post(e,identity);
       existing.delete(e.id);
-      if(card!==cursor)feed.insertBefore(card,cursor);
+      if(card!==cursor){
+        const focused=card.contains(document.activeElement)?document.activeElement:null;
+        feed.insertBefore(card,cursor);
+        if(focused?.isConnected && document.activeElement!==focused)focused.focus({preventScroll:true});
+      }
       cursor=card.nextElementSibling;
       card.querySelector(".author strong").textContent=identity.name;
       card.querySelector(".avatar").textContent=Array.from(identity.name)[0]?.toUpperCase()||"A";

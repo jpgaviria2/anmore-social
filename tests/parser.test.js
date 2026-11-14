@@ -73,6 +73,24 @@ test("MIME conflicts include same-family mismatches; known external source pages
     );
 });
 
+test("untyped image and JSON prefixes cannot mask conflicting per-URL MIME evidence in any order", () => {
+  const url = "https://cdn.example/blob?sig=Keep%2f";
+  const untyped = ["image", url];
+  const jpeg = ["imeta", `url ${url}`, "m image/jpeg"];
+  const png = ["imeta", `url ${url}`, "m image/png"];
+  const permutations = (xs) => xs.length ? xs.flatMap((x, i) => permutations(xs.filter((_, j) => i !== j)).map(rest => [x, ...rest])) : [[]];
+  for (const tags of permutations([untyped, jpeg, png])) {
+    for (const content of [url, JSON.stringify({ images: [url], body: url })]) {
+      const result = parse(event(content, tags));
+      assert.deepEqual(result.attachments, [], JSON.stringify({ content, tags }));
+      assert.equal(result.text, url, "rejected URL remains a body fallback");
+    }
+  }
+  const compatible = parse(event(url, [untyped, jpeg, jpeg]));
+  assert.equal(compatible.attachments.length, 1);
+  assert.equal(compatible.attachments[0].mime, "image/jpeg");
+});
+
 test("JSON escaped declarations retain explicit field order ahead of tags and text", () => {
   const photo = "https://cdn.example/blob?sig=A%2fb&x=,)";
   const clip = "https://cdn.example/clip.m4v";

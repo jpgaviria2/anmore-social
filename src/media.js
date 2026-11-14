@@ -151,6 +151,8 @@ export function parsePost(event) {
         (mime && previous.mime && previous.mime !== mime)
       )
         rejected.add(url);
+      // Retain typed duplicate evidence even when discovery began untyped.
+      if (mime && !previous.mime) previous.mime = mime;
       return;
     }
     const attachment = {

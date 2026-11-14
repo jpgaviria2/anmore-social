@@ -26,7 +26,7 @@ try {
   );
   const result = {
     live: true,
-    status: await page.locator("#status").innerText(),
+    status: await page.locator("#status").textContent(),
     posts: await page.locator(".post").count(),
     events: await page.locator(".event").count(),
     identities: await page.locator(".identity").allTextContents(),

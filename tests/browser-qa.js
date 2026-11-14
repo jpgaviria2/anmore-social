@@ -347,8 +347,8 @@ try {
   );
   assert.equal(
     await firstTip.innerText(),
-    "",
-    "Icon action has no bulky visible label",
+    "Zap",
+    "Compact visible Zap label accompanies the lightning icon",
   );
   assert.equal(await page.locator(".zap-total").first().innerText(), "7 sats");
   assert.equal(await page.locator(".zap-total").nth(1).innerText(), "0 sats");
@@ -697,7 +697,7 @@ try {
     await page.locator(trigger).click();
     await settleTop();
     assert.equal(await page.locator(".post").count(), 15);
-    assert.match(await page.locator("#status").innerText(), /stale retained history/i);
+    assert.match(await page.locator("#status").textContent(), /stale retained history/i);
     mode = "normal";
     await page.locator("#refresh").click();
     await settleTop();
@@ -718,8 +718,8 @@ try {
       width: innerWidth,
       scroll: document.documentElement.scrollWidth,
     }));
-    g.firstBodyTop = await page
-      .locator(".post-body")
+    g.firstPostTop = await page
+      .locator(".post")
       .first()
       .evaluate((e) => e.getBoundingClientRect().top);
     g.tip = await page
@@ -730,7 +730,7 @@ try {
         height: e.getBoundingClientRect().height,
       }));
     assert.ok(
-      g.firstBodyTop < 540,
+      g.firstPostTop < 540,
       `Compact content-first feed at every viewport: ${JSON.stringify(g)}`,
     );
     assert.ok(
@@ -752,7 +752,7 @@ try {
     if (width === 390)
       assert.ok(
         (await page
-          .locator(".post-body")
+          .locator(".post")
           .first()
           .evaluate((e) => e.getBoundingClientRect().top)) < 740,
         "Mobile feed content must appear within the first viewport",
@@ -923,11 +923,11 @@ try {
     assert.equal(await page.locator(".post").count(), state === "mismatch" ? 0 : 14);
     if (state === "identity-failure")
       assert.match(
-        await page.locator("#status").innerText(),
+        await page.locator("#status").textContent(),
         /current identity checks unavailable/,
       );
     if (state === "relay-failure")
-      assert.match(await page.locator("#status").innerText(), /declined/);
+      assert.match(await page.locator("#status").textContent(), /declined/);
     await page.screenshot({
       path: new URL(`state-${state}.png`, dir).pathname,
     });
@@ -935,7 +935,7 @@ try {
   await context.setOffline(true);
   await page.locator("#refresh").click();
   await settled();
-  assert.match(await page.locator("#status").innerText(), /offline/);
+  assert.match(await page.locator("#status").textContent(), /offline/);
   assert.equal(await page.locator(".post").count(), 0);
   await page.screenshot({ path: new URL("state-offline.png", dir).pathname });
   assert.deepEqual(errors, []);

@@ -2,7 +2,8 @@ import { FeedStore } from "./feed-store.js";
 import { FeedSync } from "./feed-sync.js";
 import { setupInstall, setupWorker } from "./pwa.js";
 setupInstall();
-import { postVideos, withoutVideos } from "./media.js";
+import { parsePost, bodyURLs } from "./media.js";
+import { mediaGrid, reconcileGallery } from "./gallery.js";
 import { Relay } from "./relay.js";
 import { sortPosts, resolveCommunity } from "./zaps.js";
 import { collectReceipts } from "./receipts.js";
@@ -12,7 +13,6 @@ import {
   identify,
   latestProfile,
   visibleEvents,
-  tag,
   calendarInfo,
   safeURL,
 } from "./core.js";
@@ -59,7 +59,24 @@ function renderFeed() {
     !!zapState.snapshot?.partial, zapState.snapshot?.sources,
   ]);
   if (projectionKey !== feedProjectionKey) {
-    $("feed").replaceChildren(...ordered.map(e => post(e, currentIdentities.get(e.pubkey))));
+    const feed=$("feed");
+    const existing=new Map([...feed.children].map(card=>[card.dataset.eventId,card]));
+    let cursor=feed.firstElementChild;
+    for(const e of ordered){
+      const identity=currentIdentities.get(e.pubkey);
+      const card=existing.get(e.id)||post(e,identity);
+      existing.delete(e.id);
+      if(card!==cursor)feed.insertBefore(card,cursor);
+      cursor=card.nextElementSibling;
+      card.querySelector(".author strong").textContent=identity.name;
+      card.querySelector(".avatar").textContent=Array.from(identity.name)[0]?.toUpperCase()||"A";
+      card.querySelector(".identity").textContent=identity.nip05;
+      card.querySelector(".provenance dd").textContent=identity.nip05;
+      const amount=updateZapTotal(e,card.querySelector(".zap-total"));
+      card.querySelector(".receipt-warning").textContent=amount.title;
+    }
+    for(const card of existing.values()){card._captionObserver?.disconnect();card.remove();}
+    reconcileGallery();
     feedProjectionKey = projectionKey;
   }
 }
@@ -130,20 +147,17 @@ let busy = false, ended = false;
 function richText(text) {
   const p = el("p");
   let last = 0;
-  for (const m of text.matchAll(/https:\/\/[^\s<>"\u0000-\u001f]+/g)) {
-    p.append(document.createTextNode(text.slice(last, m.index)));
-    const raw = m[0].replace(/[.,!;:)]+$/, "");
-    const url = safeURL(raw);
-    p.append(url ? link(raw, url) : document.createTextNode(raw));
-    p.append(document.createTextNode(m[0].slice(raw.length)));
-    last = m.index + m[0].length;
+  for (const {raw,index} of bodyURLs(text)) {
+    p.append(document.createTextNode(text.slice(last,index)));
+    p.append(safeURL(raw) ? link(raw, raw) : document.createTextNode(raw));
+    last=index+raw.length;
   }
   p.append(document.createTextNode(text.slice(last)));
   return p;
 }
 function provenance(e, identity) {
   const details = el("details", "provenance");
-  details.append(el("summary", "", "Source"));
+  details.append(el("summary", "", "Details"));
   const dl = el("dl");
   for (const [label, value] of [
     ["Community identity", identity.nip05],
@@ -170,20 +184,22 @@ function provenance(e, identity) {
   );
   return details;
 }
-function imageURLs(e) {
-  const urls = [];
-  for (const t of e.tags) {
-    if (t[0] === "image") urls.push(t[1]);
-    if (t[0] === "imeta")
-      for (const v of t.slice(1))
-        if (v.startsWith("url ")) urls.push(v.slice(4));
-  }
-  for (const m of e.content.matchAll(/https:\/\/[^\s<>"\u0000-\u001f]+/g)) {
-    const u = safeURL(m[0]);
-    if (u && /\.(jpe?g|png|webp|gif|avif)$/i.test(new URL(u).pathname))
-      urls.push(u);
-  }
-  return [...new Set(urls.map(safeURL).filter(Boolean))].slice(0, 4);
+function updateZapTotal(e, amount) {
+  const confirmed = totals.get(e.id) ?? 0n;
+  const unavailable = zapState.error && !feedStore.state.receipts.length;
+  amount.textContent = unavailable || (zapState.snapshot?.partial && confirmed === 0n)
+      ? "—"
+      : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " · provisional" : ""}`;
+  amount.title = unavailable
+    ? "Zap checks unavailable — not proof that no payments exist."
+    : `${zapState.snapshot?.partial ? "Partial receipt check · totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts · ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
+  amount.setAttribute(
+    "aria-label",
+    unavailable || (zapState.snapshot?.partial && confirmed === 0n)
+      ? "Zap total unavailable"
+      : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`,
+  );
+  return amount;
 }
 function post(e, identity) {
   const article = el("article", "post");
@@ -212,88 +228,34 @@ function post(e, identity) {
     " Pacific";
   top.append(avatar, author, time);
   article.append(top);
-  const videos = postVideos(e);
-  const videoURLs = new Set(videos.map(v => v.url));
-  const images = imageURLs(e).filter(url =>
-    !videoURLs.has(url) && !/\.(mp4|webm|mov)$/i.test(new URL(url).pathname));
-  let text = withoutVideos(e.content, videos);
-  // Only remove standalone image URL lines; prose and source links remain intact.
-  for (const url of images)
-    text = text
-      .split("\n")
-      .filter((line) => line.trim() !== url)
-      .join("\n");
-  text = text.trim();
+  const parsed = parsePost(e);
+  const media = mediaGrid(parsed.attachments);
+  if (media) article.append(media);
   const body = el("div", "post-body");
-  if (text.length > 700) {
-    body.append(richText(text.slice(0, 650)));
-    const more = el("details");
-    more.append(
-      el("summary", "", "Read the full update"),
-      richText(text.slice(650)),
-    );
-    body.append(more);
-  } else if (text) body.append(richText(text));
-  article.append(body);
-  if (images.length) {
-    const media = el("div", "post-media");
-    for (const url of images) {
-      const img = el("img");
-      img.src = url;
-      img.alt = tag(e, "alt") || "Photo attached to this community update";
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.referrerPolicy = "no-referrer";
-      img.addEventListener(
-        "error",
-        () => {
-          const p = el("p", "media-failure", "Photo unavailable. ");
-          p.append(link("Open original image (new tab)", url));
-          img.replaceWith(p);
-        },
-        { once: true },
-      );
-      media.append(img);
+  if (parsed.title) body.append(el("h3", "post-title", parsed.title));
+  if (parsed.text) {
+    const caption=richText(parsed.text);
+    caption.className="post-caption";caption.id="caption-"+e.id;
+    const more=el("button","caption-toggle","Read more");more.type="button";
+    more.setAttribute("aria-controls",caption.id);more.setAttribute("aria-expanded","false");
+    const expand = expanded => {
+      more.setAttribute("aria-expanded",String(expanded));
+      more.textContent=expanded?"Read less":"Read more";
+      caption.classList.toggle("expanded",expanded);
+    };
+    more.addEventListener("click",()=>expand(more.getAttribute("aria-expanded")!=="true"));
+    caption.addEventListener("focusin",()=>expand(true));
+    body.append(caption,more);
+    // Measure after attachment and on resizing, without slicing author text.
+    if(typeof ResizeObserver!=="undefined"){
+      const measure=new ResizeObserver(()=>{if(more.getAttribute("aria-expanded")==="false")more.hidden=caption.scrollHeight<=caption.clientHeight+1;});
+      measure.observe(caption);
+      article._captionObserver=measure;
     }
-    article.append(media);
   }
-  for (const { url, label } of videos) {
-    const media = el("div", "post-video");
-    const video = el("video");
-    video.controls = true;
-    video.setAttribute("playsinline", "");
-    video.preload = "none";
-    video.setAttribute("aria-label", label);
-    const failure = el("p", "video-error", "Video unavailable in this browser.");
-    failure.hidden = true;
-    video.addEventListener("error", () => { failure.hidden = false; });
-    video.addEventListener("play", () => {
-      for (const other of document.querySelectorAll("#feed video"))
-        if (other !== video) other.pause();
-    });
-    video.src = url;
-    media.append(video, failure, link("Open original video (new tab)", url));
-    article.append(media);
-  }
+  article.append(body);
   const tipping = el("div", "post-zap");
-  const confirmed = totals.get(e.id) ?? 0n;
-  const unavailable = zapState.error && !feedStore.state.receipts.length;
-  const amount = el(
-    "span",
-    "zap-total",
-    unavailable || (zapState.snapshot?.partial && confirmed === 0n)
-      ? "—"
-      : `${new Intl.NumberFormat("en-CA").format(confirmed / 1000n)} sats${zapState.snapshot?.partial ? " · provisional" : ""}`,
-  );
-  amount.title = unavailable
-    ? "Zap checks unavailable — not proof that no payments exist."
-    : `${zapState.snapshot?.partial ? "Partial receipt check · totals/order may change as receipts become available. Missing receipts are not zero payments. " : ""}Verified community receipts · ${zapState.snapshot?.sources.join(" + ")}. Provider-attested payments, not independent settlement proofs.`;
-  amount.setAttribute(
-    "aria-label",
-    unavailable || (zapState.snapshot?.partial && confirmed === 0n)
-      ? "Zap total unavailable"
-      : `${amount.textContent} ${zapState.snapshot?.partial ? "partial receipt check; totals/order may change" : "verified to community"}`,
-  );
+  const amount = updateZapTotal(e, el("span", "zap-total"));
   const zap = el("button", "zap-button");
   zap.type = "button";
   zap.setAttribute("aria-label", "Zap this post");
@@ -304,9 +266,11 @@ function post(e, identity) {
   const path = document.createElementNS(icon.namespaceURI, "path");
   path.setAttribute("d", "m13 2-9 12h7l-1 8 10-13h-7l0-7Z");
   icon.append(path);
-  zap.append(icon);
+  zap.append(icon, document.createTextNode("Zap"));
   zap.addEventListener("click", () => zapUI.open(e.id, zap));
-  tipping.append(zap, amount, provenance(e, identity));
+  const details=provenance(e, identity);
+  details.append(el("p","receipt-warning",amount.title));
+  tipping.append(zap, amount, details);
   article.append(tipping);
   return article;
 }
@@ -449,6 +413,7 @@ async function startFeed() {
   await feedStore.restore();
   if(feedStore.state.receipts.length)zapState={authority:null,error:null,snapshot:{partial:true,sources:[...new Set(feedStore.state.receipts.flatMap(c=>c.sources))]}};
   projectSaved();
+  if(!navigator.onLine){$("connection").textContent="Offline · retained updates";$("connection").dataset.state="error";}
   // Restore is complete even when offline/hidden startup defers relay work.
   $("feed").setAttribute("aria-busy", "false");
   status(`${checkedLabel()} · stale saved history. ${feedStore.warning??""}`,!!feedStore.warning);

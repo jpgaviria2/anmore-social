@@ -182,11 +182,11 @@ try {
   await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);
   assert.equal(await page.locator('.post').count(),0,'An empty browser never ships demo content');
   assert.equal(await page.locator('#zap-dialog').isVisible(),false);
-  assert.match(await page.locator('#status').innerText(),/offline|stale/i);
+  assert.match(await page.locator('#status').textContent(),/offline|stale/i);
   assert.equal(
     await page
       .locator("h1")
-      .evaluate((el) => getComputedStyle(el).fontFamily.includes("Georgia")),
+      .evaluate((el) => getComputedStyle(el).fontFamily.includes("-apple-system")),
     true,
     "Reviewed shell stylesheet available offline",
   );

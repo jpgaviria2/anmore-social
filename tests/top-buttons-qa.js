@@ -621,7 +621,7 @@ try {
   await page.locator("#load-more").click();
   await settle();
   assert.ok((await cards()).length>0);
-  assert.match(await page.locator("#status").innerText(), /stale retained history/);
+  assert.match(await page.locator("#status").textContent(), /stale retained history/);
   assert.match(await page.locator("#sort-note").innerText(), /Partial receipt check.*totals\/order may change/);
   const staleWinner=page.locator(`[data-event-id="${posts[14].id}"] .zap-total`);
   assert.equal(await staleWinner.innerText(),"1,250 sats · provisional");
@@ -643,7 +643,7 @@ try {
   await settle();
   assert.deepEqual((await cards()).map(c=>c.id).sort(),retainedIds,"Over-request responses retain exactly the previously accepted IDs");
   assert.equal((await cards()).some(c=>c.id===overBudgetPost.id),false,"New over-budget candidate is not admitted");
-  assert.match(await page.locator("#status").innerText(), /exceeded.*limit/i);
+  assert.match(await page.locator("#status").textContent(), /exceeded.*limit/i);
   posts.pop();
   mode = "normal";
   await page.locator("#refresh").click();

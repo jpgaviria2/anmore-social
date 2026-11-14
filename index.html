@@ -112,8 +112,8 @@
             alt=""
           />
           <p class="install-copy">
-            <strong>Keep Anmore close</strong
-            ><span>Add to your home screen.</span>
+            <strong>Add the app</strong
+            ><span>Optional · home screen access</span>
           </p>
           <div class="install-actions">
             <button id="install-show-help" class="quiet-button" type="button">
@@ -151,8 +151,9 @@
           <p>
             Installation is optional. Saved feed updates, calendar entries and
             author identities remain available offline on this browser, marked
-            with their last check. New updates and tips need an internet connection;
-            saved receipt observations are not current payment authority.
+            with their last check. New updates and tips need an internet
+            connection; saved receipt observations are not current payment
+            authority.
           </p>
         </details>
         <p id="install-status" role="status"></p>
@@ -249,9 +250,8 @@
             widen the comparison. Refresh rechecks counts.
           </p>
           <div class="tip-note">
-            Tips support community
             <details class="tip-details">
-              <summary>About tips</summary>
+              <summary>Tips support community · Details</summary>
               <p>
                 All tips support the community group, not the author. Totals
                 count verified post-bound Lightning receipts in this snapshot,
@@ -260,9 +260,12 @@
               </p>
             </details>
           </div>
-          <p id="status" class="status" role="status">
-            Finding the latest community updates…
-          </p>
+          <details class="feed-health">
+            <summary>Feed status</summary>
+            <p id="status" class="status" role="status">
+              Finding the latest community updates…
+            </p>
+          </details>
           <div id="feed" aria-busy="true"></div>
           <div id="empty" class="empty" hidden>
             <span class="empty-mark" aria-hidden="true">—</span>
@@ -337,11 +340,11 @@
                 verified, post-bound community Lightning receipts from Anmore
                 and Primal count in this loaded snapshot. A partial check shows
                 provisional observations; totals/order may change as receipts
-                become available. Missing receipts are not verified zero.
-                An unpaid invoice, claimed
-                amount, or generic transfer does not increase a post’s total.
-                Receipt issuers attest payment; these are not independent
-                settlement proofs. Cashu nutzaps are not supported here.
+                become available. Missing receipts are not verified zero. An
+                unpaid invoice, claimed amount, or generic transfer does not
+                increase a post’s total. Receipt issuers attest payment; these
+                are not independent settlement proofs. Cashu nutzaps are not
+                supported here.
               </p>
             </details>
           </section>

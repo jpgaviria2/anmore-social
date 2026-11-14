@@ -41,63 +41,54 @@ await page.addInitScript(()=>document.addEventListener("securitypolicyviolation"
 try {
   await page.goto(process.env.QA_URL || "http://127.0.0.1:4173");
   await page.waitForFunction(()=>document.querySelector("#feed").getAttribute("aria-busy")==="false");
-  assert.equal(await page.locator(".post-video video").count(),live?1:2,"Direct post media must render inline native players");
-  assert.equal(await page.locator(".post img").count(),0,"Video imeta must not become broken images");
-  assert.equal(await page.locator(".post-body").first().innerText().then(t=>t.includes(firstURL)),false);
-  assert.match(await page.locator(".post-body").first().innerText(),/Facebook story|Source:/);
+  const tiles=page.locator('.media-tile[aria-label^="Open video"]');
+  assert.equal(await tiles.count(),live?1:3,"Direct video media renders explicit gallery buttons");
+  assert.equal(await page.locator(".post img").count(),0,"No generated video poster or broken imeta image");
+  assert.equal(await page.locator(".post-body").first().textContent().then(t=>t.includes(firstURL)),false);
+  assert.match(await page.locator(".post-body").first().textContent(),/Facebook story|Source:/);
   assert.equal(await page.locator(".post iframe,.post script,video[autoplay],video[loop]").count(),0);
-  assert.equal(requests.filter(r=>r.type==="media").length,0,"preload none prevents eager media downloads");
-  const video=page.locator("video").first();
+  assert.equal(requests.filter(r=>r.type==="media").length,0,"No video fetch before explicit Play");
+  await tiles.first().click();
+  assert.equal(await page.locator("video[src]").count(),0);
+  assert.equal(requests.filter(r=>r.type==="media").length,0,"Opening viewer does not fetch video");
+  await page.getByRole('button',{name:'Play video',exact:true}).click();
+  let video=page.locator("#media-gallery video");
+  await page.waitForFunction(()=>document.querySelector("video")?.currentTime>0.1,{},{timeout:45000});
   const attrs=await video.evaluate(e=>({controls:e.controls,inline:e.hasAttribute("playsinline"),preload:e.preload,crossorigin:e.getAttribute("crossorigin"),src:e.getAttribute("src")}));
   assert.deepEqual(attrs,{controls:true,inline:true,preload:"none",crossorigin:null,src:firstURL});
-  const geometry=[];
+  const metadata=await video.evaluate(e=>({width:e.videoWidth,height:e.videoHeight,duration:e.duration}));
+  assert.ok(metadata.width>0&&metadata.height>0&&metadata.duration>0);
+  const playback = await video.evaluate(e=>({currentTime:e.currentTime,paused:e.paused}));
+  assert.ok(playback.currentTime>0.1);assert.equal(playback.paused,false);
+  const geometry=[],loadedGeometry=[];
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:844});
     const g=await video.evaluate(e=>{const r=e.getBoundingClientRect();return{width:innerWidth,scroll:document.documentElement.scrollWidth,left:r.left,right:r.right,height:r.height,fit:getComputedStyle(e).objectFit}});
-    assert.ok(g.scroll<=width&&g.left>=0&&g.right<=width&&g.height<=420,JSON.stringify(g));assert.equal(g.fit,"contain");geometry.push(g);
+    assert.ok(g.scroll<=width&&g.left>=0&&g.right<=width&&g.height<=844,JSON.stringify(g));assert.equal(g.fit,"contain");geometry.push(g);loadedGeometry.push(g);
     const accessibility = await new AxeBuilder({page}).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
-    assert.deepEqual(accessibility.violations, [], `Unloaded video accessibility at ${width}px`);
+    assert.deepEqual(accessibility.violations, [], `Gallery video accessibility at ${width}px`);
     g.axeViolations = accessibility.violations.length;
     if (!process.argv.includes("--webkit")) await page.screenshot({caret:"initial",path:new URL(`${live?"video-live":"video-fixture"}-${width}.png`,dir).pathname});
   }
-  // Explicit user action followed by the real HTMLMediaElement playback pipeline.
-  await video.evaluate(e=>e.load());
-  await page.waitForFunction(()=>document.querySelector("video").readyState>=1,{},{timeout:45000}).catch(async error => {
-    console.log('MEDIA_DIAGNOSTIC', {engine:browser.version(), requests:requests.filter(r=>r.type==='media'), errors, csp:await page.evaluate(()=>window.__csp||[]), state:await video.evaluate(e=>({error:e.error?.code,message:e.error?.message,network:e.networkState,ready:e.readyState,canPlay:e.canPlayType('video/mp4; codecs="avc1.42E01E"'),controlled:!!navigator.serviceWorker?.controller}))});
-    throw error;
-  });
-  const metadata=await video.evaluate(e=>({width:e.videoWidth,height:e.videoHeight,duration:e.duration}));
-  assert.ok(metadata.width>0&&metadata.height>0&&metadata.duration>0);
-  await video.evaluate(e=>e.play());
-  await page.waitForFunction(()=>document.querySelector("video").currentTime>0.1);
-  const playback = await video.evaluate(e=>({currentTime:e.currentTime,paused:e.paused}));
-  assert.ok(playback.currentTime>0.1);assert.equal(playback.paused,false);
+  await video.evaluate(e=>window.previousVideo=e);
+  await page.getByRole('button',{name:'Close',exact:true}).click();
+  await page.waitForFunction(()=>window.previousVideo.paused&&!window.previousVideo.getAttribute('src'));
   if(!live){
-    const other=page.locator("video").nth(1);await other.evaluate(e=>e.play());
-    await page.waitForFunction(()=>document.querySelectorAll("video")[0].paused&&!document.querySelectorAll("video")[1].paused);
-    await other.evaluate(e=>e.pause());
-  }
-  await video.evaluate(e=>e.pause());assert.equal(await video.evaluate(e=>e.paused),true);
-  const loadedGeometry=[];
-  for(const width of [320,390,768,1440]) {
-    await page.setViewportSize({width,height:844});
-    await video.scrollIntoViewIfNeeded();
-    const g=await video.evaluate(e=>{const r=e.getBoundingClientRect();return{width:innerWidth,scroll:document.documentElement.scrollWidth,left:r.left,right:r.right,height:r.height,fit:getComputedStyle(e).objectFit}});
-    assert.ok(g.scroll<=width&&g.left>=0&&g.right<=width&&g.height<=420,JSON.stringify(g));
-    assert.equal(g.fit,"contain");loadedGeometry.push(g);
-    const accessibility = await new AxeBuilder({page}).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
-    assert.deepEqual(accessibility.violations, [], `Loaded video accessibility at ${width}px`);
-    g.axeViolations = accessibility.violations.length;
-    // Playwright WebKit screenshot plumbing injects an inline stylesheet and causes
-    // artificial CSP violations; test that engine without weakening the real CSP.
-    if(!process.argv.includes("--webkit"))await page.screenshot({caret:"initial",path:new URL(`${live?"video-live":"video-fixture"}-loaded-${width}.png`,dir).pathname});
+    await tiles.nth(1).click();await page.getByRole('button',{name:'Play video',exact:true}).click();
+    await page.waitForFunction(()=>document.querySelector('video')?.currentTime>0.1);
+    assert.equal(await page.locator('video[src]').count(),1,'Only one active player');
+    assert.equal(await page.evaluate(()=>window.previousVideo.paused),true);
+    await page.keyboard.press('Escape');await page.waitForFunction(()=>document.body.style.overflow!=='hidden');
   }
   await page.locator(".zap-button").first().click();
   assert.equal(await page.locator("#zap-post-id").textContent(),posts[0].id);
   await page.keyboard.press("Escape");
-  // Actual load failure, not a fake play overlay; original remains available.
-  if(!live){await context.route(firstURL,route=>route.fulfill({contentType:"video/mp4",body:"unsupported media fixture"}));await video.evaluate(e=>{e.src=e.src;e.load()});await page.waitForFunction(()=>document.querySelector("video").error!==null);await page.getByText("Video unavailable in this browser.",{exact:true}).first().waitFor();}
-  assert.equal(await page.getByRole("link",{name:"Open original video (new tab)",exact:true}).first().getAttribute("href"),firstURL);
+  await tiles.first().click();
+  assert.equal(await page.locator('.gallery-original').getAttribute('href'),firstURL);
+  if(!live){await context.route(firstURL,route=>route.fulfill({contentType:"video/mp4",body:"unsupported media fixture"}));}
+  await page.getByRole('button',{name:'Play video',exact:true}).click();video=page.locator('#media-gallery video');
+  if(!live){await page.waitForFunction(()=>document.querySelector("video")?.error!==null);await page.getByText("Video unavailable in this browser. Open the original to try another player.",{exact:true}).waitFor();}
+  await video.evaluate(e=>e.pause());
   assert.equal(requests.filter(r=>r.url.includes("/callback")||r.url.includes("nostr=")).length,0);
   assert.deepEqual(await page.evaluate(()=>window.__csp||[]),[]);assert.deepEqual(errors,[]);
   const result={live,engine:process.argv.includes("--webkit")?"webkit":"chrome",metadata,playback,pausedAfterAction:await video.evaluate(e=>e.paused),browserVersion:browser.version(),geometry,loadedGeometry,errors,csp:await page.evaluate(()=>window.__csp||[]),mediaRequests:requests.filter(r=>r.type==="media"),financialCallbacks:0};

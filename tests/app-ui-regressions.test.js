@@ -15,7 +15,12 @@ function harness(visibility = 'visible') {
   const nodes = new Map(), listeners = {}, timers = [], trace = [];
   class Node {
     constructor() { this.dataset={}; this.attrs={}; this.children=[]; this.textContent=''; this.classList={toggle(){}}; }
-    append(...nodes) { this.children.push(...nodes); }
+    append(...nodes) { for(const n of nodes){this.children.push(n);n.parent=this;} }
+    get firstElementChild(){return this.children[0]||null;}
+    get nextElementSibling(){const a=this.parent?.children||[];return a[a.indexOf(this)+1]||null;}
+    insertBefore(n,before){if(n.parent){const a=n.parent.children;a.splice(a.indexOf(n),1);}const i=this.children.indexOf(before);this.children.splice(i<0?this.children.length:i,0,n);n.parent=this;}
+    querySelector(selector){if(selector.includes(' ')){const [first,...rest]=selector.split(' ');return this.querySelector(first)?.querySelector(rest.join(' '));}return descendants(this).slice(1).find(n=>selector.startsWith('.')?n.className===selector.slice(1):n.tagName===selector);}
+    getAttribute(k){return this.attrs[k];}
     replaceChildren(...nodes) { this.children=nodes; this.replacements=(this.replacements||0)+1; }
     setAttribute(k,v) { this.attrs[k]=v; }
     addEventListener() {}
@@ -24,9 +29,9 @@ function harness(visibility = 'visible') {
   const post={id:'paid',pubkey:'author',kind:1,created_at:100,content:'Retained',tags:[],sig:'fixture'};
   const ledger=[{sources:['fixture']}];
   const box={console,Map,Set,Intl,URL,Date:class extends Date { static now(){return time;} }, navigator:{onLine:true},
-    document:{visibilityState:visibility,getElementById:node,createElement:()=>new Node(),createElementNS:()=>new Node(),createTextNode:text=>({textContent:text}),addEventListener:(k,f)=>listeners[k]=f},
+    document:{visibilityState:visibility,getElementById:node,createElement:tag=>Object.assign(new Node(),{tagName:tag}),createElementNS:()=>new Node(),createTextNode:text=>({textContent:text}),addEventListener:(k,f)=>listeners[k]=f},
     window:{addEventListener:(k,f)=>listeners[k]=f},setInterval:f=>timers.push(f),setupInstall(){},setupWorker(){},
-    setupZaps:()=>({invalidate(){},open(){}}),postVideos:()=>[],withoutVideos:x=>x,tag:()=>'',safeURL:x=>x,RELAY:'fixture',sortPosts:x=>x,
+    setupZaps:()=>({invalidate(){},open(){}}),parsePost:e=>({text:e.content,attachments:[]}),mediaGrid:()=>null,reconcileGallery(){},bodyURLs:()=>[], tag:()=>'',safeURL:x=>x,RELAY:'fixture',sortPosts:x=>x,
     FeedStore:class { constructor(){this.state={receipts:ledger,coverage:{}};} async restore(){trace.push('restore');} events(){trace.push('project');return [post,{...post,id:'zero'}];} identities(){return new Map([['author',{name:'Synthetic',nip05:'synthetic@trailscoffee.com'}]]);} receiptTotals(){return new Map([['paid',1250000n]]);} },
     FeedSync:class { constructor(){this.epoch=0;} async run(){runs++;trace.push('network');if(fail)throw Error('content offline');return {completed:true};} receiptTargets(){return {posts:[],partial:false};} async commitReceipts(){} cancel(){} },
     Relay:class {async open(){} close(){}},resolveCommunity:async()=>({issuer:'fixture'}),collectReceipts:async()=>({partial:false,sources:['fixture']})};

@@ -315,12 +315,12 @@ test('shipping app cold reload restores before failed relay refresh',async t=>{
   ws.onMessage(raw=>{const m=JSON.parse(raw);if(m[0]!=='REQ')return;const f=m[2];const rows=f.kinds?.includes(0)?[profile]:f.kinds?.includes(1)?[event]:[];
    for(const e of rows)ws.send(JSON.stringify(['EVENT',m[1],e]));ws.send(JSON.stringify(['EOSE',m[1]]));});
  });
- await page.goto(new URL('/index.html',page.url()).href);await page.locator(`[data-event-id="${event.id}"]`).waitFor().catch(async error=>{throw Error(error.message+' STATUS '+await page.locator('#status').innerText()+' DB '+await page.evaluate(()=>new Promise(r=>{const q=indexedDB.open('anmore-accepted-v1');q.onsuccess=()=>{const a=q.result.transaction('generations').objectStore('generations').get('accepted');a.onsuccess=()=>r(JSON.stringify(a.result));};})));});
+ await page.goto(new URL('/index.html',page.url()).href);await page.locator(`[data-event-id="${event.id}"]`).waitFor().catch(async error=>{throw Error(error.message+' STATUS '+await page.locator('#status').textContent()+' DB '+await page.evaluate(()=>new Promise(r=>{const q=indexedDB.open('anmore-accepted-v1');q.onsuccess=()=>{const a=q.result.transaction('generations').objectStore('generations').get('accepted');a.onsuccess=()=>r(JSON.stringify(a.result));};})));});
  await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);
  online=false;await page.reload();
  await page.locator(`[data-event-id="${event.id}"]`).waitFor({timeout:3000});
  await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);
- assert.match(await page.locator('#status').innerText(),/last checked|retained|stale/i);
+ assert.match(await page.locator('#status').textContent(),/last checked|retained|stale/i);
  await page.locator('#refresh').click();await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);
  assert.equal(await page.locator('[data-event-id]').count(),1);
  await page.waitForFunction(()=>navigator.serviceWorker.controller?.state==='activated');
@@ -333,10 +333,10 @@ test('shipping app cold reload restores before failed relay refresh',async t=>{
  if(process.env.DURABLE_BROWSER!=='webkit')await context.setOffline(true);
  await page.close();page=await context.newPage();await page.goto(launchURL);
  await page.locator(`[data-event-id="${event.id}"]`).waitFor({timeout:3000});
- assert.match(await page.locator('#status').innerText(),/offline|stale|last checked/i);
+ assert.match(await page.locator('#status').textContent(),/offline|stale|last checked/i);
  const generation=await page.evaluate(()=>new Promise(resolve=>{const q=indexedDB.open('anmore-accepted-v1');q.onsuccess=()=>{const db=q.result,tx=db.transaction('generations','readwrite'),s=tx.objectStore('generations'),r=s.get('accepted');let value;r.onsuccess=()=>{value=r.result;s.put({version:999},'accepted');};tx.oncomplete=()=>{db.close();resolve(value);};};}));
  await page.reload();await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);
- assert.match(await page.locator('#status').innerText(),/writes blocked/);
+ assert.match(await page.locator('#status').textContent(),/writes blocked/);
  await page.evaluate(generation=>new Promise(resolve=>{const q=indexedDB.open('anmore-accepted-v1');q.onsuccess=()=>{const db=q.result,tx=db.transaction('generations','readwrite');tx.objectStore('generations').put(generation,'accepted');tx.oncomplete=()=>{db.close();resolve();};};}),generation);
  await page.locator('#refresh').click();await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);
  await page.locator(`[data-event-id="${event.id}"]`).waitFor({timeout:3000});

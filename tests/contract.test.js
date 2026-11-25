@@ -14,7 +14,7 @@ test("content stays pinned to Anmore; only a hardcoded receipt-only Primal peer 
   assert.ok(html.indexOf('id="community"') < html.indexOf('id="upcoming"'));
   assert.match(
     html,
-    /connect-src 'self' wss:\/\/relay\.anmore\.me wss:\/\/relay\.primal\.net https:\/\/trailscoffee\.com https:\/\/pay\.trailscoffee\.com;/,
+    /connect-src 'self' wss:\/\/relay\.anmore\.me wss:\/\/relay\.primal\.net https:\/\/trailscoffee\.com https:\/\/anmorekindling\.ca https:\/\/pay\.trailscoffee\.com;/,
   );
   assert.deepEqual(
     [...new Set(source.match(/wss:\/\/[^'"\s]+/g))],

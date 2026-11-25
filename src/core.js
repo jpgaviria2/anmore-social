@@ -44,6 +44,9 @@ export function validEvent(input, now = Math.floor(Date.now() / 1000)) {
 }
 
 export const approvedIdentifier = value => typeof value==='string' && /^[A-Za-z0-9_.-]{1,64}@trailscoffee\.com$/.test(value);
+// Feed visibility is independent of the Trails-only community recipient policy.
+// Keep the same case-preserving name contract and require an exact domain.
+export const feedIdentifier = value => typeof value==='string' && /^[A-Za-z0-9_.-]{1,64}@(trailscoffee\.com|anmorekindling\.ca)$/.test(value);
 export const validNamesMap = mapping => !!mapping && typeof mapping==='object' && !Array.isArray(mapping) &&
  !!mapping.names && typeof mapping.names==='object' && !Array.isArray(mapping.names) && Object.values(mapping.names).every(v=>typeof v==='string');
 export function validMappingEvidence(proof){
@@ -74,7 +77,7 @@ export function profileIdentityStatus(profile,now){
  if(!validEvent(profile,now)||profile.kind!==0)return 'unavailable';
  try{const m=JSON.parse(profile.content);if(!m||typeof m!=='object'||Array.isArray(m))return 'unavailable';
   if([m.name,m.display_name].some(v=>typeof v==='string'&&v.trim().toLowerCase()==='deleted'))return 'unavailable';
-  return approvedIdentifier(m.nip05)?'eligible':'withdrawn';
+  return feedIdentifier(m.nip05)?'eligible':'withdrawn';
  }catch{return 'unavailable';}
 }
 export async function identifyDecision(profile,fetcher=fetch,now){
@@ -92,12 +95,12 @@ export async function identify(profile, fetcher = fetch, now) {
   }
   if (
     !metadata ||
-    !approvedIdentifier(metadata.nip05)
+    !feedIdentifier(metadata.nip05)
   )
     return null;
-  const name = metadata.nip05.split("@")[0];
+  const [name, domain] = metadata.nip05.split("@");
   const {mapping,mappingJSON}=await fetchIdentityMapping(
-    `https://trailscoffee.com/.well-known/nostr.json?name=${encodeURIComponent(name)}`,fetcher);
+    `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`,fetcher);
   if (!Object.hasOwn(mapping.names,name)||mapping.names[name]!==profile.pubkey)return null;
   return {
     pubkey: profile.pubkey,

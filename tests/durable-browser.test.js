@@ -41,6 +41,104 @@ async function setup(t) {
  page=await context.newPage();await page.goto(`http://127.0.0.1:${server.address().port}`);
  t.after(async()=>{await browser.close();await new Promise(r=>server.close(r));assert.deepEqual(external,[],'unexpected external HTTP request');});
 }
+test('Kindling feed proof admits, persists and renders identity after cold restore without network',async t=>{
+ await setup(t);const p=sign({kind:0,content:JSON.stringify({nip05:'Any.Handle@anmorekindling.ca',name:'Kindling neighbour'})});
+ const result=await page.evaluate(async({event,p,now})=>{
+  const proof={profile:p,mapping:{names:{'Any.Handle':p.pubkey}},checkedAt:now};
+  const s=new api.FeedStore('kindling-restore');await s.restore();const admitted=await s.accept(event,proof);
+  globalThis.fetch=()=>{throw Error('cold restore must not fetch');};
+  const r=new api.FeedStore('kindling-restore');const restored=await r.restore();
+  return {admitted,restored,ids:r.events().map(e=>e.id),identities:[...r.identities().values()]};
+ },{event,p,now});
+ assert.deepEqual(result,{admitted:true,restored:true,ids:[event.id],identities:[{pubkey:event.pubkey,nip05:'Any.Handle@anmorekindling.ca',name:'Kindling neighbour'}]});
+});
+test('Kindling sync preserves outage history but rejects new content, remaps and withdrawn or spoofed replacement profiles',async t=>{
+ await setup(t);
+ const p=sign({kind:0,content:JSON.stringify({nip05:'Any.Handle@anmorekindling.ca'})});
+ const fresh=sign({content:'new Kindling content'});
+ const modes=['verified','remap','wrong-name','outage','withdrawal','spoof-domain','replacement'];
+ const candidates=modes.map(mode=>sign({kind:0,created_at:now-1,content:JSON.stringify({nip05:mode==='withdrawal'?'x@elsewhere.test':mode==='spoof-domain'?'x@anmorekindling.ca.evil':mode==='replacement'?'New.Handle@anmorekindling.ca':'Any.Handle@anmorekindling.ca'})}));
+ const result=await page.evaluate(async({event,fresh,p,candidates,modes,now})=>{
+  const results=[];Date.now=()=>1000*(now+2);
+  for(let i=0;i<modes.length;i++){
+   const s=new api.FeedStore('kindling-sync-'+i);await s.restore();
+   const proof={profile:p,mapping:{names:{'Any.Handle':p.pubkey}},checkedAt:now};await s.accept(event,proof);
+   let calls=0;globalThis.fetch=async(url,options)=>{
+    calls++;const name=modes[i]==='replacement'?'New.Handle':'Any.Handle';
+    if(url!==`https://anmorekindling.ca/.well-known/nostr.json?name=${name}`||options.redirect!=='error')throw Error('wrong endpoint');
+    if(modes[i]==='outage')return new Response('',{status:404});
+    return new Response(JSON.stringify({names:modes[i]==='wrong-name'?{Other:p.pubkey}:{[name]:modes[i]==='remap'?'f'.repeat(64):p.pubkey}}));
+   };
+   const wire={open:async()=>{},close(){},query:async([f])=>f.kinds.includes(1)?[fresh]:f.kinds.includes(0)?[candidates[i]]:[]};
+   await new api.FeedSync(s,{relay:()=>wire,now:()=>now+2}).run();
+   const r=new api.FeedStore('kindling-sync-'+i);const restored=await r.restore();
+   const visible=r.events().map(e=>e.id).sort();
+   results.push({restored,visible,calls,revoked:r.state.revoked.includes(event.pubkey)});
+  }return results;
+ },{event,fresh,p,candidates,modes,now});
+ const both=[event.id,fresh.id].sort();
+ assert.deepEqual(result,[
+  {restored:true,visible:both,calls:1,revoked:false},
+  {restored:true,visible:[],calls:1,revoked:true},
+  {restored:true,visible:[],calls:1,revoked:true},
+  {restored:true,visible:[event.id],calls:1,revoked:false},
+  {restored:true,visible:[],calls:0,revoked:true},
+  {restored:true,visible:[],calls:0,revoked:true},
+  {restored:true,visible:both,calls:1,revoked:false},
+ ]);
+});
+test('Kindling store rejects wrong domain, name, key, stale and tampered durable proofs',async t=>{
+ await setup(t);
+ const p=sign({kind:0,content:JSON.stringify({nip05:'Case@anmorekindling.ca'})});
+ const wrongDomain=sign({kind:0,content:JSON.stringify({nip05:'Case@sub.anmorekindling.ca'})});
+ const wrongName=sign({kind:0,content:JSON.stringify({nip05:'Other@anmorekindling.ca'})});
+ const newer=sign({kind:0,created_at:now-1,content:p.content});
+ const fresh=sign({content:'must not inherit stale profile authority'});
+ const result=await page.evaluate(async({event,fresh,p,wrongDomain,wrongName,newer,now})=>{
+  const proof={profile:p,mapping:{names:{Case:p.pubkey}},checkedAt:now};
+  const s=new api.FeedStore('kindling-bad-proof');await s.restore();const bad=[];
+  for(const candidate of [
+   {...proof,profile:wrongDomain},{...proof,profile:wrongName},
+   {...proof,mapping:{names:{Case:'f'.repeat(64)}}},
+   {...proof,mappingJSON:'{"names":{}}'},
+   {...proof,profile:{...p,content:p.content+' '}},
+   {...proof,checkedAt:now-301},
+  ])bad.push(await s.accept(event,candidate));
+  await s.accept(event,{...proof,profile:newer});
+  const r=new api.FeedStore('kindling-bad-proof');await r.restore();const stale=await r.accept(fresh,proof);
+  const tx=r.connection.transaction('generations','readwrite'),store=tx.objectStore('generations');
+  const value=structuredClone(r.state);value.accepted[0].proof.mapping.names.Case='f'.repeat(64);store.put(value,'accepted');
+  await new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=reject;});
+  const cold=new api.FeedStore('kindling-bad-proof');const restored=await cold.restore();
+  return {bad,stale,restored,blocked:cold.blocked,visible:cold.events().length};
+ },{event,fresh,p,wrongDomain,wrongName,newer,now});
+ assert.deepEqual(result,{bad:[false,false,false,false,false,false],stale:false,restored:false,blocked:true,visible:0});
+});
+test('shipping app renders Kindling content through real CSP and per-name HTTP with fixture-only relay and directory',async t=>{
+ await setup(t);const p=sign({kind:0,content:JSON.stringify({nip05:'Any.Handle@anmorekindling.ca',name:'Kindling neighbour'})});
+ // Separate context: unlike helper fixtures, do not replace document fetch.
+ const context=await browser.newContext(),requests=[],unexpected=[];
+ const origin=new URL(page.url()).origin;
+ await context.route(/^https?:\/\//,route=>{
+  const url=route.request().url();if(new URL(url).origin===origin)return route.continue();
+  if(url==='https://anmorekindling.ca/.well-known/nostr.json?name=Any.Handle'){
+   requests.push(url);return route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({names:{'Any.Handle':p.pubkey}})});
+  }
+  if(url==='https://trailscoffee.com/.well-known/nostr.json')return route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:'{"names":{}}'});
+  unexpected.push(url);return route.abort();
+ });
+ await context.routeWebSocket(/wss:\/\/.*/,ws=>ws.onMessage(raw=>{
+  const m=JSON.parse(raw);if(m[0]!=='REQ')return;const f=m[2];
+  const rows=f.kinds?.includes(0)?[p]:f.kinds?.includes(1)?[event]:[];
+  for(const e of rows)ws.send(JSON.stringify(['EVENT',m[1],e]));ws.send(JSON.stringify(['EOSE',m[1]]));
+ }));
+ try{
+  const shipping=await context.newPage();await shipping.goto(origin+'/index.html');
+  await shipping.locator(`[data-event-id="${event.id}"]`).waitFor({timeout:10000});
+  assert.equal(await shipping.locator(`[data-event-id="${event.id}"] .identity`).textContent(),'Any.Handle@anmorekindling.ca');
+  assert.ok(requests.length>0);assert.deepEqual(unexpected,[]);
+ }finally{await context.close();}
+});
 test('concurrent owner tombstone fences held identity admission but preserves historical acceptance',async t=>{
  await setup(t);const fresh=sign({content:'held admission'}),deletion=sign({kind:5,tags:[['e',profile.id]]});
  const result=await page.evaluate(async({event,fresh,profile,proof,deletion,now})=>{

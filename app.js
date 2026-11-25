@@ -4554,6 +4554,7 @@ function validEvent(input, now = Math.floor(Date.now() / 1e3)) {
   }
 }
 var approvedIdentifier = (value) => typeof value === "string" && /^[A-Za-z0-9_.-]{1,64}@trailscoffee\.com$/.test(value);
+var feedIdentifier = (value) => typeof value === "string" && /^[A-Za-z0-9_.-]{1,64}@(trailscoffee\.com|anmorekindling\.ca)$/.test(value);
 var validNamesMap = (mapping) => !!mapping && typeof mapping === "object" && !Array.isArray(mapping) && !!mapping.names && typeof mapping.names === "object" && !Array.isArray(mapping.names) && Object.values(mapping.names).every((v) => typeof v === "string");
 function validMappingEvidence(proof) {
   try {
@@ -4613,7 +4614,7 @@ function profileIdentityStatus(profile, now) {
     const m = JSON.parse(profile.content);
     if (!m || typeof m !== "object" || Array.isArray(m)) return "unavailable";
     if ([m.name, m.display_name].some((v) => typeof v === "string" && v.trim().toLowerCase() === "deleted")) return "unavailable";
-    return approvedIdentifier(m.nip05) ? "eligible" : "withdrawn";
+    return feedIdentifier(m.nip05) ? "eligible" : "withdrawn";
   } catch {
     return "unavailable";
   }
@@ -4636,11 +4637,11 @@ async function identify(profile, fetcher = fetch, now) {
   } catch {
     return null;
   }
-  if (!metadata || !approvedIdentifier(metadata.nip05))
+  if (!metadata || !feedIdentifier(metadata.nip05))
     return null;
-  const name = metadata.nip05.split("@")[0];
+  const [name, domain] = metadata.nip05.split("@");
   const { mapping, mappingJSON } = await fetchIdentityMapping(
-    `https://trailscoffee.com/.well-known/nostr.json?name=${encodeURIComponent(name)}`,
+    `https://${domain}/.well-known/nostr.json?name=${encodeURIComponent(name)}`,
     fetcher
   );
   if (!Object.hasOwn(mapping.names, name) || mapping.names[name] !== profile.pubkey) return null;
@@ -5453,7 +5454,7 @@ function profileEvidence(pubkey, proof) {
   if (!proof || !validEvent(proof.profile) || proof.profile.kind !== 0 || proof.profile.pubkey !== pubkey || !Number.isSafeInteger(proof.checkedAt) || proof.checkedAt < 0 || proof.checkedAt > Math.floor(Date.now() / 1e3)) return false;
   try {
     const id = JSON.parse(proof.profile.content).nip05;
-    return approvedIdentifier(id) && profileIdentityStatus(proof.profile) === "eligible" && validMappingEvidence(proof) && Object.hasOwn(proof.mapping?.names ?? {}, id.split("@")[0]) && proof.mapping.names[id.split("@")[0]] === pubkey;
+    return feedIdentifier(id) && profileIdentityStatus(proof.profile) === "eligible" && validMappingEvidence(proof) && Object.hasOwn(proof.mapping?.names ?? {}, id.split("@")[0]) && proof.mapping.names[id.split("@")[0]] === pubkey;
   } catch {
     return false;
   }

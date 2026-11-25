@@ -1,4 +1,4 @@
-import { validEvent, visibleEvents, address, canonicalEvent, approvedIdentifier, validMappingEvidence, profileIdentityStatus } from './core.js';
+import { validEvent, visibleEvents, address, canonicalEvent, approvedIdentifier, feedIdentifier, validMappingEvidence, profileIdentityStatus } from './core.js';
 import { verifiedTotals, COMMUNITY_ADDRESS, PAY_CALLBACK } from './zaps.js';
 // Public historical evidence, not current invoice/author authority. Same-origin
 // storage integrity is assumed; all signed payloads are reverified on restore.
@@ -9,7 +9,7 @@ function profileEvidence(pubkey, proof) {
      !Number.isSafeInteger(proof.checkedAt) || proof.checkedAt<0 || proof.checkedAt>Math.floor(Date.now()/1000)) return false;
  try {
   const id=JSON.parse(proof.profile.content).nip05;
-  return approvedIdentifier(id) && profileIdentityStatus(proof.profile)==='eligible' && validMappingEvidence(proof) &&
+  return feedIdentifier(id) && profileIdentityStatus(proof.profile)==='eligible' && validMappingEvidence(proof) &&
     Object.hasOwn(proof.mapping?.names??{},id.split('@')[0]) && proof.mapping.names[id.split('@')[0]]===pubkey;
  } catch {return false;}
 }
